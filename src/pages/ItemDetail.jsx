@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
+  ArrowRight,
   Check,
   ChevronLeft,
   Clock,
@@ -17,6 +18,7 @@ import { Gauge, Pill, Stepper } from '@/components/ios/Controls'
 import Button from '@/components/ios/Button'
 import Sheet from '@/components/ios/Sheet'
 import ProductTile from '@/components/ProductTile'
+import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
 import {
   compareOffers,
@@ -56,9 +58,15 @@ export default function ItemDetail() {
 
   const status = STOCK_STATUS[item.stockStatus]
   const best = (offers ?? []).find((o) => o.isBest)
+  const marketBest = (offers ?? []).find((o) => o.isMarketBest)
   const inStockOffers = (offers ?? []).filter((o) => o.inStock)
   const worst = inStockOffers.length ? inStockOffers[inStockOffers.length - 1] : null
   const suggestedQty = Math.max(item.reorderQty, item.parLevel - item.onHand)
+
+  // A cheaper price at a vendor you cannot order from is an opportunity, not
+  // a saving — it is reported separately so the two never blur together.
+  const unlockable =
+    best && marketBest && !marketBest.hasAccount ? best.price - marketBest.price : 0
 
   const tone =
     item.stockStatus === 'out' ? 'critical' : item.stockStatus === 'ok' ? 'good' : 'warning'
@@ -172,7 +180,7 @@ export default function ItemDetail() {
             <div className="flex items-center gap-1.5">
               <Sparkles size={13} strokeWidth={2.4} aria-hidden="true" />
               <span className="text-caption font-semibold uppercase tracking-[0.4px] text-white/90">
-                Best price found
+                Best price you can order
               </span>
             </div>
 
@@ -203,9 +211,35 @@ export default function ItemDetail() {
             </Button>
           </div>
 
+          {/* Money you cannot reach without opening an account */}
+          {unlockable > 0.005 ? (
+            <Link
+              to="/vendors/compare"
+              className="press mt-2.5 flex items-center gap-3 rounded-card p-3.5"
+              style={{ background: 'rgb(var(--viz-2) / 0.12)' }}
+            >
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white"
+                style={{ background: 'rgb(var(--viz-2))' }}
+                aria-hidden="true"
+              >
+                <Sparkles size={16} strokeWidth={2.6} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-subhead font-semibold text-label">
+                  {marketBest.supplierName} is {money(unlockable)} cheaper
+                </span>
+                <span className="block text-caption text-label-3">
+                  You have no account there — {money(unlockable * suggestedQty)} on this restock
+                </span>
+              </span>
+              <ArrowRight size={16} className="shrink-0 text-label-3" aria-hidden="true" />
+            </Link>
+          ) : null}
+
           <Section
             title={`All suppliers (${offers.length})`}
-            footer="Unit price normalizes pack sizes, so a box of 200 and a box of 50 compare honestly."
+            footer="Unit price normalizes pack sizes, so a box of 200 and a box of 50 compare honestly. Vendors marked NEW need an account opened before you can order."
           >
             {offers.map((offer) => (
               <Row
@@ -222,11 +256,24 @@ export default function ItemDetail() {
                   <span
                     className={cn(
                       'flex h-[29px] w-[29px] items-center justify-center rounded-[7px] text-caption font-bold',
-                      offer.isBest ? 'bg-ios-green text-white' : 'bg-surface-2 text-label-2',
+                      offer.isBest
+                        ? 'bg-ios-green text-white'
+                        : offer.hasAccount
+                          ? 'bg-surface-2 text-label-2'
+                          : 'text-white',
                     )}
+                    style={
+                      !offer.isBest && !offer.hasAccount
+                        ? { background: 'rgb(var(--viz-2))' }
+                        : undefined
+                    }
                     aria-hidden="true"
                   >
-                    {offer.isBest ? <TrendingDown size={15} strokeWidth={2.6} /> : offer.supplierName[0]}
+                    {offer.isBest ? (
+                      <TrendingDown size={15} strokeWidth={2.6} />
+                    ) : (
+                      offer.supplierName[0]
+                    )}
                   </span>
                 }
                 trailing={
@@ -238,11 +285,13 @@ export default function ItemDetail() {
                   </div>
                 }
               >
-                {offer.isBest ? (
-                  <span className="mt-1 inline-flex">
-                    <Pill tone="good">Lowest per unit</Pill>
-                  </span>
-                ) : null}
+                <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <VendorStatus hasAccount={offer.hasAccount} />
+                  {offer.isBest ? <Pill tone="good">Best you can order</Pill> : null}
+                  {offer.isMarketBest && !offer.hasAccount ? (
+                    <Pill tone="quiet">Cheapest on the market</Pill>
+                  ) : null}
+                </span>
               </Row>
             ))}
           </Section>

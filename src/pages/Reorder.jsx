@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Check, ChevronLeft, PackageCheck, TrendingDown } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  PackageCheck,
+  Sparkles,
+  TrendingDown,
+} from 'lucide-react'
 import Screen from '@/components/ios/Screen'
 import { Row, Section } from '@/components/ios/List'
 import { EmptyState, Pill, SegmentedControl, Stepper } from '@/components/ios/Controls'
@@ -25,7 +32,11 @@ function priceBasket(lines, offersByProduct) {
   const split = { supplierGroups: new Map(), goods: 0, shipping: 0 }
 
   for (const line of lines) {
-    const offers = (offersByProduct[line.productId] ?? []).filter((o) => o.inStock)
+    // Only vendors the practice can actually order from today. A cheaper
+    // quote behind an account application is not a basket this order can use.
+    const offers = (offersByProduct[line.productId] ?? []).filter(
+      (o) => o.inStock && o.hasAccount,
+    )
     if (!offers.length) continue
     const best = offers[0]
     const cost = best.price * line.quantity
@@ -54,7 +65,7 @@ function priceBasket(lines, offersByProduct) {
   const candidates = new Map()
   for (const line of lines) {
     for (const offer of offersByProduct[line.productId] ?? []) {
-      if (!offer.inStock) continue
+      if (!offer.inStock || !offer.hasAccount) continue
       const c = candidates.get(offer.supplierId) ?? {
         supplierId: offer.supplierId,
         supplierName: offer.supplierName,
@@ -141,7 +152,9 @@ export default function Reorder() {
   const benchmark = useMemo(() => {
     let sum = 0
     for (const line of lines) {
-      const offers = (offersByProduct[line.productId] ?? []).filter((o) => o.inStock)
+      const offers = (offersByProduct[line.productId] ?? []).filter(
+        (o) => o.inStock && o.hasAccount,
+      )
       if (!offers.length) continue
       sum += offers[offers.length - 1].price * line.quantity
     }
@@ -149,6 +162,19 @@ export default function Reorder() {
   }, [lines, offersByProduct])
 
   const savings = active ? Math.max(0, benchmark - active.goods) : 0
+
+  // What this same basket would cost if every vendor were open to you.
+  const unlockable = useMemo(() => {
+    let sum = 0
+    for (const line of lines) {
+      const all = (offersByProduct[line.productId] ?? []).filter((o) => o.inStock)
+      const mine = all.filter((o) => o.hasAccount)
+      if (!all.length || !mine.length) continue
+      const gap = mine[0].price - all[0].price
+      if (gap > 0) sum += gap * line.quantity
+    }
+    return Number(sum.toFixed(2))
+  }, [lines, offersByProduct])
 
   const place = async () => {
     if (!active) return
@@ -314,6 +340,32 @@ export default function Reorder() {
               : 'Place order'}
           </Button>
         </div>
+      ) : null}
+
+      {/* Priced from your accounts only — say so, and price the alternative */}
+      {unlockable > 0.005 ? (
+        <Link
+          to="/vendors/compare"
+          className="press mt-3 flex items-center gap-3 rounded-card p-3.5"
+          style={{ background: 'rgb(var(--viz-2) / 0.12)' }}
+        >
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white"
+            style={{ background: 'rgb(var(--viz-2))' }}
+            aria-hidden="true"
+          >
+            <Sparkles size={16} strokeWidth={2.6} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-subhead font-semibold text-label">
+              {money(unlockable)} more available elsewhere
+            </span>
+            <span className="block text-caption text-label-3">
+              Priced from your accounts only — see which vendors beat them
+            </span>
+          </span>
+          <ArrowRight size={16} className="shrink-0 text-label-3" aria-hidden="true" />
+        </Link>
       ) : null}
 
       {/* Lines, grouped by who is filling them */}

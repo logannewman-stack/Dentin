@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { PackagePlus, ShoppingCart, TrendingDown } from 'lucide-react'
+import { Building2, PackagePlus, ShoppingCart, Sparkles, TrendingDown } from 'lucide-react'
 import Screen from '@/components/ios/Screen'
 import { Row, RowIcon, Section } from '@/components/ios/List'
 import { EmptyState, Pill } from '@/components/ios/Controls'
@@ -71,6 +71,39 @@ export default function Orders() {
           </Button>
         </div>
       ) : null}
+
+      <Section title="Vendors" footer="Dentin only quotes prices you can actually place today.">
+        <Row
+          to="/vendors"
+          leading={
+            <RowIcon tint="brand">
+              <Building2 size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Vendors & accounts"
+          subtitle="Account numbers, reps, terms and preferred suppliers"
+        />
+        <Row
+          to="/vendors/compare"
+          leading={
+            <RowIcon tint="orange">
+              <Sparkles size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Competitive pricing"
+          subtitle="Find vendors that beat your current accounts"
+        />
+        <Row
+          to="/vendors?tab=new"
+          leading={
+            <RowIcon tint="quiet">
+              <PackagePlus size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Find new vendors"
+          subtitle="Suppliers you have not opened an account with"
+        />
+      </Section>
 
       {open.length > 0 ? (
         <Section title="Open">

@@ -17,6 +17,7 @@ import {
   PRODUCTS,
   SPEND_HISTORY,
   SUPPLIERS,
+  SUPPLIER_ACCOUNTS,
   SUPPLIER_SPEND,
   TOP_ITEMS,
   buildInventory,
@@ -201,33 +202,65 @@ export async function resolveGtin(gtin) {
   }
 }
 
+/** Supplier ids the practice can order from today, without opening anything. */
+async function accountSupplierIds() {
+  if (isDemo) return new Set(accounts().map((a) => a.supplierId))
+  const { data } = await supabase.from('supplier_accounts').select('supplier_id')
+  return new Set((data ?? []).map((a) => a.supplier_id))
+}
+
+/**
+ * Every offer for a product, cheapest first, each marked with whether it is
+ * reachable through an existing account.
+ *
+ * `isBest` is the cheapest offer the practice can actually place today;
+ * `isMarketBest` is the cheapest anywhere. When those differ, the gap is an
+ * opportunity that needs a new vendor account rather than a saving in hand.
+ */
 export async function compareOffers(productId) {
+  const accountIds = await accountSupplierIds()
+
+  let offers
   if (isDemo) {
-    const offers = offersFor(productId)
-    const inStock = offers.filter((o) => o.inStock)
+    const raw = offersFor(productId)
+    const inStock = raw.filter((o) => o.inStock)
     const worst = inStock.length ? inStock[inStock.length - 1].unitPrice : null
-    return offers.map((o, i) => ({
+    offers = raw.map((o) => ({
       ...o,
-      isBest: o.inStock && i === 0,
       savingsVsWorst: worst != null ? worst - o.unitPrice : 0,
+    }))
+  } else {
+    const { data, error } = await supabase.rpc('compare_offers', { p_product_id: productId })
+    if (error) throw error
+    offers = data.map((o) => ({
+      offerId: o.offer_id,
+      supplierId: o.supplier_id,
+      supplierName: o.supplier_name,
+      supplierLogo: o.supplier_logo,
+      price: Number(o.price),
+      packSize: o.pack_size,
+      unitPrice: Number(o.unit_price),
+      leadDays: o.lead_days,
+      inStock: o.in_stock,
+      productUrl: o.product_url,
+      savingsVsWorst: Number(o.savings_vs_worst ?? 0),
     }))
   }
 
-  const { data, error } = await supabase.rpc('compare_offers', { p_product_id: productId })
-  if (error) throw error
-  return data.map((o) => ({
-    offerId: o.offer_id,
-    supplierId: o.supplier_id,
-    supplierName: o.supplier_name,
-    supplierLogo: o.supplier_logo,
-    price: Number(o.price),
-    packSize: o.pack_size,
-    unitPrice: Number(o.unit_price),
-    leadDays: o.lead_days,
-    inStock: o.in_stock,
-    productUrl: o.product_url,
-    isBest: o.is_best,
-    savingsVsWorst: Number(o.savings_vs_worst ?? 0),
+  const annotated = offers.map((o) => ({ ...o, hasAccount: accountIds.has(o.supplierId) }))
+  const inStock = annotated.filter((o) => o.inStock)
+  const marketBest = inStock[0] ?? null
+  const accountBest = inStock.find((o) => o.hasAccount) ?? null
+
+  return annotated.map((o) => ({
+    ...o,
+    isBest: accountBest ? o.supplierId === accountBest.supplierId : false,
+    isMarketBest: marketBest ? o.supplierId === marketBest.supplierId : false,
+    // Positive only when a non-account vendor undercuts your best account.
+    unlockableDelta:
+      accountBest && marketBest && !marketBest.hasAccount
+        ? Number((accountBest.price - marketBest.price).toFixed(2))
+        : 0,
   }))
 }
 
@@ -609,6 +642,206 @@ export async function addToInventory({ productId, locationId, parLevel, reorderP
   })
   if (error) throw error
   return { ok: true }
+}
+
+// --- vendors ----------------------------------------------------------------
+let demoAccounts = null
+
+function accounts() {
+  if (!demoAccounts) demoAccounts = SUPPLIER_ACCOUNTS.map((a) => ({ ...a }))
+  return demoAccounts
+}
+
+/**
+ * Every supplier, annotated with whether the practice can order from it today.
+ * That flag — not price — is what decides whether a quote is actionable.
+ */
+export async function listVendors() {
+  if (isDemo) {
+    const orders = store().orders
+    return SUPPLIERS.map((s) => {
+      const account = accounts().find((a) => a.supplierId === s.id) ?? null
+      const mine = orders.filter((o) => o.supplierId === s.id && o.status !== 'cancelled')
+      const spendRow = SUPPLIER_SPEND.find((x) => x.id === s.id)
+
+      return {
+        supplierId: s.id,
+        name: s.name,
+        website: s.website,
+        blurb: s.blurb,
+        strengths: s.strengths ?? [],
+        caveats: s.caveats ?? [],
+        freeShipOver: s.freeShipOver,
+        shipFee: s.shipFee,
+        leadDays: s.leadDays,
+        hasAccount: Boolean(account),
+        accountNumber: account?.accountNumber ?? null,
+        repName: account?.repName ?? null,
+        repPhone: account?.repPhone ?? null,
+        repEmail: account?.repEmail ?? null,
+        terms: account?.terms ?? null,
+        isPreferred: account?.isPreferred ?? false,
+        openedAt: account?.openedAt ?? null,
+        orderCount: spendRow?.orders ?? mine.length,
+        totalSpend: spendRow?.spend ?? mine.reduce((sum, o) => sum + o.total, 0),
+        lastOrderedAt: mine[0]?.placedAt ?? null,
+      }
+    }).sort((a, b) => {
+      if (a.hasAccount !== b.hasAccount) return a.hasAccount ? -1 : 1
+      if (a.isPreferred !== b.isPreferred) return a.isPreferred ? -1 : 1
+      return b.totalSpend - a.totalSpend
+    })
+  }
+
+  const { data, error } = await supabase.from('v_vendors').select('*')
+  if (error) throw error
+
+  return data
+    .map((v) => ({
+      supplierId: v.supplier_id,
+      name: v.name,
+      website: v.website,
+      blurb: v.notes,
+      strengths: [],
+      caveats: [],
+      freeShipOver: Number(v.free_ship_over ?? 0),
+      shipFee: Number(v.flat_ship_fee ?? 0),
+      leadDays: v.avg_lead_days,
+      hasAccount: v.has_account,
+      accountNumber: v.account_number,
+      repName: v.rep_name,
+      repPhone: v.rep_phone,
+      repEmail: v.rep_email,
+      terms: v.terms,
+      isPreferred: v.is_preferred,
+      openedAt: v.opened_at,
+      orderCount: Number(v.order_count ?? 0),
+      totalSpend: Number(v.total_spend ?? 0),
+      lastOrderedAt: v.last_ordered_at,
+    }))
+    .sort((a, b) => {
+      if (a.hasAccount !== b.hasAccount) return a.hasAccount ? -1 : 1
+      if (a.isPreferred !== b.isPreferred) return a.isPreferred ? -1 : 1
+      return b.totalSpend - a.totalSpend
+    })
+}
+
+export async function saveVendorAccount(supplierId, patch) {
+  if (isDemo) {
+    const existing = accounts().find((a) => a.supplierId === supplierId)
+    if (existing) Object.assign(existing, patch)
+    else accounts().push({ supplierId, ...patch })
+    emit()
+    return { ok: true }
+  }
+
+  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const { error } = await supabase.from('supplier_accounts').upsert(
+    {
+      practice_id: profile.practice_id,
+      supplier_id: supplierId,
+      account_number: patch.accountNumber ?? null,
+      rep_name: patch.repName ?? null,
+      rep_phone: patch.repPhone ?? null,
+      rep_email: patch.repEmail ?? null,
+      terms: patch.terms ?? null,
+      is_preferred: patch.isPreferred ?? false,
+      opened_at: patch.openedAt ?? null,
+    },
+    { onConflict: 'practice_id,supplier_id' },
+  )
+  if (error) throw error
+  return { ok: true }
+}
+
+export async function removeVendorAccount(supplierId) {
+  if (isDemo) {
+    demoAccounts = accounts().filter((a) => a.supplierId !== supplierId)
+    emit()
+    return { ok: true }
+  }
+  const { error } = await supabase
+    .from('supplier_accounts')
+    .delete()
+    .eq('supplier_id', supplierId)
+  if (error) throw error
+  return { ok: true }
+}
+
+/**
+ * Competitive pricing sweep.
+ *
+ * For every tracked item, compares the best price reachable through an
+ * existing account against the best price on the market. The gap is money the
+ * practice cannot capture until an account is opened — so it is reported
+ * separately from savings it can act on today.
+ */
+export async function getPriceOpportunities() {
+  const inventory = await listInventory()
+  const vendors = await listVendors()
+  const accountIds = new Set(vendors.filter((v) => v.hasAccount).map((v) => v.supplierId))
+
+  const rows = []
+
+  for (const item of inventory) {
+    const offers = (await compareOffers(item.productId)).filter((o) => o.inStock)
+    if (!offers.length) continue
+
+    const accountBest = offers.find((o) => accountIds.has(o.supplierId)) ?? null
+    const marketBest = offers[0]
+    if (!accountBest || !marketBest) continue
+    if (marketBest.supplierId === accountBest.supplierId) continue
+
+    const qtyNeeded = Math.max(item.reorderQty, item.parLevel - item.onHand, 1)
+    const perOrder = (accountBest.price - marketBest.price) * qtyNeeded
+    if (perOrder <= 0.005) continue
+
+    rows.push({
+      inventoryItemId: item.id,
+      productId: item.productId,
+      productName: item.productName,
+      brand: item.brand,
+      unit: item.unit,
+      categorySlug: item.categorySlug,
+      imageUrl: item.imageUrl,
+      quantity: qtyNeeded,
+      accountSupplierId: accountBest.supplierId,
+      accountSupplierName: accountBest.supplierName,
+      accountPrice: accountBest.price,
+      accountUnitPrice: accountBest.unitPrice,
+      marketSupplierId: marketBest.supplierId,
+      marketSupplierName: marketBest.supplierName,
+      marketPrice: marketBest.price,
+      marketUnitPrice: marketBest.unitPrice,
+      marketLeadDays: marketBest.leadDays,
+      savingsPerOrder: Number(perOrder.toFixed(2)),
+      pctCheaper: ((accountBest.price - marketBest.price) / accountBest.price) * 100,
+    })
+  }
+
+  rows.sort((a, b) => b.savingsPerOrder - a.savingsPerOrder)
+
+  // Group the opportunity by the vendor that would need opening.
+  const byVendor = new Map()
+  for (const r of rows) {
+    const entry = byVendor.get(r.marketSupplierId) ?? {
+      supplierId: r.marketSupplierId,
+      name: r.marketSupplierName,
+      items: 0,
+      savings: 0,
+    }
+    entry.items += 1
+    entry.savings += r.savingsPerOrder
+    byVendor.set(r.marketSupplierId, entry)
+  }
+
+  return {
+    rows,
+    totalSavings: Number(rows.reduce((s, r) => s + r.savingsPerOrder, 0).toFixed(2)),
+    byVendor: [...byVendor.values()].sort((a, b) => b.savings - a.savings),
+    accountCount: accountIds.size,
+    vendorCount: vendors.length,
+  }
 }
 
 export async function getPractice() {

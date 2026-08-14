@@ -31,6 +31,19 @@ basket two ways — cheapest split across suppliers, or consolidated with the
 one supplier who can fill it for the least all-in including freight — and
 states the trade-off in dollars.
 
+**Know who you can actually buy from.** Vendors are split into accounts the
+practice already holds — with account number, rep, terms and a preferred flag
+— and vendors it does not. That distinction drives the pricing everywhere
+else: the "best price" on an item is the best price you can *place today*,
+and a cheaper quote behind an account application is reported separately as
+an opportunity rather than folded in as a saving. Order baskets are built
+only from vendors you can order from.
+
+**See what the accounts you don't have are costing you.** Competitive pricing
+sweeps every tracked item, compares the best account price against the best
+price on the market, and totals the gap — grouped by which vendor would need
+opening, so one decision captures most of it.
+
 **Stay ahead of compliance.** Sterilizers, compressors, chairs and imaging are
 tracked with serials, warranty dates and service intervals, because the
 service log is the first thing a board inspection asks for.
@@ -102,6 +115,8 @@ reordering — is explorable immediately with no backend. Settings shows a
 2. Run the migrations, in order, in the SQL editor:
    - `supabase/migrations/0001_init.sql` — tables, enums, triggers, RLS
    - `supabase/migrations/0002_views_and_rpc.sql` — stock health views, price RPCs
+   - `supabase/migrations/0003_supplier_accounts.sql` — vendor accounts, the
+     vendor roster view, and the competitive-pricing view
 3. Run `supabase/seed.sql` to load the dental catalog and supplier market.
 4. Put the project URL and anon key in `.env.local`:
 
@@ -202,7 +217,8 @@ src/
   components/charts/    StackedColumns, BarList, HealthMeter, Sparkline
   pages/                Welcome, Onboarding, Dashboard, Inventory, ItemDetail,
                         Scan, Catalog, Search, Orders, OrderDetail, Reorder,
-                        Insights, Alerts, Equipment, Settings
+                        Vendors, MarketScan, Insights, Alerts, Equipment,
+                        Settings
   hooks/                useData, useBarcodeScanner
   lib/                  repository (the data seam), supabase, AuthContext,
                         push, format, demoData

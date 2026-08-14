@@ -7,6 +7,7 @@ import {
   MapPin,
   Moon,
   Share,
+  Sparkles,
   Sun,
   SunMoon,
 } from 'lucide-react'
@@ -143,6 +144,30 @@ export default function Settings() {
           title="Shipping address"
           subtitle={shipTo || 'Add the address orders ship to'}
           onClick={() => setAddressOpen(true)}
+        />
+      </Section>
+
+      {/* Vendors */}
+      <Section title="Purchasing">
+        <Row
+          leading={
+            <RowIcon tint="brand">
+              <Building2 size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Vendors & accounts"
+          subtitle="Who you can order from, and on what terms"
+          to="/vendors"
+        />
+        <Row
+          leading={
+            <RowIcon tint="orange">
+              <Sparkles size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Competitive pricing"
+          subtitle="Vendors that beat your current accounts"
+          to="/vendors/compare"
         />
       </Section>
 

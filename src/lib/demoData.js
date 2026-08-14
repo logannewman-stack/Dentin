@@ -11,13 +11,137 @@
  */
 
 export const SUPPLIERS = [
-  { id: 'henry-schein', name: 'Henry Schein', margin: 1.11, leadDays: 2, freeShipOver: 250, shipFee: 12.95 },
-  { id: 'patterson', name: 'Patterson Dental', margin: 1.14, leadDays: 3, freeShipOver: 300, shipFee: 14.5 },
-  { id: 'benco', name: 'Benco Dental', margin: 1.05, leadDays: 3, freeShipOver: 225, shipFee: 9.95 },
-  { id: 'darby', name: 'Darby Dental', margin: 0.98, leadDays: 3, freeShipOver: 150, shipFee: 7.95 },
-  { id: 'net32', name: 'Net32', margin: 0.88, leadDays: 5, freeShipOver: 0, shipFee: 6.5 },
-  { id: 'dental-city', name: 'Dental City', margin: 0.95, leadDays: 4, freeShipOver: 199, shipFee: 8.95 },
-  { id: 'safco', name: 'Safco Dental', margin: 1.01, leadDays: 4, freeShipOver: 175, shipFee: 8.5 },
+  {
+    id: 'henry-schein',
+    name: 'Henry Schein',
+    margin: 1.11,
+    leadDays: 2,
+    freeShipOver: 250,
+    shipFee: 12.95,
+    website: 'henryschein.com',
+    blurb: 'Full-service. Deepest equipment and service bench.',
+    strengths: ['Equipment & service', 'Same-week delivery', 'Single rep for everything'],
+  },
+  {
+    id: 'patterson',
+    name: 'Patterson Dental',
+    margin: 1.14,
+    leadDays: 3,
+    freeShipOver: 300,
+    shipFee: 14.5,
+    website: 'pattersondental.com',
+    blurb: 'Strong CAD/CAM and technology service network.',
+    strengths: ['CAD/CAM support', 'Technology service', 'Financing programs'],
+  },
+  {
+    id: 'benco',
+    name: 'Benco Dental',
+    margin: 1.05,
+    leadDays: 3,
+    freeShipOver: 225,
+    shipFee: 9.95,
+    website: 'benco.com',
+    blurb: 'Independent. Competitive on everyday consumables.',
+    strengths: ['Consumable pricing', 'Independent ownership', 'Low free-ship bar'],
+  },
+  {
+    id: 'darby',
+    name: 'Darby Dental',
+    margin: 0.98,
+    leadDays: 3,
+    freeShipOver: 150,
+    shipFee: 7.95,
+    website: 'darbydental.com',
+    blurb: 'Consumables specialist with a low free-shipping threshold.',
+    strengths: ['Consumables depth', '$150 free shipping', 'Fast reorder portal'],
+  },
+  {
+    id: 'net32',
+    name: 'Net32',
+    margin: 0.88,
+    leadDays: 5,
+    freeShipOver: 0,
+    shipFee: 6.5,
+    website: 'net32.com',
+    blurb: 'Marketplace of vetted sellers. Usually the floor on price.',
+    strengths: ['Lowest unit pricing', 'No account minimums', 'Transparent seller ratings'],
+    caveats: ['Longer lead times', 'No dedicated rep', 'Multiple sellers per order'],
+  },
+  {
+    id: 'dental-city',
+    name: 'Dental City',
+    margin: 0.95,
+    leadDays: 4,
+    freeShipOver: 199,
+    shipFee: 8.95,
+    website: 'dentalcity.com',
+    blurb: 'Solid mid-market pricing across most categories.',
+    strengths: ['Mid-market pricing', 'Broad catalog', 'Simple account setup'],
+    caveats: ['Thinner equipment range'],
+  },
+  {
+    id: 'safco',
+    name: 'Safco Dental',
+    margin: 1.01,
+    leadDays: 4,
+    freeShipOver: 175,
+    shipFee: 8.5,
+    website: 'safcodental.com',
+    blurb: 'Reliable generics and disposables.',
+    strengths: ['Generic alternatives', 'Disposables depth'],
+    caveats: ['Fewer brand-name lines'],
+  },
+]
+
+/**
+ * Accounts the practice already holds.
+ *
+ * The account/no-account split is the distinction that actually governs a
+ * buying decision: an unbeatable price at a supplier you cannot order from
+ * today is a project, not a saving. Suppliers missing from this list are
+ * "new" — Dentin still prices them, but flags what opening the account costs.
+ */
+export const SUPPLIER_ACCOUNTS = [
+  {
+    supplierId: 'henry-schein',
+    accountNumber: 'HS-4471902',
+    repName: 'Marisol Ferrer',
+    repPhone: '(800) 555-0112',
+    repEmail: 'm.ferrer@henryschein.example',
+    terms: 'Net 30',
+    isPreferred: true,
+    openedAt: '2019-03-14',
+  },
+  {
+    supplierId: 'darby',
+    accountNumber: 'DD-880431',
+    repName: 'Trevor Lange',
+    repPhone: '(800) 555-0177',
+    repEmail: 't.lange@darbydental.example',
+    terms: 'Net 30',
+    isPreferred: true,
+    openedAt: '2020-08-02',
+  },
+  {
+    supplierId: 'benco',
+    accountNumber: 'BN-22119',
+    repName: 'Aisha Whitfield',
+    repPhone: '(800) 555-0143',
+    repEmail: 'a.whitfield@benco.example',
+    terms: 'Net 15',
+    isPreferred: false,
+    openedAt: '2021-11-09',
+  },
+  {
+    supplierId: 'patterson',
+    accountNumber: 'PD-560218',
+    repName: 'Dan Okafor',
+    repPhone: '(800) 555-0198',
+    repEmail: 'd.okafor@pattersondental.example',
+    terms: 'Net 30',
+    isPreferred: false,
+    openedAt: '2018-06-21',
+  },
 ]
 
 export const CATEGORIES = [
