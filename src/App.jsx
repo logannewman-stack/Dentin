@@ -106,7 +106,10 @@ function AppRoutes() {
             <Route path="/equipment" element={<Equipment />} />
             <Route path="/insights" element={<Insights />} />
             <Route path="/settings" element={<Settings />} />
+            {/* Still routable when the gate is bypassed, so both flows can be
+                demoed without turning sign-in back on. */}
             <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/welcome" element={<Welcome />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </RouteShell>

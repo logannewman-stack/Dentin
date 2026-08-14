@@ -51,7 +51,7 @@ function useTheme() {
 
 export default function Settings() {
   const navigate = useNavigate()
-  const { signOut } = useAuth()
+  const { signOut, bypassed } = useAuth()
   const { data: practice } = useData(() => getPractice(), [])
   const { data: locations } = useData(() => listLocations(), [])
 
@@ -280,13 +280,27 @@ export default function Settings() {
         />
       </Section>
 
-      <Section>
+      <Section
+        footer={
+          bypassed
+            ? 'Sign-in is bypassed, so the app opens straight on Today. Set VITE_BYPASS_AUTH=false once Supabase is connected to turn the gate back on.'
+            : undefined
+        }
+      >
         <Row
           title="Re-run practice setup"
           subtitle="Revisit locations, suppliers and what you track"
           onClick={() => navigate('/onboarding')}
         />
-        <Row title="Sign out" destructive chevron={false} onClick={signOut} />
+        {bypassed ? (
+          <Row
+            title="Preview the sign-in screen"
+            subtitle="Sign-in is bypassed in this build"
+            onClick={() => navigate('/welcome')}
+          />
+        ) : (
+          <Row title="Sign out" destructive chevron={false} onClick={signOut} />
+        )}
       </Section>
 
       <p className="px-1 pb-2 pt-6 text-center text-footnote text-label-3">
