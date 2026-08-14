@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowRight,
+  CalendarClock,
   Check,
   ChevronLeft,
   Clock,
@@ -20,13 +21,25 @@ import Sheet from '@/components/ios/Sheet'
 import ProductTile from '@/components/ProductTile'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
+import ActivityLedger from '@/components/ActivityLedger'
 import {
   compareOffers,
+  discardLot,
   getInventoryItem,
+  listLotsForItem,
+  listMovements,
   recordMovement,
   updateInventorySettings,
 } from '@/lib/repository'
-import { STOCK_STATUS, coverLabel, fullDate, money, qty, unitMoney } from '@/lib/format'
+import {
+  STOCK_STATUS,
+  coverLabel,
+  daysUntil,
+  fullDate,
+  money,
+  qty,
+  unitMoney,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export default function ItemDetail() {
@@ -37,10 +50,16 @@ export default function ItemDetail() {
     () => (item ? compareOffers(item.productId) : Promise.resolve([])),
     [item?.productId],
   )
+  const { data: movements } = useData(() => listMovements(id), [id])
+  const { data: itemLots } = useData(() => listLotsForItem(id), [id])
 
   const [sheet, setSheet] = useState(null) // 'receive' | 'consume' | 'count' | 'settings'
   const [amount, setAmount] = useState(1)
   const [busy, setBusy] = useState(false)
+  const [showAllActivity, setShowAllActivity] = useState(false)
+  const [discarding, setDiscarding] = useState(null)
+  const [lotNumber, setLotNumber] = useState('')
+  const [lotExpiry, setLotExpiry] = useState('')
 
   const [par, setPar] = useState(0)
   const [reorderPoint, setReorderPoint] = useState(0)
@@ -93,8 +112,16 @@ export default function ItemDetail() {
           reason: `Counted ${amount} ${item.unit}`,
         })
       } else {
-        await recordMovement({ inventoryItemId: item.id, type, quantity: amount })
+        await recordMovement({
+          inventoryItemId: item.id,
+          type,
+          quantity: amount,
+          lotNumber: type === 'received' ? lotNumber || null : null,
+          expiresAt: type === 'received' ? lotExpiry || null : null,
+        })
       }
+      setLotNumber('')
+      setLotExpiry('')
       setSheet(null)
     } finally {
       setBusy(false)
@@ -348,6 +375,98 @@ export default function ItemDetail() {
         />
       </Section>
 
+      {/* Lots — what is physically on the shelf, and when it expires */}
+      {itemLots?.length ? (
+        <Section
+          title={`Lots on hand (${itemLots.length})`}
+          footer="Oldest expiry first. Using an expired lot is a board matter, not just waste."
+        >
+          {itemLots.map((lot) => {
+            const days = daysUntil(lot.expiresAt)
+            return (
+              <Row
+                key={lot.id}
+                chevron={false}
+                title={`Lot ${lot.lotNumber}`}
+                subtitle={`${qty(lot.quantity)} ${item.unit} · expires ${fullDate(lot.expiresAt)}`}
+                trailing={
+                  <div className="flex items-center gap-2">
+                    <Pill
+                      tone={days < 0 ? 'critical' : days <= 30 ? 'warning' : 'quiet'}
+                      icon={days <= 30 ? CalendarClock : undefined}
+                    >
+                      {days < 0 ? `${Math.abs(days)}d ago` : `${days}d`}
+                    </Pill>
+                    <button
+                      type="button"
+                      onClick={() => setDiscarding(lot)}
+                      className="press text-caption font-semibold text-ios-red"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                }
+              />
+            )
+          })}
+        </Section>
+      ) : null}
+
+      {/* Audit trail */}
+      <Section
+        title="Activity"
+        footer="Every change to on-hand, with who made it. This is the record that makes the count defensible."
+      >
+        <ActivityLedger movements={(movements ?? []).slice(0, showAllActivity ? 60 : 6)} />
+        {(movements?.length ?? 0) > 6 ? (
+          <Row
+            chevron={false}
+            onClick={() => setShowAllActivity((v) => !v)}
+            title={showAllActivity ? 'Show less' : `Show all ${movements.length} entries`}
+            className="justify-center !text-brand-600"
+          />
+        ) : null}
+      </Section>
+
+      {/* Discard confirmation */}
+      <Sheet
+        open={Boolean(discarding)}
+        onClose={() => setDiscarding(null)}
+        title="Discard lot"
+        detent="small"
+        footer={
+          <Button
+            className="w-full"
+            size="lg"
+            variant="destructive"
+            loading={busy}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await discardLot(discarding.id, daysUntil(discarding.expiresAt) < 0 ? 'Expired' : 'Discarded')
+                setDiscarding(null)
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            Write off {qty(discarding?.quantity ?? 0)} {item.unit}
+          </Button>
+        }
+      >
+        {discarding ? (
+          <div className="px-1 py-6 text-center">
+            <p className="text-body text-label">
+              Lot <strong>{discarding.lotNumber}</strong> · {qty(discarding.quantity)} {item.unit}
+            </p>
+            <p className="mt-2 text-subhead text-label-3">
+              This removes the quantity from stock and records it as waste against{' '}
+              {item.productName}. The ledger entry cannot be edited afterwards.
+            </p>
+          </div>
+        ) : null}
+      </Sheet>
+
       {/* Movement sheets */}
       <Sheet
         open={sheet === 'receive' || sheet === 'consume' || sheet === 'count'}
@@ -390,6 +509,34 @@ export default function ItemDetail() {
                 )}`}
           </p>
         </div>
+
+        {/* Lot capture on receipt — the only moment the box is in hand */}
+        {sheet === 'receive' ? (
+          <div className="ios-group mb-2">
+            <label className="ios-row block py-2.5">
+              <span className="block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
+                Lot number
+              </span>
+              <input
+                value={lotNumber}
+                onChange={(e) => setLotNumber(e.target.value.toUpperCase())}
+                placeholder="Printed on the carton"
+                className="mt-0.5 w-full bg-transparent font-mono text-body text-label placeholder:font-sans placeholder:text-label-3 focus:outline-none"
+              />
+            </label>
+            <label className="ios-row block py-2.5">
+              <span className="block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
+                Expiry date
+              </span>
+              <input
+                type="date"
+                value={lotExpiry}
+                onChange={(e) => setLotExpiry(e.target.value)}
+                className="mt-0.5 w-full bg-transparent text-body text-label focus:outline-none"
+              />
+            </label>
+          </div>
+        ) : null}
       </Sheet>
 
       {/* Par settings */}

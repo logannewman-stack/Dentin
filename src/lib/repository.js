@@ -6,6 +6,7 @@
  * bundled demo practice.
  */
 import { isSupabaseConfigured, supabase } from './supabase'
+import { parseInteger, parseMoney } from './csv'
 import {
   ASSETS,
   CATEGORIES,
@@ -19,8 +20,11 @@ import {
   SUPPLIERS,
   SUPPLIER_ACCOUNTS,
   SUPPLIER_SPEND,
+  TEAM,
   TOP_ITEMS,
   buildInventory,
+  buildLots,
+  buildMovements,
   nonCarriersFor,
   offersFor,
   productByGtin,
@@ -31,13 +35,28 @@ export const isDemo = !isSupabaseConfigured
 
 // --- demo store -------------------------------------------------------------
 let demoInventory = null
+// Declared alongside inventory because store() populates them together —
+// lots feed each item's earliest expiry, so they share a lifecycle.
+let demoLots = null
+let demoMovements = null
 let demoOrders = null
 let demoPractice = null
 const movements = []
 const listeners = new Set()
 
 function store() {
-  if (!demoInventory) demoInventory = buildInventory()
+  if (!demoInventory) {
+    demoInventory = buildInventory()
+    // Earliest expiry is derived from the lots, so the item summary can never
+    // disagree with the lot list beneath it.
+    demoLots = buildLots(demoInventory)
+    for (const row of demoInventory) {
+      const earliest = demoLots
+        .filter((l) => l.inventoryItemId === row.id)
+        .sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt))[0]
+      row.expiresAt = earliest?.expiresAt ?? null
+    }
+  }
   if (!demoPractice) demoPractice = { ...PRACTICE }
   if (!demoOrders) {
     // Totals are derived from the line items rather than stored alongside
@@ -223,7 +242,30 @@ export async function compareOffers(productId) {
 
   let offers
   if (isDemo) {
-    const raw = offersFor(productId)
+    const product = productById(productId)
+    // Contracted pricing overrides the catalog price for that vendor — it is
+    // what the invoice will actually say.
+    const raw = offersFor(productId).map((o) => {
+      const contract = product ? demoContracts.get(contractKey(o.supplierId, product.sku)) : null
+      if (!contract) return o
+      const packSize = contract.packSize || o.packSize
+      return {
+        ...o,
+        price: contract.price,
+        packSize,
+        unitPrice: contract.price / packSize,
+        vendorSku: contract.vendorSku || o.vendorSku,
+        isContractPrice: true,
+      }
+    })
+
+    // Re-rank: a contract price can move a vendor to the front.
+    raw.sort((a, b) => {
+      if (a.inStock !== b.inStock) return a.inStock ? -1 : 1
+      if (a.unitPrice !== b.unitPrice) return a.unitPrice - b.unitPrice
+      return a.leadDays - b.leadDays
+    })
+
     const inStock = raw.filter((o) => o.inStock)
     const worst = inStock.length ? inStock[inStock.length - 1].unitPrice : null
     offers = raw.map((o) => ({
@@ -352,6 +394,189 @@ export async function findVendorPrices(productId) {
     marketBest: inStock[0] ?? null,
     scannedAt: new Date().toISOString(),
   }
+}
+
+// --- ledger and lots --------------------------------------------------------
+function ledger() {
+  if (!demoMovements) demoMovements = buildMovements(store().inventory)
+  return demoMovements
+}
+
+function lots() {
+  // store() builds these alongside inventory so expiry stays single-sourced.
+  store()
+  return demoLots ?? []
+}
+
+/**
+ * An item's movement history, newest first, with a running balance.
+ *
+ * The balance is reconstructed backwards from today's on-hand rather than
+ * stored, so it always agrees with the item — which is the point of keeping a
+ * ledger at all.
+ */
+export async function listMovements(inventoryItemId, { limit = 60 } = {}) {
+  let rows
+
+  if (isDemo) {
+    rows = ledger()
+      .filter((m) => m.inventoryItemId === inventoryItemId)
+      .slice(0, limit)
+  } else {
+    const { data, error } = await supabase
+      .from('stock_movements')
+      .select('*, profiles(full_name)')
+      .eq('inventory_item_id', inventoryItemId)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    rows = data.map((m) => ({
+      id: m.id,
+      inventoryItemId: m.inventory_item_id,
+      type: m.type,
+      quantity: Number(m.quantity),
+      reason: m.reason,
+      userName: m.profiles?.full_name ?? 'Unknown',
+      userInitials: (m.profiles?.full_name ?? '?')
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() ?? '')
+        .join(''),
+      createdAt: m.created_at,
+    }))
+  }
+
+  const item = await getInventoryItem(inventoryItemId)
+  let balance = item?.onHand ?? 0
+
+  return rows.map((m) => {
+    const after = balance
+    // Walking backwards: the balance before this entry is after minus its delta.
+    balance = m.type === 'counted' ? after : after - m.quantity
+    return { ...m, balanceAfter: after }
+  })
+}
+
+/** Practice-wide recent activity, for the dashboard and audit review. */
+export async function listRecentActivity(limit = 25) {
+  if (isDemo) return ledger().slice(0, limit)
+
+  const { data, error } = await supabase
+    .from('stock_movements')
+    .select('*, profiles(full_name), inventory_items(products(name))')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+
+  return data.map((m) => ({
+    id: m.id,
+    inventoryItemId: m.inventory_item_id,
+    productName: m.inventory_items?.products?.name,
+    type: m.type,
+    quantity: Number(m.quantity),
+    reason: m.reason,
+    userName: m.profiles?.full_name ?? 'Unknown',
+    createdAt: m.created_at,
+  }))
+}
+
+/** Lots with an expiry date, soonest first. */
+export async function listLots({ withinDays } = {}) {
+  let rows
+
+  if (isDemo) {
+    rows = lots()
+  } else {
+    const { data, error } = await supabase
+      .from('lots')
+      .select('*, inventory_items(products(name, brand, unit), locations(name))')
+      .not('expires_at', 'is', null)
+      .gt('quantity', 0)
+      .order('expires_at')
+    if (error) throw error
+    rows = data.map((l) => ({
+      id: l.id,
+      inventoryItemId: l.inventory_item_id,
+      productName: l.inventory_items?.products?.name,
+      brand: l.inventory_items?.products?.brand,
+      unit: l.inventory_items?.products?.unit,
+      locationName: l.inventory_items?.locations?.name,
+      lotNumber: l.lot_number,
+      quantity: Number(l.quantity),
+      expiresAt: l.expires_at,
+      receivedAt: l.received_at,
+    }))
+  }
+
+  if (withinDays != null) {
+    const cutoff = Date.now() + withinDays * 86400000
+    rows = rows.filter((l) => new Date(l.expiresAt).getTime() <= cutoff)
+  }
+
+  return rows
+}
+
+export async function listLotsForItem(inventoryItemId) {
+  const all = await listLots()
+  return all.filter((l) => l.inventoryItemId === inventoryItemId)
+}
+
+/** Write off an expired or damaged lot; the ledger records it as waste. */
+export async function discardLot(lotId, reason = 'Expired') {
+  if (isDemo) {
+    const lot = lots().find((l) => l.id === lotId)
+    if (!lot) throw new Error('Lot not found')
+    const row = store().inventory.find((r) => r.id === lot.inventoryItemId)
+    if (row) {
+      row.onHand = Math.max(0, row.onHand - lot.quantity)
+      recomputeRow(row)
+    }
+    ledger().unshift({
+      id: `mv-discard-${lotId}`,
+      inventoryItemId: lot.inventoryItemId,
+      productName: lot.productName,
+      type: 'wasted',
+      quantity: -lot.quantity,
+      reason: `${reason} · lot ${lot.lotNumber}`,
+      userName: TEAM[0].name,
+      userInitials: TEAM[0].initials,
+      createdAt: new Date().toISOString(),
+    })
+    demoLots = lots().filter((l) => l.id !== lotId)
+    emit()
+    return { ok: true }
+  }
+
+  const { data: lot } = await supabase.from('lots').select('*').eq('id', lotId).single()
+  if (!lot) throw new Error('Lot not found')
+
+  await supabase.rpc('record_movement', {
+    p_inventory_item_id: lot.inventory_item_id,
+    p_type: 'wasted',
+    p_quantity: lot.quantity,
+    p_reason: `${reason} · lot ${lot.lot_number ?? ''}`.trim(),
+  })
+  await supabase.from('lots').update({ quantity: 0 }).eq('id', lotId)
+  return { ok: true }
+}
+
+export async function listTeam() {
+  if (isDemo) return TEAM
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, role, avatar_url')
+  if (error) throw error
+  return data.map((p) => ({
+    id: p.id,
+    name: p.full_name,
+    email: p.email,
+    role: p.role,
+    initials: (p.full_name ?? '?')
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? '')
+      .join(''),
+  }))
 }
 
 export async function reorderSuggestions(locationId) {
@@ -730,6 +955,170 @@ export async function addToInventory({ productId, locationId, parLevel, reorderP
     reorder_point: reorderPoint ?? 2,
     reorder_qty: Math.max(1, (parLevel ?? 4) - (onHand ?? 0)),
   })
+  if (error) throw error
+  return { ok: true }
+}
+
+// --- contract pricing -------------------------------------------------------
+/** key: `${supplierId}:${mfrSku}` → the practice's negotiated price */
+let demoContracts = new Map()
+
+function contractKey(supplierId, mfrSku) {
+  return `${supplierId}:${mfrSku}`
+}
+
+/**
+ * Match imported price-file rows against the catalog.
+ *
+ * Barcode first, then manufacturer part number, then a normalized description.
+ * Nothing is applied here — this only reports what *would* match, so the
+ * import can be previewed before it changes any price the practice sees.
+ */
+export async function matchContractRows(rows, mapping) {
+  const catalog = isDemo
+    ? PRODUCTS.map((p) => ({
+        id: p.id,
+        name: p.name,
+        brand: p.brand,
+        gtin: p.gtin,
+        mfrSku: p.sku,
+        packSize: p.packSize,
+        unit: p.unit,
+      }))
+    : (
+        await supabase
+          .from('products')
+          .select('id, name, brand, gtin, mfr_sku, pack_size, unit')
+          .limit(5000)
+      ).data?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        brand: p.brand,
+        gtin: p.gtin,
+        mfrSku: p.mfr_sku,
+        packSize: p.pack_size,
+        unit: p.unit,
+      })) ?? []
+
+  const byGtin = new Map(catalog.filter((p) => p.gtin).map((p) => [String(p.gtin), p]))
+  const bySku = new Map(catalog.filter((p) => p.mfrSku).map((p) => [p.mfrSku.toUpperCase(), p]))
+  const normalize = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const byName = new Map(catalog.map((p) => [normalize(p.name), p]))
+
+  return rows.map((row, index) => {
+    const gtin = mapping.gtin ? String(row[mapping.gtin] ?? '').replace(/\D/g, '') : ''
+    const mfrSku = mapping.mfrSku ? String(row[mapping.mfrSku] ?? '').trim() : ''
+    const description = mapping.description ? row[mapping.description] : ''
+    const price = parseMoney(mapping.price ? row[mapping.price] : null)
+    const packSize = parseInteger(mapping.packSize ? row[mapping.packSize] : null, 1)
+    const vendorSku = mapping.vendorSku ? String(row[mapping.vendorSku] ?? '').trim() : ''
+
+    let product = null
+    let matchedBy = null
+
+    if (gtin && byGtin.has(gtin)) {
+      product = byGtin.get(gtin)
+      matchedBy = 'gtin'
+    } else if (mfrSku && bySku.has(mfrSku.toUpperCase())) {
+      product = bySku.get(mfrSku.toUpperCase())
+      matchedBy = 'mpn'
+    } else if (description) {
+      const hit = byName.get(normalize(description))
+      if (hit) {
+        product = hit
+        matchedBy = 'name'
+      }
+    }
+
+    return {
+      index,
+      gtin: gtin || null,
+      mfrSku: mfrSku || null,
+      vendorSku: vendorSku || null,
+      description: description || product?.name || '—',
+      price,
+      packSize,
+      product,
+      matchedBy,
+      // A row with no price cannot be applied even if the product matched.
+      usable: Boolean(product && price != null && price >= 0),
+      issue:
+        price == null
+          ? 'No price found in the mapped column'
+          : !product
+            ? 'No catalog product matched'
+            : null,
+    }
+  })
+}
+
+/** Apply matched rows as this practice's contracted pricing for one vendor. */
+export async function importContractPrices(supplierId, matched) {
+  const usable = matched.filter((m) => m.usable)
+
+  if (isDemo) {
+    for (const row of usable) {
+      demoContracts.set(contractKey(supplierId, row.product.mfrSku), {
+        price: row.price,
+        packSize: row.packSize || row.product.packSize,
+        vendorSku: row.vendorSku,
+        matchedBy: row.matchedBy,
+        importedAt: new Date().toISOString(),
+      })
+    }
+    emit()
+    return { applied: usable.length, skipped: matched.length - usable.length }
+  }
+
+  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const { error } = await supabase.from('contract_prices').upsert(
+    usable.map((row) => ({
+      practice_id: profile.practice_id,
+      supplier_id: supplierId,
+      product_id: row.product.id,
+      gtin: row.gtin,
+      mfr_sku: row.mfrSku,
+      vendor_sku: row.vendorSku,
+      description: row.description,
+      price: row.price,
+      pack_size: row.packSize,
+      matched_by: row.matchedBy,
+      source: 'csv',
+    })),
+    { onConflict: 'practice_id,supplier_id,gtin,mfr_sku,effective_from' },
+  )
+  if (error) throw error
+  return { applied: usable.length, skipped: matched.length - usable.length }
+}
+
+/** Which vendors have contracted pricing loaded, and how much of it. */
+export async function contractPriceSummary() {
+  if (isDemo) {
+    const counts = new Map()
+    for (const key of demoContracts.keys()) {
+      const supplierId = key.split(':')[0]
+      counts.set(supplierId, (counts.get(supplierId) ?? 0) + 1)
+    }
+    return [...counts.entries()].map(([supplierId, count]) => ({ supplierId, count }))
+  }
+
+  const { data } = await supabase.from('contract_prices').select('supplier_id')
+  const counts = new Map()
+  for (const row of data ?? []) {
+    counts.set(row.supplier_id, (counts.get(row.supplier_id) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([supplierId, count]) => ({ supplierId, count }))
+}
+
+export async function clearContractPrices(supplierId) {
+  if (isDemo) {
+    for (const key of [...demoContracts.keys()]) {
+      if (key.startsWith(`${supplierId}:`)) demoContracts.delete(key)
+    }
+    emit()
+    return { ok: true }
+  }
+  const { error } = await supabase.from('contract_prices').delete().eq('supplier_id', supplierId)
   if (error) throw error
   return { ok: true }
 }

@@ -52,6 +52,22 @@ sweeps every tracked item, compares the best account price against the best
 price on the market, and totals the gap — grouped by which vendor would need
 opening, so one decision captures most of it.
 
+**Load the prices you actually negotiated.** Contract price import takes the
+CSV or EDI file your rep sends, guesses the column mapping, matches each row
+to the catalog by barcode then part number then description, and shows you
+what matched before anything is applied. Imported prices then override list
+everywhere in the app.
+
+**Answer "where did it go".** Every change to on-hand is a ledger entry with
+who, when, why and the balance it left behind — reconstructed against the
+item, so the running total always agrees with the count. Nothing edits stock
+directly.
+
+**Catch expiry before an inspector does.** Lots are captured at receipt, when
+the carton is in hand, and tracked to their expiry date. Expired lots are
+separated from merely-soon ones, because an expired anesthetic carpule in a
+drawer is a finding, not a housekeeping note.
+
 **Stay ahead of compliance.** Sterilizers, compressors, chairs and imaging are
 tracked with serials, warranty dates and service intervals, because the
 service log is the first thing a board inspection asks for.
@@ -263,11 +279,11 @@ src/
   components/charts/    StackedColumns, BarList, HealthMeter, Sparkline
   pages/                Welcome, Onboarding, Dashboard, Inventory, ItemDetail,
                         Scan, Catalog, Search, Orders, OrderDetail, Reorder,
-                        Vendors, MarketScan, Insights, Alerts, Equipment,
-                        Settings
+                        Vendors, MarketScan, PriceCheck, ContractImport,
+                        Insights, Alerts, Expiry, Equipment, Team, Settings
   hooks/                useData, useBarcodeScanner
   lib/                  repository (the data seam), supabase, AuthContext,
-                        push, format, demoData
+                        push, format, csv, demoData
 supabase/
   migrations/           Schema, RLS, views, RPCs
   seed.sql              Dental catalog and supplier market

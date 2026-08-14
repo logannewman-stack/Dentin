@@ -20,6 +20,9 @@ const Insights = lazy(() => import('@/pages/Insights'))
 const Catalog = lazy(() => import('@/pages/Catalog'))
 const Vendors = lazy(() => import('@/pages/Vendors'))
 const PriceCheck = lazy(() => import('@/pages/PriceCheck'))
+const ContractImport = lazy(() => import('@/pages/ContractImport'))
+const Expiry = lazy(() => import('@/pages/Expiry'))
+const Team = lazy(() => import('@/pages/Team'))
 const MarketScan = lazy(() => import('@/pages/MarketScan'))
 const Search = lazy(() => import('@/pages/Search'))
 const Settings = lazy(() => import('@/pages/Settings'))
@@ -108,6 +111,9 @@ function AppRoutes() {
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/vendors" element={<Vendors />} />
             <Route path="/vendors/compare" element={<MarketScan />} />
+            <Route path="/vendors/import" element={<ContractImport />} />
+            <Route path="/expiry" element={<Expiry />} />
+            <Route path="/team" element={<Team />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/equipment" element={<Equipment />} />
             <Route path="/insights" element={<Insights />} />

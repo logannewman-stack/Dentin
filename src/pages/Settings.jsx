@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import {
   Bell,
   Building2,
+  CalendarClock,
   Check,
+  FileSpreadsheet,
   Info,
   MapPin,
   Moon,
@@ -10,6 +12,8 @@ import {
   Sparkles,
   Sun,
   SunMoon,
+  Users,
+  Wrench,
 } from 'lucide-react'
 import Screen from '@/components/ios/Screen'
 import { Row, RowIcon, Section } from '@/components/ios/List'
@@ -168,6 +172,49 @@ export default function Settings() {
           title="Competitive pricing"
           subtitle="Vendors that beat your current accounts"
           to="/vendors/compare"
+        />
+        <Row
+          leading={
+            <RowIcon tint="green">
+              <FileSpreadsheet size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Import contract pricing"
+          subtitle="Load the negotiated price file from your rep"
+          to="/vendors/import"
+        />
+      </Section>
+
+      <Section title="Practice operations">
+        <Row
+          leading={
+            <RowIcon tint="purple">
+              <Users size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Team & roles"
+          subtitle="Who can order, and who moved the stock"
+          to="/team"
+        />
+        <Row
+          leading={
+            <RowIcon tint="red">
+              <CalendarClock size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Lot expiry"
+          subtitle="Expired and expiring lots on the shelf"
+          to="/expiry"
+        />
+        <Row
+          leading={
+            <RowIcon tint="gray">
+              <Wrench size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Equipment register"
+          subtitle="Serials, warranties and service history"
+          to="/equipment"
         />
       </Section>
 

@@ -109,6 +109,15 @@ export const STOCK_STATUS = {
   ok: { label: 'In stock', tone: 'good' },
 }
 
+/**
+ * Location names read "Ridgeline Dental — Main", which is all prefix in a
+ * list where every row shares it. Keep the part that distinguishes them.
+ */
+export function shortLocation(name = '') {
+  const parts = String(name).split(/\s+[—–-]\s+/)
+  return parts.length > 1 ? parts[parts.length - 1] : name
+}
+
 export function initials(name = '') {
   return name
     .split(/\s+/)

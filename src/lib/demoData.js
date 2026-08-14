@@ -465,9 +465,6 @@ export function buildInventory() {
     const stockStatus =
       onHand <= 0 ? 'out' : onHand <= reorderPoint ? 'low' : onHand < par ? 'below_par' : 'ok'
 
-    // A few lots carry an expiry so the expiring-soon surface has real data.
-    const expiring = ['SEP-ART-100', 'SEP-LID-100', '3M-FSU-A2B', 'VST-CX-16'].includes(sku)
-
     return {
       id: `inv-${locationId}-${sku}`,
       productId: sku,
@@ -496,10 +493,138 @@ export function buildInventory() {
       bestLeadDays: best?.leadDays ?? null,
       maxUnitPrice: worst?.unitPrice ?? null,
       offerCount: inStockOffers.length,
-      expiresAt: expiring ? daysFromNow(18 + (i % 5) * 9) : null,
+      // Derived from the item's lots once they are built — never generated
+      // separately, or the summary and the lot list disagree.
+      expiresAt: null,
       lastCountedAt: daysFromNow(-(3 + (i % 21))),
     }
   })
+}
+
+/** Who touches stock. Movements are attributed so the ledger names a person. */
+export const TEAM = [
+  { id: 'user-1', name: 'Dr. Logan Newman', role: 'owner', initials: 'LN' },
+  { id: 'user-2', name: 'Priya Raman', role: 'manager', initials: 'PR' },
+  { id: 'user-3', name: 'Marcus Webb', role: 'assistant', initials: 'MW' },
+  { id: 'user-4', name: 'Dr. Elena Sokolov', role: 'clinician', initials: 'ES' },
+  { id: 'user-5', name: 'Tasha Brooks', role: 'assistant', initials: 'TB' },
+]
+
+const MOVEMENT_REASONS = {
+  consumed: ['Chairside use', 'Op 3 restock', 'Hygiene bay', 'Surgical tray setup', 'Op 5 restock'],
+  received: ['Delivery check-in', 'Received on PO', 'Rep drop-off'],
+  counted: ['Weekly count', 'Monthly audit', 'Spot check'],
+  wasted: ['Damaged in transit', 'Dropped', 'Contaminated field'],
+}
+
+/**
+ * Backfill a plausible movement history from each item's burn rate.
+ *
+ * The ledger is the thing that makes on-hand auditable, so an empty one makes
+ * the whole feature look decorative. Generated deterministically per item so
+ * the history is stable between renders.
+ */
+export function buildMovements(inventoryRows) {
+  const movements = []
+
+  for (const row of inventoryRows) {
+    if (row.dailyBurn <= 0) continue
+    const seed = hash(row.id)
+    // Roughly a fortnight of activity, denser for fast-moving items.
+    const events = Math.min(9, Math.max(2, Math.round(row.dailyBurn * 14)))
+
+    for (let i = 0; i < events; i += 1) {
+      const s = hash(`${row.id}:${i}`)
+      const daysAgo = 1 + ((seed + i * 7) % 26)
+      const type =
+        i === events - 1 && s % 3 === 0
+          ? 'received'
+          : s % 17 === 0
+            ? 'wasted'
+            : s % 11 === 0
+              ? 'counted'
+              : 'consumed'
+
+      const reasons = MOVEMENT_REASONS[type]
+      const member = TEAM[s % TEAM.length]
+      const quantity =
+        type === 'received'
+          ? Math.max(1, row.reorderQty)
+          : type === 'counted'
+            ? 0
+            : Math.max(1, Math.round(row.dailyBurn * (1 + (s % 3))))
+
+      movements.push({
+        id: `mv-${row.id}-${i}`,
+        inventoryItemId: row.id,
+        productName: row.productName,
+        type,
+        quantity: type === 'consumed' || type === 'wasted' ? -quantity : quantity,
+        reason: reasons[s % reasons.length],
+        userId: member.id,
+        userName: member.name,
+        userInitials: member.initials,
+        createdAt: new Date(Date.now() - daysAgo * 86400000 - (s % 86400000)).toISOString(),
+      })
+    }
+  }
+
+  return movements.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+}
+
+/**
+ * Lots for items that expire. Anesthetics, composites and irrigants all carry
+ * a shelf life, and using an expired lot is a board matter, not just waste.
+ */
+const LOT_SKUS = {
+  'SEP-ART-100': [{ lot: 'A24J118', days: 24 }, { lot: 'A24K207', days: 96 }],
+  // An expired anesthetic still on the shelf is the case that matters most,
+  // so it sits on an item that actually has stock — a lot on a zero-on-hand
+  // item would never render.
+  'SEP-LID-100': [{ lot: 'L24H442', days: -11 }, { lot: 'L25A118', days: 213 }],
+  '3M-FSU-A2B': [{ lot: 'NC42901', days: 128 }],
+  '3M-FSU-A3B': [{ lot: 'NC42744', days: 168 }],
+  'VST-CX-16': [{ lot: 'CX2409', days: 38 }],
+  'ULT-OP-20M': [{ lot: 'OP24-772', days: 74 }],
+  '3M-VAN-100': [{ lot: 'VN24-310', days: 143 }],
+  'DEN-AQ-HB': [{ lot: 'AQ24-556', days: 19 }],
+  'GC-F9-A2': [{ lot: 'F9-24118', days: 302 }],
+  '3M-AT-1262': [{ lot: 'AT24-990', days: 61 }],
+}
+
+export function buildLots(inventoryRows) {
+  const lots = []
+
+  for (const row of inventoryRows) {
+    const spec = LOT_SKUS[row.productId]
+    if (!spec) continue
+
+    // Split the on-hand count across lots, oldest first.
+    let remaining = row.onHand
+    spec.forEach(({ lot, days }, i) => {
+      const isLast = i === spec.length - 1
+      const quantity = isLast ? remaining : Math.min(remaining, Math.ceil(row.onHand / spec.length))
+      remaining -= quantity
+      if (quantity <= 0) return
+
+      lots.push({
+        id: `lot-${row.id}-${i}`,
+        inventoryItemId: row.id,
+        productId: row.productId,
+        productName: row.productName,
+        brand: row.brand,
+        unit: row.unit,
+        locationName: row.locationName,
+        categorySlug: row.categorySlug,
+        lotNumber: lot,
+        quantity,
+        expiresAt: new Date(Date.now() + days * 86400000).toISOString(),
+        receivedAt: new Date(Date.now() - (120 - days / 2) * 86400000).toISOString(),
+      })
+    })
+  }
+
+  return lots.sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt))
 }
 
 export const ASSETS = [
