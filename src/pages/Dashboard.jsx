@@ -1,23 +1,24 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { format } from 'date-fns'
 import {
   AlertTriangle,
   ArrowRight,
   Bell,
+  Boxes,
   CalendarClock,
   PackageCheck,
   ScanLine,
+  Search,
   Settings2,
   TrendingDown,
   Truck,
   Wrench,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
-import { Row, RowIcon, Section } from '@/components/ui/List'
 import { Gauge, Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import Sparkline from '@/components/charts/Sparkline'
-import ProductTile from '@/components/ProductTile'
 import { useData } from '@/hooks/useData'
 import {
   getPractice,
@@ -28,43 +29,47 @@ import {
   listInventory,
   listOrders,
 } from '@/lib/repository'
-import { coverShort, money, qty } from '@/lib/format'
+import { coverShort, money, moneyRound, qty } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
-function greeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
-}
-
-function StatCard({ label, value, caption, tone = 'label', icon: Icon, to }) {
+/**
+ * One cell of the KPI grid. The grid itself draws the dividers, so cells are
+ * just content — micro-label, the number, one line of context.
+ */
+function Kpi({ label, icon: Icon, value, caption, tone = 'label', to }) {
   const tones = {
     label: 'text-label',
     critical: 'text-ios-red',
     warning: 'text-ios-orange',
     good: 'text-ios-green',
-    brand: 'text-brand-600 dark:text-brand-400',
+    brand: 'text-brand-700 dark:text-brand-400',
   }
 
   const inner = (
     <>
-      <div className="flex items-center gap-1.5 text-label-3">
-        {Icon ? <Icon size={13} strokeWidth={2.2} aria-hidden="true" /> : null}
-        <span className="text-caption font-medium uppercase tracking-[0.4px]">{label}</span>
-      </div>
-      <p className={`tnum mt-1.5 text-title2 font-bold ${tones[tone]}`}>{value}</p>
-      {caption ? <p className="mt-0.5 text-caption text-label-3">{caption}</p> : null}
+      <span className="flex items-center gap-1 text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+        {Icon ? <Icon size={11} strokeWidth={2.1} aria-hidden="true" /> : null}
+        {label}
+      </span>
+      <span className={cn('tnum mt-1 block text-title2 font-semibold leading-tight', tones[tone])}>
+        {value}
+      </span>
+      {caption ? (
+        <span className="mt-0.5 block truncate text-caption text-label-3">{caption}</span>
+      ) : null}
     </>
   )
 
   return to ? (
-    <Link to={to} className="press flex-1 rounded-card border border-line bg-surface p-3">
+    <Link to={to} className="press block min-w-0 p-3">
       {inner}
     </Link>
   ) : (
-    <div className="flex-1 rounded-card border border-line bg-surface p-3">{inner}</div>
+    <div className="min-w-0 p-3">{inner}</div>
   )
 }
+
+const TABLE_COLS = 'grid-cols-[minmax(0,1fr)_2.75rem_3.25rem]'
 
 export default function Dashboard() {
   const { data: practice } = useData(() => getPractice(), [])
@@ -78,17 +83,14 @@ export default function Dashboard() {
     const rows = inventory ?? []
     const out = rows.filter((r) => r.stockStatus === 'out')
     const low = rows.filter((r) => r.stockStatus === 'low')
-    const attention = rows.filter((r) =>
-      ['out', 'low', 'below_par'].includes(r.stockStatus),
-    )
+    const attention = rows.filter((r) => ['out', 'low', 'below_par'].includes(r.stockStatus))
 
-    // What restoring everything to par would cost at today's best prices.
+    // What restoring everything to par costs at today's best orderable prices.
     const restoreCost = attention.reduce(
       (sum, r) => sum + Math.max(r.reorderQty, r.parLevel - r.onHand) * (r.bestUnitPrice ?? 0),
       0,
     )
 
-    // What buying at the best price saves against the priciest supplier.
     const potentialSavings = attention.reduce((sum, r) => {
       if (r.maxUnitPrice == null || r.bestUnitPrice == null) return sum
       const units = Math.max(r.reorderQty, r.parLevel - r.onHand)
@@ -98,127 +100,111 @@ export default function Dashboard() {
     const inTransit = (orders ?? []).filter((o) =>
       ['submitted', 'confirmed', 'partial'].includes(o.status),
     )
-
     const savedYtd = (orders ?? []).reduce((sum, o) => sum + (o.savings ?? 0), 0)
 
-    // The soonest stock-out among items actually being consumed.
     const soonest = rows
       .filter((r) => r.daysOfCover != null && r.onHand > 0)
       .sort((a, b) => a.daysOfCover - b.daysOfCover)[0]
 
-    // How many suppliers the practice is actually being quoted by.
     const supplierCount = rows.reduce((max, r) => Math.max(max, r.offerCount ?? 0), 0)
 
-    return {
-      out,
-      low,
-      attention,
-      restoreCost,
-      potentialSavings,
-      inTransit,
-      savedYtd,
-      soonest,
-      supplierCount,
-    }
+    return { out, low, attention, restoreCost, potentialSavings, inTransit, savedYtd, soonest, supplierCount }
   }, [inventory, orders])
 
   const serviceDue = (assets ?? [])
-    .filter((a) => {
-      const days = Math.round((new Date(a.nextServiceAt) - new Date()) / 86400000)
-      return days <= 30
-    })
+    .filter((a) => Math.round((new Date(a.nextServiceAt) - new Date()) / 86400000) <= 30)
     .sort((a, b) => new Date(a.nextServiceAt) - new Date(b.nextServiceAt))
 
   const criticalCount = (alerts ?? []).filter((a) => a.severity === 'critical').length
-  const topAttention = stats.attention.slice(0, 5)
+  const topAttention = stats.attention.slice(0, 6)
+  const saved12 = (spend ?? []).reduce((s, m) => s + m.saved, 0)
 
   return (
     <Screen
-      title="Today"
+      logo
+      title="Dentin"
       subtitle={practice?.name}
       trailing={
         <>
           <Link
+            to="/search"
+            aria-label="Search"
+            className="flex h-8 w-8 items-center justify-center rounded-[3px] text-label-2 transition-colors hover:bg-surface-2 hover:text-label"
+          >
+            <Search size={17} strokeWidth={2} />
+          </Link>
+          <Link
             to="/alerts"
             aria-label={`Alerts${criticalCount ? `, ${criticalCount} critical` : ''}`}
-            className="press relative flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
+            className="relative flex h-8 w-8 items-center justify-center rounded-[3px] text-label-2 transition-colors hover:bg-surface-2 hover:text-label"
           >
-            <Bell size={21} strokeWidth={2} />
+            <Bell size={17} strokeWidth={2} />
             {criticalCount ? (
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-ios-red ring-2 ring-[rgb(var(--nav-material))]" />
+              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-ios-red" />
             ) : null}
           </Link>
           <Link
             to="/settings"
             aria-label="Practice settings"
-            className="press flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
+            className="flex h-8 w-8 items-center justify-center rounded-[3px] text-label-2 transition-colors hover:bg-surface-2 hover:text-label"
           >
-            <Settings2 size={21} strokeWidth={2} />
+            <Settings2 size={17} strokeWidth={2} />
           </Link>
         </>
       }
     >
-      <p className="pb-3 pt-1 text-subhead text-label-3">
-        {greeting()} — here is where the practice stands.
-      </p>
+      <p className="section-label pt-3">{format(new Date(), 'EEEE, MMMM d')}</p>
 
       {/* The one thing that stops clinical work today */}
       {stats.out.length > 0 ? (
         <Link
           to="/orders/new"
-          className="press mb-3 flex items-center gap-3 rounded-card bg-ios-red p-4 text-white"
+          className="panel press mb-2 flex items-center gap-2.5 border-l-2 border-l-ios-red p-3"
         >
-          <AlertTriangle size={22} strokeWidth={2.2} className="shrink-0" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="text-headline font-semibold">
-              {stats.out.length} {stats.out.length === 1 ? 'item is' : 'items are'} out of stock
-            </p>
-            <p className="truncate text-footnote text-white/85">
-              {stats.out
-                .slice(0, 2)
-                .map((r) => r.productName)
-                .join(', ')}
+          <AlertTriangle size={16} strokeWidth={2.1} className="shrink-0 text-ios-red" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-subhead font-semibold text-label">
+              {stats.out.length} {stats.out.length === 1 ? 'item' : 'items'} out of stock
+            </span>
+            <span className="block truncate text-caption text-label-3">
+              {stats.out.slice(0, 2).map((r) => r.productName).join(', ')}
               {stats.out.length > 2 ? ` +${stats.out.length - 2} more` : ''}
-            </p>
-          </div>
-          <ArrowRight size={18} className="shrink-0" aria-hidden="true" />
+            </span>
+          </span>
+          <ArrowRight size={14} className="shrink-0 text-label-3" aria-hidden="true" />
         </Link>
       ) : null}
 
-      {/* Headline numbers */}
-      <div className="flex gap-2.5">
-        <StatCard
+      {/* Instrument panel — one bordered grid, not four floating cards */}
+      <div className="panel grid grid-cols-2 [&>*]:border-line [&>*:nth-child(odd)]:border-r [&>*:nth-child(n+3)]:border-t">
+        <Kpi
           label="Needs action"
+          icon={PackageCheck}
           value={stats.attention.length}
           caption={stats.low.length ? `${stats.low.length} at reorder point` : 'All above par'}
           tone={stats.out.length ? 'critical' : stats.attention.length ? 'warning' : 'good'}
-          icon={PackageCheck}
           to="/inventory?filter=attention"
         />
-        <StatCard
+        <Kpi
           label="Saved"
-          value={money(stats.savedYtd)}
-          caption="vs. list price, to date"
-          tone="brand"
           icon={TrendingDown}
+          value={money(stats.savedYtd)}
+          caption="vs list price, all orders"
+          tone="brand"
           to="/orders"
         />
-      </div>
-
-      <div className="mt-2.5 flex gap-2.5">
-        <StatCard
+        <Kpi
           label="In transit"
+          icon={Truck}
           value={stats.inTransit.length}
           caption={
-            stats.inTransit.length
-              ? `Next: ${stats.inTransit[0].supplierName}`
-              : 'Nothing on the way'
+            stats.inTransit.length ? `Next: ${stats.inTransit[0].supplierName}` : 'Nothing on the way'
           }
-          icon={Truck}
           to="/orders"
         />
-        <StatCard
+        <Kpi
           label="Soonest out"
+          icon={CalendarClock}
           value={stats.soonest?.daysOfCover != null ? `${stats.soonest.daysOfCover}d` : '—'}
           caption={stats.soonest ? stats.soonest.productName.split(',')[0] : 'No burn data yet'}
           tone={
@@ -226,67 +212,67 @@ export default function Dashboard() {
               ? 'critical'
               : 'label'
           }
-          icon={CalendarClock}
           to="/inventory"
         />
       </div>
 
-      {/* Restock basket */}
-      {stats.attention.length > 0 ? (
-        <div className="mt-3 rounded-card border border-line bg-surface p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="text-headline font-semibold">Restock to par</h3>
-              <p className="mt-0.5 text-footnote text-label-3">
-                {stats.attention.length} items · best price across {stats.supplierCount} suppliers
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="tnum text-title3 font-bold">{money(stats.restoreCost)}</p>
-              {stats.potentialSavings > 0 ? (
-                <p className="tnum text-caption font-semibold text-ios-green">
-                  saves {money(stats.potentialSavings)}
-                </p>
-              ) : null}
-            </div>
-          </div>
-          <Button to="/orders/new" className="mt-3.5 w-full" size="md">
-            Build the order
-          </Button>
-        </div>
-      ) : null}
-
-      {/* Needs attention */}
+      {/* Needs attention — a table, because this is a working list */}
       {topAttention.length > 0 ? (
-        <Section
-          title="Needs attention"
-          action={
+        <section className="mt-1">
+          <div className="flex items-baseline justify-between">
+            <h3 className="section-label">Needs attention</h3>
             <Link
               to="/inventory?filter=attention"
-              className="press text-subhead font-medium text-brand-600 dark:text-brand-400"
+              className="pb-1.5 pt-5 text-footnote font-medium text-brand-700 dark:text-brand-400"
             >
-              See all
+              View all {stats.attention.length}
             </Link>
-          }
-        >
-          {topAttention.map((item) => (
-            <Row
-              key={item.id}
-              to={`/inventory/${item.id}`}
-              leading={<ProductTile product={item} size={38} imageUrl={item.imageUrl} />}
-              title={item.productName}
-              subtitle={`${item.brand} · ${qty(item.onHand)} of ${qty(item.parLevel)} ${
-                item.unit
-              }`}
-              trailing={
-                <div className="flex items-center gap-2.5">
-                  <span className="tnum w-8 text-right text-caption text-label-3">
-                    {coverShort(item.daysOfCover)}
+          </div>
+
+          <div className="panel">
+            <div
+              className={cn(
+                'grid items-center gap-2 border-b border-line bg-surface-2/50 px-3 py-1.5',
+                'text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3',
+                TABLE_COLS,
+              )}
+            >
+              <span>Item</span>
+              <span className="text-right">Cover</span>
+              <span className="text-right">Par</span>
+            </div>
+
+            {topAttention.map((item, i) => (
+              <Link
+                key={item.id}
+                to={`/inventory/${item.id}`}
+                className={cn(
+                  'press grid items-center gap-2 px-3 py-2',
+                  TABLE_COLS,
+                  i > 0 && 'border-t border-line',
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-subhead font-medium text-label">
+                    {item.productName}
                   </span>
+                  <span className="block truncate text-caption text-label-3">
+                    {qty(item.onHand)} of {qty(item.parLevel)} {item.unit}
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    'tnum text-right text-subhead font-semibold',
+                    item.stockStatus === 'out' ? 'text-ios-red' : 'text-ios-orange',
+                  )}
+                >
+                  {item.stockStatus === 'out' ? 'Out' : coverShort(item.daysOfCover)}
+                </span>
+                <span className="flex justify-end">
                   <Gauge
                     value={item.pctOfPar ?? 0}
-                    size={30}
-                    stroke={3.5}
+                    size={44}
+                    stroke={4}
                     tone={
                       item.stockStatus === 'out'
                         ? 'critical'
@@ -295,110 +281,113 @@ export default function Dashboard() {
                           : 'brand'
                     }
                   />
-                </div>
-              }
-            />
-          ))}
-        </Section>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
       ) : null}
 
-      {/* Savings trend — the detail lives on Insights; this is the headline */}
-      {spend?.length ? (
-        <Section title="Spend & savings">
-          <Link to="/insights" className="press block p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="tnum text-title2 font-bold">
-                  {money(spend.reduce((s, m) => s + m.saved, 0))}
-                </p>
-                <p className="text-footnote text-label-3">
-                  saved over {spend.length} months
-                </p>
-                <Pill tone="good" icon={TrendingDown} className="mt-2">
-                  {Math.round(
-                    (spend.reduce((s, m) => s + m.saved, 0) /
-                      spend.reduce((s, m) => s + m.spend + m.saved, 0)) *
-                      100,
-                  )}
-                  % below list
-                </Pill>
-              </div>
-              <Sparkline values={spend.map((m) => m.saved)} width={96} height={44} />
+      {/* The purchase decision, priced */}
+      {stats.attention.length > 0 ? (
+        <div className="panel mt-2">
+          <div className="flex items-start justify-between gap-3 p-3">
+            <div className="min-w-0">
+              <p className="text-headline">Restock to par</p>
+              <p className="mt-0.5 text-caption text-label-3">
+                {stats.attention.length} items · best price across {stats.supplierCount} suppliers
+              </p>
             </div>
-            <p className="mt-3 flex items-center gap-1 text-subhead font-medium text-brand-600 dark:text-brand-400">
-              See the full breakdown
-              <ArrowRight size={14} strokeWidth={2.4} aria-hidden="true" />
-            </p>
-          </Link>
-        </Section>
+            <div className="shrink-0 text-right">
+              <p className="tnum text-title3 font-semibold">{money(stats.restoreCost)}</p>
+              {stats.potentialSavings > 0 ? (
+                <p className="tnum text-caption font-medium text-ios-green">
+                  saves {money(stats.potentialSavings)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="border-t border-line p-2">
+            <Button to="/orders/new" className="w-full">
+              Build the order
+            </Button>
+          </div>
+        </div>
       ) : null}
 
-      {/* Compliance / equipment */}
+      {/* Savings trend, as a quiet link into Insights */}
+      {spend?.length ? (
+        <Link to="/insights" className="panel press mt-2 flex items-center gap-3 p-3">
+          <span className="min-w-0 flex-1">
+            <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              Saved vs list · 12 months
+            </span>
+            <span className="tnum mt-1 block text-title2 font-semibold">
+              {moneyRound(saved12)}
+            </span>
+          </span>
+          <Sparkline values={spend.map((m) => m.saved)} width={88} height={30} />
+          <ArrowRight size={14} className="shrink-0 text-label-3" aria-hidden="true" />
+        </Link>
+      ) : null}
+
+      {/* Compliance */}
       {serviceDue.length > 0 ? (
-        <Section
-          title="Equipment & compliance"
-          footer="Service records and spore-test logs are what a state board inspection asks for first."
-        >
-          {serviceDue.map((asset) => {
-            const days = Math.round((new Date(asset.nextServiceAt) - new Date()) / 86400000)
-            return (
-              <Row
-                key={asset.id}
-                to="/equipment"
-                leading={
-                  <RowIcon tint={days < 0 ? 'red' : 'orange'}>
-                    <Wrench size={16} strokeWidth={2.2} />
-                  </RowIcon>
-                }
-                title={asset.name}
-                subtitle={`${asset.manufacturer} · ${asset.serialNumber}`}
-                trailing={
+        <section className="mt-1">
+          <h3 className="section-label">Equipment &amp; compliance</h3>
+          <div className="panel">
+            {serviceDue.map((asset, i) => {
+              const days = Math.round((new Date(asset.nextServiceAt) - new Date()) / 86400000)
+              return (
+                <Link
+                  key={asset.id}
+                  to="/equipment"
+                  className={cn(
+                    'press flex items-center gap-2.5 px-3 py-2',
+                    i > 0 && 'border-t border-line',
+                  )}
+                >
+                  <Wrench
+                    size={15}
+                    strokeWidth={1.9}
+                    className={days < 0 ? 'shrink-0 text-ios-red' : 'shrink-0 text-label-3'}
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-subhead font-medium text-label">
+                      {asset.name}
+                    </span>
+                    <span className="ident block truncate text-label-3">{asset.serialNumber}</span>
+                  </span>
                   <Pill tone={days < 0 ? 'critical' : 'warning'}>
                     {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d`}
                   </Pill>
-                }
-              />
-            )
-          })}
-        </Section>
+                </Link>
+              )
+            })}
+          </div>
+          <p className="px-0.5 pt-1.5 text-footnote leading-snug text-label-3">
+            Service records are the first thing a board inspection asks for.
+          </p>
+        </section>
       ) : null}
 
-      {/* Quick actions */}
-      <Section title="Quick actions">
-        <Row
-          to="/scan"
-          leading={
-            <RowIcon tint="brand">
-              <ScanLine size={16} strokeWidth={2.2} />
-            </RowIcon>
-          }
-          title="Scan a barcode"
-          subtitle="Receive a delivery or draw stock down"
-        />
-        <Row
-          to="/inventory"
-          leading={
-            <RowIcon tint="blue">
-              <PackageCheck size={16} strokeWidth={2.2} />
-            </RowIcon>
-          }
-          title="Count inventory"
-          subtitle="Reconcile what is actually on the shelf"
-        />
-        <Row
-          to="/equipment"
-          leading={
-            <RowIcon tint="gray">
-              <Wrench size={16} strokeWidth={2.2} />
-            </RowIcon>
-          }
-          title="Equipment register"
-          subtitle="Serials, warranties and service history"
-        />
-      </Section>
+      {/* Quick actions — monochrome, tools not toys */}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {[
+          { to: '/scan', Icon: ScanLine, label: 'Scan' },
+          { to: '/inventory', Icon: Boxes, label: 'Count' },
+          { to: '/equipment', Icon: Wrench, label: 'Equipment' },
+        ].map(({ to, Icon, label }) => (
+          <Link key={to} to={to} className="panel press flex flex-col items-center gap-1.5 py-3">
+            <Icon size={17} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />
+            <span className="text-caption font-medium text-label-2">{label}</span>
+          </Link>
+        ))}
+      </div>
 
       {isDemo ? (
-        <p className="px-1 pb-2 pt-6 text-center text-caption text-label-3">
+        <p className="px-1 pb-2 pt-5 text-center text-caption text-label-3">
           Demo practice — connect Supabase to run on live data.
         </p>
       ) : null}

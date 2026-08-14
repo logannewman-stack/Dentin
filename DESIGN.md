@@ -24,6 +24,24 @@ fractional device pixel ratios. Circles survive in exactly three places, where
 the shape carries meaning rather than style: notification dots, loading
 spinners, and legend markers.
 
+**Inter actually ships.** The stack named Inter from the start, but nothing
+loaded it — every device silently fell back to its OS font, which on iOS meant
+the app still wore SF. The variable font is now self-hosted and bundled
+(`@fontsource-variable/inter`), with optical sizing on, so the type is the
+same on every device and the ramp below means what it says.
+
+**Chrome is monochrome; colour is data.** Navigation icons wear ink
+(`label-2`), not tinted candy tiles — the workspace mark in the topbar is the
+one brand moment in the chrome. Red, orange and green appear only where they
+encode state: stock status, expiry, service due. When colour only ever means
+something, the eye learns to trust it.
+
+**The dashboard is an instrument panel.** One bordered KPI grid with internal
+hairline dividers instead of four floating cards; a column-headed table for
+the working list (ITEM / COVER / PAR); alerts as a 2px left rail on a quiet
+panel rather than a filled poster. Content rides a `max-w-2xl` rail so the app
+holds its shape on a desktop window.
+
 **The type ramp is software-sized.** Body dropped 17px → 14px, and the whole
 scale re-cut around it. iOS loosens tracking as type grows; this tightens it
 (-0.026em at display sizes) and opens it on micro-labels (+0.07em on the

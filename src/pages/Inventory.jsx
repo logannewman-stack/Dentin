@@ -17,7 +17,7 @@ import ProductTile from '@/components/ProductTile'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import { listInventory, listLocations, recordMovement } from '@/lib/repository'
-import { STOCK_STATUS, coverLabel, qty, unitMoney } from '@/lib/format'
+import { STOCK_STATUS, coverLabel, qty } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const FILTERS = [
@@ -188,31 +188,24 @@ export default function Inventory() {
                 >
                 <Row
                   to={`/inventory/${item.id}`}
-                  leading={<ProductTile product={item} size={40} imageUrl={item.imageUrl} />}
+                  leading={<ProductTile product={item} size={32} imageUrl={item.imageUrl} />}
                   title={item.productName}
                   subtitle={`${item.brand}${item.bin ? ` · ${item.bin}` : ''}`}
                   trailing={
                     <div className="flex items-center gap-2.5">
-                      <div className="text-right">
-                        <p
-                          className={cn(
-                            'tnum text-callout font-semibold',
-                            item.stockStatus === 'out'
-                              ? 'text-ios-red'
-                              : item.stockStatus === 'low'
-                                ? 'text-ios-orange'
-                                : 'text-label',
-                          )}
-                        >
-                          {qty(item.onHand)}
-                          <span className="text-label-3">/{qty(item.parLevel)}</span>
-                        </p>
-                        <p className="text-caption text-label-3">
-                          {item.bestUnitPrice != null
-                            ? `${unitMoney(item.bestUnitPrice)}/unit`
-                            : coverLabel(item.daysOfCover)}
-                        </p>
-                      </div>
+                      <p
+                        className={cn(
+                          'tnum text-subhead font-semibold',
+                          item.stockStatus === 'out'
+                            ? 'text-ios-red'
+                            : item.stockStatus === 'low'
+                              ? 'text-ios-orange'
+                              : 'text-label',
+                        )}
+                      >
+                        {qty(item.onHand)}
+                        <span className="font-normal text-label-3">/{qty(item.parLevel)}</span>
+                      </p>
                       <Gauge
                         value={item.pctOfPar ?? 0}
                         size={30}

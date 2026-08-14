@@ -29,7 +29,7 @@ export default function TabBar({ badges = {} }) {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Primary"
     >
-      <ul className="flex h-tabbar items-stretch">
+      <ul className="mx-auto flex h-tabbar w-full max-w-2xl items-stretch">
         {TABS.map(({ to, label, Icon, end }) => {
           const badge = badges[to]
           return (

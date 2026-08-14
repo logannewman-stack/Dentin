@@ -75,31 +75,19 @@ export default function Orders() {
       <Section title="Vendors" footer="Dentin only quotes prices you can actually place today.">
         <Row
           to="/vendors"
-          leading={
-            <RowIcon tint="brand">
-              <Building2 size={15} strokeWidth={2.2} />
-            </RowIcon>
-          }
+          leading={<Building2 size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
           title="Vendors & accounts"
           subtitle="Account numbers, reps, terms and preferred suppliers"
         />
         <Row
           to="/vendors/compare"
-          leading={
-            <RowIcon tint="orange">
-              <Sparkles size={15} strokeWidth={2.2} />
-            </RowIcon>
-          }
+          leading={<Sparkles size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
           title="Competitive pricing"
           subtitle="Find vendors that beat your current accounts"
         />
         <Row
           to="/vendors?tab=new"
-          leading={
-            <RowIcon tint="quiet">
-              <PackagePlus size={15} strokeWidth={2.2} />
-            </RowIcon>
-          }
+          leading={<PackagePlus size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
           title="Find new vendors"
           subtitle="Suppliers you have not opened an account with"
         />
@@ -113,11 +101,7 @@ export default function Orders() {
               <Row
                 key={order.id}
                 to={`/orders/${order.id}`}
-                leading={
-                  <RowIcon tint="brand">
-                    <ShoppingCart size={15} strokeWidth={2.2} />
-                  </RowIcon>
-                }
+                leading={<ShoppingCart size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
                 title={order.supplierName ?? 'Order'}
                 subtitle={`${order.reference} · ${
                   order.expectedAt ? `arrives ${fullDate(order.expectedAt)}` : 'no ETA'
@@ -142,11 +126,7 @@ export default function Orders() {
               <Row
                 key={order.id}
                 to={`/orders/${order.id}`}
-                leading={
-                  <RowIcon tint="quiet">
-                    <ShoppingCart size={15} strokeWidth={2.2} />
-                  </RowIcon>
-                }
+                leading={<ShoppingCart size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
                 title={order.supplierName ?? 'Order'}
                 subtitle={`${order.reference} · ${relativeTime(order.placedAt)}`}
                 trailing={

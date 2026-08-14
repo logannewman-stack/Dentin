@@ -3,20 +3,21 @@ import { cn } from '@/lib/utils'
 /**
  * Screen shell.
  *
- * The iOS build collapsed a 34px large title into a translucent bar on scroll.
- * Software does not do that: the header is a fixed, opaque strip with a
- * hairline rule, the title sits small and left-aligned beside its metadata,
- * and content starts immediately beneath. Nothing moves as you scroll, which
- * is what makes a dense screen feel stable rather than springy.
+ * A fixed, opaque topbar with a hairline rule — nothing moves on scroll.
+ * Root screens can show the workspace mark (`logo`), the way software shows
+ * its identity in the chrome rather than as a splash. Content rides a
+ * max-width rail so the app holds its shape on a desktop window instead of
+ * stretching edge to edge.
  *
- * `largeTitle` is accepted and ignored, so screens carried over from the iOS
- * branch render unchanged.
+ * `largeTitle` is accepted and ignored, so screens written against the iOS
+ * shell render unchanged.
  */
 export default function Screen({
   title,
   subtitle,
   // eslint-disable-next-line no-unused-vars
   largeTitle,
+  logo = false,
   leading,
   trailing,
   toolbar,
@@ -31,15 +32,28 @@ export default function Screen({
         className="material-chrome z-30 shrink-0 border-b border-line"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div className="flex h-navbar items-center gap-2 px-3">
+        <div className="mx-auto flex h-navbar w-full max-w-2xl items-center gap-2 px-3">
           {leading ? <div className="flex shrink-0 items-center">{leading}</div> : null}
 
-          <div className="flex min-w-0 flex-1 items-baseline gap-2">
-            <h1 className="truncate text-title3 font-semibold tracking-tight">{title}</h1>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {logo ? (
+              <img
+                src="/icon.svg"
+                alt=""
+                className="h-[20px] w-[20px] shrink-0 rounded-[4px]"
+                aria-hidden="true"
+              />
+            ) : null}
+            <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{title}</h1>
             {subtitle ? (
-              <span className="hidden truncate text-footnote text-label-3 sm:block">
-                {subtitle}
-              </span>
+              <>
+                <span className="hidden text-label-3/60 sm:block" aria-hidden="true">
+                  /
+                </span>
+                <span className="hidden truncate text-footnote text-label-3 sm:block">
+                  {subtitle}
+                </span>
+              </>
             ) : null}
           </div>
 
@@ -49,14 +63,18 @@ export default function Screen({
         {/* On narrow screens the subtitle drops to its own line rather than
             truncating the title it describes. */}
         {subtitle ? (
-          <p className="truncate px-3 pb-2 text-footnote text-label-3 sm:hidden">{subtitle}</p>
+          <p className="mx-auto w-full max-w-2xl truncate px-3 pb-2 text-footnote text-label-3 sm:hidden">
+            {subtitle}
+          </p>
         ) : null}
 
-        {toolbar ? <div className="px-3 pb-2.5">{toolbar}</div> : null}
+        {toolbar ? <div className="mx-auto w-full max-w-2xl px-3 pb-2.5">{toolbar}</div> : null}
       </header>
 
       <div className="scroll-area flex-1 overflow-y-auto">
-        <div className={cn('px-3 pt-1', contentClassName)}>{children}</div>
+        <div className={cn('mx-auto w-full max-w-2xl px-3 pt-1', contentClassName)}>
+          {children}
+        </div>
 
         {bottomInset ? (
           <div style={{ height: 'calc(env(safe-area-inset-bottom) + 76px)' }} />
