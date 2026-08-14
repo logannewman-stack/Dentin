@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+.vercel
+.env
+.env.local
+.env*.local
+*.local
+.DS_Store
+*.log
+npm-debug.log*
+.eslintcache
+coverage
+.idea
+.vscode/*
+!.vscode/extensions.json

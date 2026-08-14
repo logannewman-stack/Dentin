@@ -1,0 +1,46 @@
+{
+  "name": "Dentin — Practice Inventory",
+  "short_name": "Dentin",
+  "description": "Inventory, par-level intelligence and best-price procurement for modern dental practices.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F2F7",
+  "theme_color": "#0E7C7B",
+  "categories": ["medical", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Scan an item",
+      "short_name": "Scan",
+      "url": "/scan",
+      "description": "Scan a barcode to receive or consume stock"
+    },
+    {
+      "name": "Low stock",
+      "short_name": "Low stock",
+      "url": "/alerts",
+      "description": "Everything below par right now"
+    }
+  ]
+}

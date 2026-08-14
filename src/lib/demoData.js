@@ -1,0 +1,396 @@
+/**
+ * Demo practice.
+ *
+ * Dentin runs against Supabase when it is configured. Without it, the app
+ * boots this practice so the whole experience — stock health, scanning,
+ * price comparison, reordering — is explorable end to end.
+ *
+ * Product names and suppliers are real; barcodes and prices are illustrative.
+ * The supplier spread is generated the same way `supabase/seed.sql` generates
+ * it, so demo and live behave identically.
+ */
+
+export const SUPPLIERS = [
+  { id: 'henry-schein', name: 'Henry Schein', margin: 1.11, leadDays: 2, freeShipOver: 250, shipFee: 12.95 },
+  { id: 'patterson', name: 'Patterson Dental', margin: 1.14, leadDays: 3, freeShipOver: 300, shipFee: 14.5 },
+  { id: 'benco', name: 'Benco Dental', margin: 1.05, leadDays: 3, freeShipOver: 225, shipFee: 9.95 },
+  { id: 'darby', name: 'Darby Dental', margin: 0.98, leadDays: 3, freeShipOver: 150, shipFee: 7.95 },
+  { id: 'net32', name: 'Net32', margin: 0.88, leadDays: 5, freeShipOver: 0, shipFee: 6.5 },
+  { id: 'dental-city', name: 'Dental City', margin: 0.95, leadDays: 4, freeShipOver: 199, shipFee: 8.95 },
+  { id: 'safco', name: 'Safco Dental', margin: 1.01, leadDays: 4, freeShipOver: 175, shipFee: 8.5 },
+]
+
+export const CATEGORIES = [
+  { slug: 'infection-control', name: 'Infection Control', tint: 'green' },
+  { slug: 'restorative', name: 'Restorative', tint: 'blue' },
+  { slug: 'preventive', name: 'Preventive', tint: 'teal' },
+  { slug: 'endodontics', name: 'Endodontics', tint: 'purple' },
+  { slug: 'oral-surgery', name: 'Oral Surgery', tint: 'red' },
+  { slug: 'implants', name: 'Implants', tint: 'indigo' },
+  { slug: 'orthodontics', name: 'Orthodontics', tint: 'pink' },
+  { slug: 'impression-lab', name: 'Impression & Lab', tint: 'orange' },
+  { slug: 'anesthetics', name: 'Anesthetics', tint: 'red' },
+  { slug: 'rotary-burs', name: 'Rotary & Burs', tint: 'gray' },
+  { slug: 'imaging', name: 'Imaging', tint: 'blue' },
+  { slug: 'whitening', name: 'Whitening', tint: 'yellow' },
+  { slug: 'disposables', name: 'Disposables', tint: 'gray' },
+  { slug: 'equipment', name: 'Equipment', tint: 'brand' },
+]
+
+/**
+ * [sku, name, brand, category, gtin, unit, packSize, basePrice, isEquipment]
+ */
+const CATALOG = [
+  ['MT-N-M', 'Micro-Touch Nitrile Exam Gloves, Medium', 'Ansell', 'infection-control', '099999000010', 'box of 200', 200, 28.99, false],
+  ['MT-N-L', 'Micro-Touch Nitrile Exam Gloves, Large', 'Ansell', 'infection-control', '099999000027', 'box of 200', 200, 28.99, false],
+  ['CTX-L3-EL', 'Level 3 Procedure Masks, Earloop', 'Crosstex', 'infection-control', '099999000034', 'box of 50', 50, 24.5, false],
+  ['MTX-CW-160', 'CaviWipes Disinfectant Towelettes', 'Metrex', 'infection-control', '099999000041', 'canister of 160', 160, 21.75, false],
+  ['HAL-SP-35', 'Sterilization Pouches, 3.5" x 9"', 'Halyard', 'infection-control', '099999000065', 'box of 200', 200, 18.9, false],
+  ['3M-AT-1262', 'Attest Biological Spore Tests', '3M', 'infection-control', '099999000089', 'box of 25', 25, 68.5, false],
+  ['3M-FSU-A2B', 'Filtek Supreme Ultra, A2 Body', '3M', 'restorative', '099999000102', 'syringe of 20', 20, 92.0, false],
+  ['3M-FSU-A3B', 'Filtek Supreme Ultra, A3 Body', '3M', 'restorative', '099999000119', 'syringe of 20', 20, 92.0, false],
+  ['3M-SBU-5', 'Scotchbond Universal Plus Adhesive', '3M', 'restorative', '099999000126', '5 mL bottle', 1, 148.0, false],
+  ['ULT-UE-KIT', 'Ultra-Etch 35% Etchant Kit', 'Ultradent', 'restorative', '099999000133', 'kit of 20', 20, 64.0, false],
+  ['GC-F9-A2', 'Fuji IX GP Capsules, A2', 'GC America', 'restorative', '099999000164', 'box of 50', 50, 138.0, false],
+  ['DEN-PV3-RF', 'Palodent V3 Sectional Matrix Refill', 'Dentsply Sirona', 'restorative', '099999000171', 'box of 100', 100, 176.0, false],
+  ['3M-VAN-100', 'Vanish 5% Fluoride Varnish', '3M', 'preventive', '099999000218', 'box of 100', 100, 264.0, false],
+  ['DEN-NP-MM', 'Nupro Prophy Paste, Medium Mint', 'Dentsply Sirona', 'preventive', '099999000225', 'box of 200', 200, 46.0, false],
+  ['YNG-PA-SC', 'Disposable Prophy Angles, Soft Cup', 'Young Dental', 'preventive', '099999000232', 'box of 100', 100, 32.5, false],
+  ['3M-CPS-LC', 'Clinpro Sealant, Light Cure', '3M', 'preventive', '099999000249', 'syringe of 4', 4, 78.0, false],
+  ['DEN-PTG-25', 'ProTaper Gold Rotary Files, 25mm', 'Dentsply Sirona', 'endodontics', '099999000263', 'pack of 6', 6, 121.0, false],
+  ['COL-GP-F2', 'Gutta Percha Points, F2', 'Coltene', 'endodontics', '099999000270', 'box of 60', 60, 38.0, false],
+  ['VST-CX-16', 'Chlor-XTRA Sodium Hypochlorite 6%', 'Vista Apex', 'endodontics', '099999000300', '16 oz bottle', 1, 24.0, false],
+  ['ETH-CG-40', 'Chromic Gut Suture 4-0', 'Ethicon', 'oral-surgery', '099999000324', 'box of 12', 12, 78.0, false],
+  ['ASP-BP-15', 'Scalpel Blades #15, Sterile', 'Aspen Surgical', 'oral-surgery', '099999000348', 'box of 100', 100, 28.0, false],
+  ['STR-BLX-4010', 'BLX Implant, SLActive 4.0 x 10mm', 'Straumann', 'implants', '099999000379', 'each', 1, 412.0, false],
+  ['STR-HA-4505', 'Healing Abutment 4.5 x 5mm', 'Straumann', 'implants', '099999000393', 'each', 1, 96.0, false],
+  ['DEN-AQ-HB', 'Aquasil Ultra+ Heavy Body VPS', 'Dentsply Sirona', 'impression-lab', '099999000447', 'box of 4', 4, 118.0, false],
+  ['DEN-JP-FS', 'Jeltrate Plus Alginate, Fast Set', 'Dentsply Sirona', 'impression-lab', '099999000461', '1 lb pouch', 1, 18.75, false],
+  ['SEP-ART-100', 'Septocaine Articaine 4% w/ Epi', 'Septodont', 'anesthetics', '099999000492', 'box of 50', 50, 132.0, false],
+  ['SEP-LID-100', 'Lidocaine 2% w/ Epi 1:100,000', 'Cook-Waite', 'anesthetics', '099999000508', 'box of 50', 50, 78.0, false],
+  ['CAR-MN-27L', 'Dental Needles 27G Long', 'Cardinal Health', 'anesthetics', '099999000515', 'box of 100', 100, 32.0, false],
+  ['MC-ND-856', 'NeoDiamond Coarse Taper, Sterile', 'Microcopy', 'rotary-burs', '099999000539', 'box of 25', 25, 42.0, false],
+  ['SSW-245', 'Carbide Bur FG #245', 'SS White', 'rotary-burs', '099999000546', 'pack of 10', 10, 21.0, false],
+  ['CTX-SB-2', 'Sensor Barrier Sleeves, Size 2', 'Crosstex', 'imaging', '099999000577', 'box of 500', 500, 46.0, false],
+  ['ULT-OP-20M', 'Opalescence PF 20% Take-Home', 'Ultradent', 'whitening', '099999000607', 'patient kit', 1, 24.5, false],
+  ['CTX-BIB-BL', 'Patient Bibs, 3-Ply Blue', 'Crosstex', 'disposables', '099999000621', 'case of 500', 500, 42.0, false],
+  ['CAR-SE-CL', 'Saliva Ejectors, Clear', 'Cardinal Health', 'disposables', '099999000638', 'bag of 100', 100, 12.4, false],
+  ['RIC-CR-2', 'Cotton Rolls #2 Medium', 'Richmond Dental', 'disposables', '099999000645', 'box of 2000', 2000, 38.0, false],
+  ['DUK-GZ-22', 'Gauze Sponges 2x2, 8-Ply', 'Dukal', 'disposables', '099999000652', 'box of 5000', 5000, 46.0, false],
+  ['ULT-VG-CL', 'VALO Grand Cordless Curing Light', 'Ultradent', 'equipment', '099999000713', 'each', 1, 1180.0, true],
+  ['MID-M11', 'M11 UltraClave Sterilizer', 'Midmark', 'equipment', '099999000676', 'each', 1, 6890.0, true],
+]
+
+/** Deterministic 32-bit hash — mirrors the jitter in seed.sql. */
+function hash(str) {
+  let h = 2166136261
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return Math.abs(h)
+}
+
+export const PRODUCTS = CATALOG.map(
+  ([sku, name, brand, category, gtin, unit, packSize, basePrice, isEquipment]) => ({
+    id: sku,
+    sku,
+    name,
+    brand,
+    category,
+    gtin,
+    unit,
+    packSize,
+    basePrice,
+    isEquipment,
+  }),
+)
+
+const PRODUCT_BY_ID = new Map(PRODUCTS.map((p) => [p.id, p]))
+const PRODUCT_BY_GTIN = new Map(PRODUCTS.map((p) => [p.gtin, p]))
+
+export function productById(id) {
+  return PRODUCT_BY_ID.get(id) ?? null
+}
+
+export function productByGtin(gtin) {
+  return PRODUCT_BY_GTIN.get(String(gtin).trim()) ?? null
+}
+
+/** Every supplier's offer on a product, cheapest first. */
+export function offersFor(productId) {
+  const product = PRODUCT_BY_ID.get(productId)
+  if (!product) return []
+
+  const offers = SUPPLIERS.map((s) => {
+    const jitter = (hash(product.sku + s.id) % 90) / 1000 - 0.045
+    const price = Number((product.basePrice * s.margin * (1 + jitter)).toFixed(2))
+    return {
+      supplierId: s.id,
+      supplierName: s.name,
+      price,
+      packSize: product.packSize,
+      unitPrice: price / product.packSize,
+      inStock: hash(s.id + product.sku) % 12 !== 0,
+      leadDays: Math.max(1, s.leadDays + ((hash(product.sku + s.id) % 3) - 1)),
+      shipFee: s.shipFee,
+      freeShipOver: s.freeShipOver,
+    }
+  })
+
+  return offers.sort((a, b) => {
+    if (a.inStock !== b.inStock) return a.inStock ? -1 : 1
+    if (a.unitPrice !== b.unitPrice) return a.unitPrice - b.unitPrice
+    return a.leadDays - b.leadDays
+  })
+}
+
+export const LOCATIONS = [
+  { id: 'loc-main', name: 'Ridgeline Dental — Main', operatories: 8, isPrimary: true },
+  { id: 'loc-north', name: 'Ridgeline Dental — North', operatories: 4, isPrimary: false },
+]
+
+export const PRACTICE = {
+  id: 'demo-practice',
+  name: 'Ridgeline Dental Studio',
+  legalName: 'Ridgeline Dental Studio, PLLC',
+  phone: '(512) 555-0148',
+  email: 'ops@ridgelinedental.com',
+  address1: '4820 Bee Cave Road',
+  address2: 'Suite 210',
+  city: 'Austin',
+  region: 'TX',
+  postalCode: '78746',
+  country: 'US',
+  timezone: 'America/Chicago',
+}
+
+/**
+ * [sku, onHand, par, reorderPoint, reorderQty, dailyBurn, bin, locationId]
+ * Stock states are deliberately mixed so every dashboard state is reachable.
+ */
+const STOCK = [
+  // --- short right now (what the dashboard should lead with) ---
+  ['3M-FSU-A2B', 0, 6, 2, 4, 0.14, 'Op 3 — Drawer 2', 'loc-main'],
+  ['CTX-SB-2', 0, 4, 1, 3, 0.06, 'Imaging station', 'loc-main'],
+  ['MT-N-M', 4, 14, 5, 10, 0.62, 'Sterile A — Shelf 1', 'loc-main'],
+  ['CTX-L3-EL', 3, 10, 3, 8, 0.35, 'Sterile A — Shelf 2', 'loc-main'],
+  ['SEP-ART-100', 2, 6, 2, 4, 0.18, 'Anesthetic drawer', 'loc-main'],
+  ['3M-AT-1262', 1, 3, 1, 2, 0.03, 'Sterile B — Log drawer', 'loc-main'],
+  // --- below par but not yet at the reorder point ---
+  ['YNG-PA-SC', 7, 10, 4, 8, 0.33, 'Hygiene 1 — Drawer 1', 'loc-main'],
+  ['DEN-PTG-25', 3, 5, 2, 3, 0.06, 'Endo tray station', 'loc-main'],
+  ['CAR-MN-27L', 5, 8, 3, 5, 0.19, 'Anesthetic drawer', 'loc-main'],
+  ['DEN-AQ-HB', 4, 5, 2, 3, 0.07, 'Lab bench', 'loc-main'],
+  // --- healthy ---
+  ['MT-N-L', 13, 12, 4, 8, 0.41, 'Sterile A — Shelf 1', 'loc-main'],
+  ['MTX-CW-160', 11, 10, 4, 6, 0.28, 'Op supply cart', 'loc-main'],
+  ['HAL-SP-35', 9, 8, 3, 6, 0.22, 'Sterile B', 'loc-main'],
+  ['3M-FSU-A3B', 7, 6, 2, 4, 0.11, 'Op 3 — Drawer 2', 'loc-main'],
+  ['3M-SBU-5', 4, 4, 2, 3, 0.06, 'Op 3 — Drawer 2', 'loc-main'],
+  ['ULT-UE-KIT', 6, 5, 2, 3, 0.07, 'Op 3 — Drawer 1', 'loc-main'],
+  ['GC-F9-A2', 5, 4, 1, 2, 0.04, 'Restorative cabinet', 'loc-main'],
+  ['DEN-PV3-RF', 3, 3, 1, 2, 0.05, 'Restorative cabinet', 'loc-main'],
+  ['3M-VAN-100', 5, 4, 1, 3, 0.09, 'Hygiene 1 — Drawer 3', 'loc-main'],
+  ['DEN-NP-MM', 9, 8, 3, 5, 0.24, 'Hygiene 1 — Drawer 1', 'loc-main'],
+  ['3M-CPS-LC', 7, 6, 2, 4, 0.08, 'Hygiene 2', 'loc-main'],
+  ['COL-GP-F2', 8, 6, 2, 3, 0.05, 'Endo tray station', 'loc-main'],
+  ['VST-CX-16', 7, 6, 2, 4, 0.12, 'Endo tray station', 'loc-main'],
+  ['ETH-CG-40', 6, 5, 2, 3, 0.04, 'Surgical cabinet', 'loc-main'],
+  ['ASP-BP-15', 5, 4, 2, 2, 0.05, 'Surgical cabinet', 'loc-main'],
+  ['STR-BLX-4010', 11, 10, 4, 5, 0.09, 'Implant safe', 'loc-main'],
+  ['STR-HA-4505', 14, 12, 5, 6, 0.08, 'Implant safe', 'loc-main'],
+  ['DEN-JP-FS', 9, 8, 3, 5, 0.16, 'Lab bench', 'loc-main'],
+  ['SEP-LID-100', 7, 6, 2, 4, 0.15, 'Anesthetic drawer', 'loc-main'],
+  ['MC-ND-856', 12, 10, 4, 6, 0.27, 'Op supply cart', 'loc-main'],
+  ['SSW-245', 9, 8, 3, 5, 0.21, 'Op supply cart', 'loc-main'],
+  ['ULT-OP-20M', 16, 15, 6, 10, 0.31, 'Front desk retail', 'loc-main'],
+  ['CTX-BIB-BL', 7, 6, 2, 4, 0.13, 'Central supply', 'loc-main'],
+  ['CAR-SE-CL', 14, 12, 5, 8, 0.42, 'Central supply', 'loc-main'],
+  ['RIC-CR-2', 4, 4, 1, 2, 0.05, 'Central supply', 'loc-main'],
+  ['DUK-GZ-22', 6, 5, 2, 3, 0.08, 'Central supply', 'loc-main'],
+  ['ULT-VG-CL', 5, 5, 2, 2, 0.0, 'Op equipment', 'loc-main'],
+  // --- second location ---
+  ['MT-N-M', 4, 10, 4, 8, 0.38, 'Sterile — Shelf 1', 'loc-north'],
+  ['DEN-NP-MM', 5, 6, 2, 4, 0.17, 'Hygiene 1', 'loc-north'],
+  ['CTX-L3-EL', 9, 8, 3, 6, 0.22, 'Sterile — Shelf 1', 'loc-north'],
+  ['SEP-LID-100', 6, 5, 2, 3, 0.11, 'Anesthetic drawer', 'loc-north'],
+  ['CAR-SE-CL', 11, 10, 4, 6, 0.29, 'Central supply', 'loc-north'],
+]
+
+function daysFromNow(n) {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
+  return d.toISOString()
+}
+
+export function buildInventory() {
+  return STOCK.map(([sku, onHand, par, reorderPoint, reorderQty, dailyBurn, bin, locationId], i) => {
+    const product = PRODUCT_BY_ID.get(sku)
+    const best = offersFor(sku).find((o) => o.inStock) ?? null
+    const inStockOffers = offersFor(sku).filter((o) => o.inStock)
+    const worst = inStockOffers.length
+      ? inStockOffers[inStockOffers.length - 1]
+      : null
+
+    const stockStatus =
+      onHand <= 0 ? 'out' : onHand <= reorderPoint ? 'low' : onHand < par ? 'below_par' : 'ok'
+
+    // A few lots carry an expiry so the expiring-soon surface has real data.
+    const expiring = ['SEP-ART-100', 'SEP-LID-100', '3M-FSU-A2B', 'VST-CX-16'].includes(sku)
+
+    return {
+      id: `inv-${locationId}-${sku}`,
+      productId: sku,
+      locationId,
+      locationName: LOCATIONS.find((l) => l.id === locationId)?.name ?? '',
+      productName: product.name,
+      brand: product.brand,
+      unit: product.unit,
+      gtin: product.gtin,
+      categorySlug: product.category,
+      categoryName: CATEGORIES.find((c) => c.slug === product.category)?.name ?? '',
+      isEquipment: product.isEquipment,
+      onHand,
+      parLevel: par,
+      reorderPoint,
+      reorderQty,
+      bin,
+      dailyBurn,
+      stockStatus,
+      pctOfPar: par > 0 ? Math.round((onHand / par) * 100) : null,
+      daysOfCover: dailyBurn > 0 ? Math.round(onHand / dailyBurn) : null,
+      bestUnitPrice: best?.unitPrice ?? null,
+      bestPrice: best?.price ?? null,
+      bestSupplierId: best?.supplierId ?? null,
+      bestSupplierName: best?.supplierName ?? null,
+      bestLeadDays: best?.leadDays ?? null,
+      maxUnitPrice: worst?.unitPrice ?? null,
+      offerCount: inStockOffers.length,
+      expiresAt: expiring ? daysFromNow(18 + (i % 5) * 9) : null,
+      lastCountedAt: daysFromNow(-(3 + (i % 21))),
+    }
+  })
+}
+
+export const ASSETS = [
+  {
+    id: 'asset-1',
+    name: 'M11 UltraClave Sterilizer',
+    manufacturer: 'Midmark',
+    model: 'M11-022',
+    serialNumber: 'V1811-0942',
+    locationId: 'loc-main',
+    status: 'active',
+    purchasedAt: '2021-04-12',
+    purchasePrice: 6890,
+    warrantyExpiresAt: '2026-04-12',
+    nextServiceAt: daysFromNow(11),
+    lastServicedAt: '2026-02-14',
+  },
+  {
+    id: 'asset-2',
+    name: 'A-dec 500 Chair — Op 3',
+    manufacturer: 'A-dec',
+    model: '511',
+    serialNumber: 'AD500-33718',
+    locationId: 'loc-main',
+    status: 'active',
+    purchasedAt: '2020-08-02',
+    purchasePrice: 28500,
+    warrantyExpiresAt: '2025-08-02',
+    nextServiceAt: daysFromNow(-4),
+    lastServicedAt: '2025-08-19',
+  },
+  {
+    id: 'asset-3',
+    name: 'Elite Air Compressor, 5 User',
+    manufacturer: 'DentalEZ',
+    model: 'AC-5U',
+    serialNumber: 'DEZ-55210',
+    locationId: 'loc-main',
+    status: 'active',
+    purchasedAt: '2019-11-20',
+    purchasePrice: 5980,
+    warrantyExpiresAt: '2024-11-20',
+    nextServiceAt: daysFromNow(46),
+    lastServicedAt: '2026-05-30',
+  },
+  {
+    id: 'asset-4',
+    name: 'STATIM 5000 G4',
+    manufacturer: 'SciCan',
+    model: '5000G4',
+    serialNumber: 'SC5G4-11902',
+    locationId: 'loc-north',
+    status: 'servicing',
+    purchasedAt: '2022-06-15',
+    purchasePrice: 9450,
+    warrantyExpiresAt: '2027-06-15',
+    nextServiceAt: daysFromNow(3),
+    lastServicedAt: '2026-01-22',
+  },
+]
+
+export const ORDERS = [
+  {
+    id: 'ord-1042',
+    reference: 'PO-1042',
+    supplierId: 'net32',
+    supplierName: 'Net32',
+    locationId: 'loc-main',
+    status: 'confirmed',
+    subtotal: 486.22,
+    shipping: 6.5,
+    tax: 40.11,
+    total: 532.83,
+    savings: 91.4,
+    placedAt: daysFromNow(-3),
+    expectedAt: daysFromNow(2),
+    itemCount: 7,
+  },
+  {
+    id: 'ord-1041',
+    reference: 'PO-1041',
+    supplierId: 'darby',
+    supplierName: 'Darby Dental',
+    locationId: 'loc-main',
+    status: 'received',
+    subtotal: 1204.5,
+    shipping: 0,
+    tax: 99.37,
+    total: 1303.87,
+    savings: 212.75,
+    placedAt: daysFromNow(-12),
+    expectedAt: daysFromNow(-8),
+    receivedAt: daysFromNow(-8),
+    itemCount: 14,
+  },
+  {
+    id: 'ord-1040',
+    reference: 'PO-1040',
+    supplierId: 'benco',
+    supplierName: 'Benco Dental',
+    locationId: 'loc-north',
+    status: 'received',
+    subtotal: 642.18,
+    shipping: 9.95,
+    tax: 53.78,
+    total: 705.91,
+    savings: 64.2,
+    placedAt: daysFromNow(-26),
+    expectedAt: daysFromNow(-22),
+    receivedAt: daysFromNow(-21),
+    itemCount: 9,
+  },
+]
+
+/** Rolling 6-month spend, for the dashboard trend. */
+export const SPEND_HISTORY = [
+  { month: 'Mar', spend: 8420, saved: 940 },
+  { month: 'Apr', spend: 7960, saved: 1120 },
+  { month: 'May', spend: 9310, saved: 1004 },
+  { month: 'Jun', spend: 8115, saved: 1288 },
+  { month: 'Jul', spend: 8890, saved: 1402 },
+  { month: 'Aug', spend: 6240, saved: 1176 },
+]

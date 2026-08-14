@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Dentin — iOS surface tokens
+   Values track Apple's system palette so the app reads as native on device.
+   ========================================================================== */
+@layer base {
+  :root {
+    --canvas: 242 242 247; /* systemGroupedBackground */
+    --surface: 255 255 255; /* secondarySystemGroupedBackground */
+    --surface-2: 249 249 251;
+    --surface-3: 242 242 247;
+    --label: 0 0 0;
+    --label-2: 60 60 67;
+    --label-3: 138 138 142;
+    --separator: 198 198 200;
+    --fill: 120 120 128;
+
+    --nav-material: 249 249 251;
+    --brand: 14 124 123;
+  }
+
+  :root[data-theme='dark'] {
+    --canvas: 0 0 0;
+    --surface: 28 28 30;
+    --surface-2: 44 44 46;
+    --surface-3: 58 58 60;
+    --label: 255 255 255;
+    --label-2: 235 235 245;
+    --label-3: 152 152 159;
+    --separator: 84 84 88;
+    --fill: 120 120 128;
+
+    --nav-material: 18 18 20;
+    --brand: 63 184 180;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --canvas: 0 0 0;
+      --surface: 28 28 30;
+      --surface-2: 44 44 46;
+      --surface-3: 58 58 60;
+      --label: 255 255 255;
+      --label-2: 235 235 245;
+      --label-3: 152 152 159;
+      --separator: 84 84 88;
+      --fill: 120 120 128;
+
+      --nav-material: 18 18 20;
+      --brand: 63 184 180;
+    }
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-label font-sans antialiased;
+    font-size: 17px;
+    line-height: 22px;
+    letter-spacing: -0.41px;
+    /* Never bounce the document — individual scrollers own their overscroll. */
+    overscroll-behavior-y: none;
+  }
+
+  /* Inputs should not zoom the viewport on iOS: 16px is the threshold. */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  button {
+    -webkit-touch-callout: none;
+  }
+}
+
+@layer components {
+  /* Translucent chrome — the thing that makes a web app read as native. */
+  .material-chrome {
+    background-color: rgb(var(--nav-material) / 0.82);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* Grouped inset list, the iOS Settings pattern. */
+  .ios-group {
+    @apply bg-surface rounded-card overflow-hidden;
+  }
+
+  .ios-row {
+    @apply flex items-center gap-3 px-4 min-h-[44px] w-full text-left;
+  }
+
+  /* Hairline separators that stop short of the leading edge, as on iOS. */
+  .ios-row + .ios-row {
+    box-shadow: inset 0 0.5px 0 rgb(var(--separator) / 0.55);
+  }
+
+  .ios-row-inset + .ios-row-inset {
+    background-image: linear-gradient(
+      to right,
+      transparent 0,
+      transparent 60px,
+      rgb(var(--separator) / 0.55) 60px,
+      rgb(var(--separator) / 0.55) 100%
+    );
+    background-size: 100% 0.5px;
+    background-repeat: no-repeat;
+    background-position: top;
+  }
+
+  /* Screen supplies the 16px gutter; this is the extra iOS header inset. */
+  .section-label {
+    @apply text-footnote uppercase tracking-[0.5px] text-label-3 px-1 pb-2 pt-6 font-medium;
+  }
+
+  /* Scrollers keep momentum but never rubber-band the page behind them. */
+  .scroll-area {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .press {
+    @apply transition-[opacity,transform] duration-150 active:opacity-60;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-surface-2;
+  }
+
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 animate-shimmer;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--label) / 0.06),
+      transparent
+    );
+    transform: translateX(-100%);
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+
+  /* Tabular figures keep quantities and prices from jittering as they change. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
