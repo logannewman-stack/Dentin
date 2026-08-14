@@ -17,6 +17,21 @@ export function money(value) {
   return Number.isFinite(n) ? usd.format(n) : '—'
 }
 
+const usdWhole = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+})
+
+/**
+ * Money without cents, for headline figures and chart labels. At four or five
+ * digits the cents are noise — nobody reads ".00" on an annual total.
+ */
+export function moneyRound(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? usdWhole.format(n) : '—'
+}
+
 /**
  * Unit prices routinely land in fractions of a cent (a glove out of a box of
  * 200). Show the extra precision only when it actually carries information.

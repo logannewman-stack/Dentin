@@ -1,13 +1,22 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { PackageSearch, SlidersHorizontal } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  Minus,
+  PackagePlus,
+  PackageSearch,
+  Search as SearchIcon,
+  ShoppingCart,
+  SlidersHorizontal,
+} from 'lucide-react'
 import Screen from '@/components/ios/Screen'
 import { Row, Section } from '@/components/ios/List'
 import { EmptyState, Gauge, Pill, SearchField, SegmentedControl } from '@/components/ios/Controls'
 import Sheet from '@/components/ios/Sheet'
+import SwipeRow from '@/components/ios/SwipeRow'
 import ProductTile from '@/components/ProductTile'
+import { useToast } from '@/components/ios/Toast'
 import { useData } from '@/hooks/useData'
-import { listInventory, listLocations } from '@/lib/repository'
+import { listInventory, listLocations, recordMovement } from '@/lib/repository'
 import { STOCK_STATUS, coverLabel, qty, unitMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +27,8 @@ const FILTERS = [
 ]
 
 export default function Inventory() {
+  const navigate = useNavigate()
+  const toast = useToast()
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -90,17 +101,26 @@ export default function Inventory() {
       title="Inventory"
       subtitle={`${counts.all} tracked items`}
       trailing={
-        <button
-          type="button"
-          onClick={() => setFiltersOpen(true)}
-          aria-label="Filters"
-          className="press relative flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
-        >
-          <SlidersHorizontal size={20} strokeWidth={2} />
-          {activeFilters ? (
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-600" />
-          ) : null}
-        </button>
+        <>
+          <Link
+            to="/search"
+            aria-label="Search everything"
+            className="press flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
+          >
+            <SearchIcon size={20} strokeWidth={2} />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(true)}
+            aria-label="Filters"
+            className="press relative flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
+          >
+            <SlidersHorizontal size={20} strokeWidth={2} />
+            {activeFilters ? (
+              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-600" />
+            ) : null}
+          </button>
+        </>
       }
       toolbar={<SearchField value={query} onChange={setQuery} placeholder="Search items, brands, bins" />}
     >
@@ -128,8 +148,45 @@ export default function Inventory() {
             {items.map((item) => {
               const status = STOCK_STATUS[item.stockStatus]
               return (
-                <Row
+                <SwipeRow
                   key={item.id}
+                  actions={[
+                    {
+                      label: 'Use 1',
+                      icon: Minus,
+                      tone: 'brand',
+                      onPress: async () => {
+                        await recordMovement({
+                          inventoryItemId: item.id,
+                          type: 'consumed',
+                          quantity: 1,
+                          reason: 'Swiped from inventory',
+                        })
+                        toast({
+                          title: `${qty(item.onHand - 1)} left`,
+                          body: item.productName,
+                          action: {
+                            label: 'Undo',
+                            onPress: () =>
+                              recordMovement({
+                                inventoryItemId: item.id,
+                                type: 'received',
+                                quantity: 1,
+                                reason: 'Undo',
+                              }),
+                          },
+                        })
+                      },
+                    },
+                    {
+                      label: 'Reorder',
+                      icon: ShoppingCart,
+                      tone: 'warning',
+                      onPress: () => navigate('/orders/new'),
+                    },
+                  ]}
+                >
+                <Row
                   to={`/inventory/${item.id}`}
                   leading={<ProductTile product={item} size={40} imageUrl={item.imageUrl} />}
                   title={item.productName}
@@ -194,11 +251,21 @@ export default function Inventory() {
                     </span>
                   ) : null}
                 </Row>
+                </SwipeRow>
               )
             })}
           </Section>
         ))
       )}
+
+      <Section footer="Swipe any row left to draw stock down or jump straight to reordering.">
+        <Row
+          to="/catalog"
+          leading={<PackagePlus size={18} className="text-brand-600" aria-hidden="true" />}
+          title="Add items from the catalog"
+          subtitle="Start tracking something you stock but have not logged"
+        />
+      </Section>
 
       <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filter" detent="medium">
         <Section title="Location">

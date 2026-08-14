@@ -49,6 +49,13 @@ export default {
         'label-3': 'rgb(var(--label-3) / <alpha-value>)',
         separator: 'rgb(var(--separator) / <alpha-value>)',
         fill: 'rgb(var(--fill) / <alpha-value>)',
+        viz: {
+          1: 'rgb(var(--viz-1) / <alpha-value>)',
+          2: 'rgb(var(--viz-2) / <alpha-value>)',
+          grid: 'rgb(var(--viz-grid) / <alpha-value>)',
+          axis: 'rgb(var(--viz-axis) / <alpha-value>)',
+          muted: 'rgb(var(--viz-muted) / <alpha-value>)',
+        },
       },
       fontFamily: {
         sans: [

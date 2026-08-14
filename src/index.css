@@ -20,6 +20,15 @@
 
     --nav-material: 249 249 251;
     --brand: 14 124 123;
+
+    /* Chart palette — validated for CVD separation, chroma and contrast
+       against the white chart surface. Do not hand-tune these; re-run the
+       palette validator against the surface they render on. */
+    --viz-1: 13 148 136; /* teal   — what the practice paid */
+    --viz-2: 235 104 52; /* orange — what Dentin saved */
+    --viz-grid: 225 224 217;
+    --viz-axis: 195 194 183;
+    --viz-muted: 137 135 129;
   }
 
   :root[data-theme='dark'] {
@@ -35,6 +44,13 @@
 
     --nav-material: 18 18 20;
     --brand: 63 184 180;
+
+    /* Re-stepped for the dark chart surface, not an automatic flip. */
+    --viz-1: 38 166 154;
+    --viz-2: 217 89 38;
+    --viz-grid: 44 44 42;
+    --viz-axis: 56 56 53;
+    --viz-muted: 137 135 129;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -51,6 +67,12 @@
 
       --nav-material: 18 18 20;
       --brand: 63 184 180;
+
+      --viz-1: 38 166 154;
+      --viz-2: 217 89 38;
+      --viz-grid: 44 44 42;
+      --viz-axis: 56 56 53;
+      --viz-muted: 137 135 129;
     }
   }
 

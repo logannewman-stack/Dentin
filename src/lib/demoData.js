@@ -385,12 +385,91 @@ export const ORDERS = [
   },
 ]
 
-/** Rolling 6-month spend, for the dashboard trend. */
+/** Line items per order: [orderId, sku, quantity, unitPrice, receivedQty] */
+export const ORDER_ITEMS = [
+  ['ord-1042', 'MT-N-M', 10, 25.21, 0],
+  ['ord-1042', 'CTX-L3-EL', 8, 22.23, 0],
+  ['ord-1042', '3M-FSU-A2B', 4, 89.41, 0],
+  ['ord-1042', 'SEP-ART-100', 4, 117.34, 0],
+  ['ord-1042', 'CAR-MN-27L', 5, 29.17, 0],
+  ['ord-1042', '3M-AT-1262', 2, 59.32, 0],
+  ['ord-1042', 'CTX-SB-2', 3, 41.06, 0],
+
+  ['ord-1041', 'DEN-NP-MM', 5, 39.63, 5],
+  ['ord-1041', 'YNG-PA-SC', 8, 28.86, 8],
+  ['ord-1041', 'MC-ND-856', 6, 37.42, 6],
+  ['ord-1041', 'SSW-245', 5, 18.94, 5],
+  ['ord-1041', 'CAR-SE-CL', 8, 10.55, 8],
+  ['ord-1041', 'RIC-CR-2', 2, 34.18, 2],
+  ['ord-1041', 'DUK-GZ-22', 3, 41.22, 3],
+  ['ord-1041', '3M-VAN-100', 3, 236.18, 3],
+
+  ['ord-1040', 'MT-N-M', 8, 26.44, 8],
+  ['ord-1040', 'DEN-NP-MM', 4, 41.55, 4],
+  ['ord-1040', 'CTX-L3-EL', 6, 23.31, 6],
+  ['ord-1040', 'SEP-LID-100', 3, 74.12, 3],
+  ['ord-1040', 'CAR-SE-CL', 6, 11.06, 6],
+]
+
+/**
+ * Rolling 12-month spend. `spend` is what the practice paid; `saved` is the
+ * gap to what the same basket would have cost at the priciest supplier —
+ * together they make list price, which is why they stack.
+ */
 export const SPEND_HISTORY = [
+  { month: 'Sep', spend: 7480, saved: 812 },
+  { month: 'Oct', spend: 8210, saved: 903 },
+  { month: 'Nov', spend: 9040, saved: 1015 },
+  { month: 'Dec', spend: 6890, saved: 744 },
+  { month: 'Jan', spend: 9620, saved: 1188 },
+  { month: 'Feb', spend: 8340, saved: 1067 },
   { month: 'Mar', spend: 8420, saved: 940 },
   { month: 'Apr', spend: 7960, saved: 1120 },
   { month: 'May', spend: 9310, saved: 1004 },
   { month: 'Jun', spend: 8115, saved: 1288 },
   { month: 'Jul', spend: 8890, saved: 1402 },
   { month: 'Aug', spend: 6240, saved: 1176 },
+]
+
+/**
+ * Trailing-12-month spend per category. Reflects how a general practice
+ * actually spends: infection control and restorative dominate, implants are
+ * lumpy and high-ticket.
+ */
+export const CATEGORY_SPEND = [
+  { slug: 'infection-control', spend: 21840 },
+  { slug: 'restorative', spend: 18420 },
+  { slug: 'implants', spend: 14260 },
+  { slug: 'preventive', spend: 11380 },
+  { slug: 'disposables', spend: 9240 },
+  { slug: 'anesthetics', spend: 7960 },
+  { slug: 'rotary-burs', spend: 6410 },
+  { slug: 'endodontics', spend: 5820 },
+  { slug: 'impression-lab', spend: 4180 },
+  { slug: 'imaging', spend: 3120 },
+  { slug: 'oral-surgery', spend: 2740 },
+  { slug: 'whitening', spend: 1890 },
+]
+
+/** Where purchase orders actually landed over the trailing 12 months. */
+export const SUPPLIER_SPEND = [
+  { id: 'net32', spend: 32180, orders: 41 },
+  { id: 'darby', spend: 24460, orders: 28 },
+  { id: 'benco', spend: 18920, orders: 19 },
+  { id: 'dental-city', spend: 14380, orders: 16 },
+  { id: 'henry-schein', spend: 11240, orders: 9 },
+  { id: 'safco', spend: 6820, orders: 7 },
+  { id: 'patterson', spend: 5260, orders: 4 },
+]
+
+/** Highest-spend SKUs over the trailing 12 months. */
+export const TOP_ITEMS = [
+  { sku: 'MT-N-M', spend: 8940 },
+  { sku: 'STR-BLX-4010', spend: 8240 },
+  { sku: '3M-FSU-A2B', spend: 5120 },
+  { sku: 'SEP-ART-100', spend: 4680 },
+  { sku: 'CTX-L3-EL', spend: 4210 },
+  { sku: '3M-VAN-100', spend: 3960 },
+  { sku: 'MC-ND-856', spend: 3140 },
+  { sku: 'DEN-PV3-RF', spend: 2870 },
 ]

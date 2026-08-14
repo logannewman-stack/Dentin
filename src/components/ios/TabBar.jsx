@@ -1,20 +1,24 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Boxes, LayoutGrid, ScanLine, ShoppingCart, Settings2 } from 'lucide-react'
+import { Boxes, ChartNoAxesColumn, LayoutGrid, ScanLine, ShoppingCart } from 'lucide-react'
 import { cn, haptic } from '@/lib/utils'
 
+// Five is the iOS ceiling before a tab bar starts to feel like a menu.
+// Practice settings live behind the Today screen's nav, as on iOS.
 const TABS = [
   { to: '/', label: 'Today', Icon: LayoutGrid, end: true },
   { to: '/inventory', label: 'Inventory', Icon: Boxes },
   { to: '/scan', label: 'Scan', Icon: ScanLine, prominent: true },
   { to: '/orders', label: 'Orders', Icon: ShoppingCart },
-  { to: '/settings', label: 'Practice', Icon: Settings2 },
+  { to: '/insights', label: 'Insights', Icon: ChartNoAxesColumn },
 ]
 
 export default function TabBar({ badges = {} }) {
   const { pathname } = useLocation()
 
-  // The scanner is a full-bleed camera surface; chrome would fight it.
-  if (pathname.startsWith('/scan')) return null
+  // Full-bleed surfaces own the whole screen: the scanner is a camera view,
+  // and setup flows must not offer an escape hatch that skips them.
+  const HIDDEN = ['/scan', '/onboarding', '/welcome']
+  if (HIDDEN.some((p) => pathname.startsWith(p))) return null
 
   return (
     <nav

@@ -15,6 +15,8 @@ import { Row, RowIcon, Section } from '@/components/ios/List'
 import { Pill, SegmentedControl, Toggle } from '@/components/ios/Controls'
 import Button from '@/components/ios/Button'
 import Sheet from '@/components/ios/Sheet'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
 import { getPractice, isDemo, listLocations } from '@/lib/repository'
 import { permission, pushSupport, sendTestNotification, subscribeToPush } from '@/lib/push'
@@ -48,6 +50,8 @@ function useTheme() {
 }
 
 export default function Settings() {
+  const navigate = useNavigate()
+  const { signOut } = useAuth()
   const { data: practice } = useData(() => getPractice(), [])
   const { data: locations } = useData(() => listLocations(), [])
 
@@ -274,6 +278,15 @@ export default function Settings() {
           chevron={false}
           trailing={isDemo ? <Pill tone="warning">Demo</Pill> : <Pill tone="good">Live</Pill>}
         />
+      </Section>
+
+      <Section>
+        <Row
+          title="Re-run practice setup"
+          subtitle="Revisit locations, suppliers and what you track"
+          onClick={() => navigate('/onboarding')}
+        />
+        <Row title="Sign out" destructive chevron={false} onClick={signOut} />
       </Section>
 
       <p className="px-1 pb-2 pt-6 text-center text-footnote text-label-3">

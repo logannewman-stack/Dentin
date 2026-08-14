@@ -1,19 +1,13 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Area,
-  AreaChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-} from 'recharts'
-import {
   AlertTriangle,
   ArrowRight,
   Bell,
   CalendarClock,
   PackageCheck,
   ScanLine,
+  Settings2,
   TrendingDown,
   Truck,
   Wrench,
@@ -22,6 +16,7 @@ import Screen from '@/components/ios/Screen'
 import { Row, RowIcon, Section } from '@/components/ios/List'
 import { Gauge, Pill } from '@/components/ios/Controls'
 import Button from '@/components/ios/Button'
+import Sparkline from '@/components/charts/Sparkline'
 import ProductTile from '@/components/ProductTile'
 import { useData } from '@/hooks/useData'
 import {
@@ -142,16 +137,25 @@ export default function Dashboard() {
       title="Today"
       subtitle={practice?.name}
       trailing={
-        <Link
-          to="/alerts"
-          aria-label={`Alerts${criticalCount ? `, ${criticalCount} critical` : ''}`}
-          className="press relative flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
-        >
-          <Bell size={21} strokeWidth={2} />
-          {criticalCount ? (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-ios-red ring-2 ring-[rgb(var(--nav-material))]" />
-          ) : null}
-        </Link>
+        <>
+          <Link
+            to="/alerts"
+            aria-label={`Alerts${criticalCount ? `, ${criticalCount} critical` : ''}`}
+            className="press relative flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
+          >
+            <Bell size={21} strokeWidth={2} />
+            {criticalCount ? (
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-ios-red ring-2 ring-[rgb(var(--nav-material))]" />
+            ) : null}
+          </Link>
+          <Link
+            to="/settings"
+            aria-label="Practice settings"
+            className="press flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
+          >
+            <Settings2 size={21} strokeWidth={2} />
+          </Link>
+        </>
       }
     >
       <p className="pb-3 pt-1 text-subhead text-label-3">
@@ -298,65 +302,34 @@ export default function Dashboard() {
         </Section>
       ) : null}
 
-      {/* Savings trend */}
+      {/* Savings trend — the detail lives on Insights; this is the headline */}
       {spend?.length ? (
         <Section title="Spend & savings">
-          <div className="p-4">
-            <div className="flex items-baseline justify-between">
-              <div>
+          <Link to="/insights" className="press block p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
                 <p className="tnum text-title2 font-bold">
                   {money(spend.reduce((s, m) => s + m.saved, 0))}
                 </p>
-                <p className="text-footnote text-label-3">saved over 6 months</p>
+                <p className="text-footnote text-label-3">
+                  saved over {spend.length} months
+                </p>
+                <Pill tone="good" icon={TrendingDown} className="mt-2">
+                  {Math.round(
+                    (spend.reduce((s, m) => s + m.saved, 0) /
+                      spend.reduce((s, m) => s + m.spend + m.saved, 0)) *
+                      100,
+                  )}
+                  % below list
+                </Pill>
               </div>
-              <Pill tone="good" icon={TrendingDown}>
-                {Math.round(
-                  (spend.reduce((s, m) => s + m.saved, 0) /
-                    spend.reduce((s, m) => s + m.spend, 0)) *
-                    100,
-                )}
-                % below list
-              </Pill>
+              <Sparkline values={spend.map((m) => m.saved)} width={96} height={44} />
             </div>
-
-            <div className="mt-4 h-28 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={spend} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
-                  <defs>
-                    <linearGradient id="savedFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0E7C7B" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#0E7C7B" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: 'rgb(var(--label-3))' }}
-                    dy={4}
-                  />
-                  <Tooltip
-                    cursor={{ stroke: 'rgb(var(--separator))', strokeWidth: 1 }}
-                    contentStyle={{
-                      borderRadius: 10,
-                      border: 'none',
-                      background: 'rgb(var(--surface))',
-                      boxShadow: '0 6px 24px rgba(0,0,0,0.14)',
-                      fontSize: 13,
-                    }}
-                    formatter={(value, name) => [money(value), name === 'saved' ? 'Saved' : 'Spend']}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="saved"
-                    stroke="#0E7C7B"
-                    strokeWidth={2.4}
-                    fill="url(#savedFill)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+            <p className="mt-3 flex items-center gap-1 text-subhead font-medium text-brand-600 dark:text-brand-400">
+              See the full breakdown
+              <ArrowRight size={14} strokeWidth={2.4} aria-hidden="true" />
+            </p>
+          </Link>
         </Section>
       ) : null}
 

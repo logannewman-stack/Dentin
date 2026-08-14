@@ -39,6 +39,15 @@ service log is the first thing a board inspection asks for.
 stock, expiring lots and equipment service, and delivers one digest push per
 device rather than a notification per item.
 
+**See where the money went.** An Insights screen charts spend against list
+price month over month, breaks it down by category, supplier and SKU, and
+flags every item whose remaining cover is shorter than its supplier's lead
+time — the ones where reordering today still means a gap.
+
+**Set up in five steps.** A guided onboarding captures the practice, its
+shipping address, its locations, the suppliers it buys from and what it wants
+tracked, so a new practice is productive without a data-import project.
+
 ---
 
 ## Stack
@@ -51,6 +60,24 @@ device rather than a notification per item.
 | Scheduled work | Vercel Cron → `/api/cron/low-stock` |
 | Push | Web Push (VAPID) via service worker |
 | Scanning | `BarcodeDetector` with `@zxing/browser` fallback |
+| Charts | Hand-rolled SVG/HTML — no charting dependency |
+
+### On the charts
+
+The charts are built directly rather than pulled from a library, for two
+reasons. The mark specs the design calls for — a 2px surface gap between
+stacked segments, a 4px rounded data-end that stays square on the baseline,
+bars capped at 24px — are awkward to force through a general-purpose charting
+API, and a charting library was the single largest thing in the bundle.
+Removing it cut ~386 KB.
+
+The two-colour chart palette is **validated, not chosen by eye**: it clears
+the lightness band, chroma floor, colour-vision-deficiency separation,
+normal-vision floor and contrast against the surface it actually renders on,
+in both light and dark. Dark is re-stepped for the dark surface rather than
+flipped. If you change `--viz-1` / `--viz-2` in `src/index.css`, re-run the
+validation against both surfaces before shipping — the CVD check in
+particular is not something you can eyeball.
 
 ---
 
@@ -170,12 +197,15 @@ api/                    Vercel serverless functions
   barcode-lookup.js     GTIN resolution
   cron/low-stock.js     Daily sweep and push digest
 src/
-  components/ios/       Screen, TabBar, List, Sheet, Controls, Button
-  pages/                Dashboard, Inventory, ItemDetail, Scan, Orders,
-                        Reorder, Alerts, Equipment, Settings
+  components/ios/       Screen, TabBar, List, Sheet, Controls, Button,
+                        SwipeRow, Toast
+  components/charts/    StackedColumns, BarList, HealthMeter, Sparkline
+  pages/                Welcome, Onboarding, Dashboard, Inventory, ItemDetail,
+                        Scan, Catalog, Search, Orders, OrderDetail, Reorder,
+                        Insights, Alerts, Equipment, Settings
   hooks/                useData, useBarcodeScanner
-  lib/                  repository (the data seam), supabase, push,
-                        format, demoData
+  lib/                  repository (the data seam), supabase, AuthContext,
+                        push, format, demoData
 supabase/
   migrations/           Schema, RLS, views, RPCs
   seed.sql              Dental catalog and supplier market

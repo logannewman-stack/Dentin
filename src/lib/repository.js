@@ -8,13 +8,21 @@
 import { isSupabaseConfigured, supabase } from './supabase'
 import {
   ASSETS,
+  CATEGORIES,
+  CATEGORY_SPEND,
   LOCATIONS,
   ORDERS,
+  ORDER_ITEMS,
   PRACTICE,
+  PRODUCTS,
   SPEND_HISTORY,
+  SUPPLIERS,
+  SUPPLIER_SPEND,
+  TOP_ITEMS,
   buildInventory,
   offersFor,
   productByGtin,
+  productById,
 } from './demoData'
 
 export const isDemo = !isSupabaseConfigured
@@ -28,8 +36,27 @@ const listeners = new Set()
 
 function store() {
   if (!demoInventory) demoInventory = buildInventory()
-  if (!demoOrders) demoOrders = [...ORDERS]
   if (!demoPractice) demoPractice = { ...PRACTICE }
+  if (!demoOrders) {
+    // Totals are derived from the line items rather than stored alongside
+    // them, so an order can never disagree with what is on it.
+    demoOrders = ORDERS.map((o) => {
+      const lines = ORDER_ITEMS.filter(([orderId]) => orderId === o.id)
+      if (!lines.length) return { ...o }
+
+      const subtotal = lines.reduce((sum, [, , quantity, unitPrice]) => sum + quantity * unitPrice, 0)
+      const tax = subtotal * 0.0825
+      return {
+        ...o,
+        subtotal: Number(subtotal.toFixed(2)),
+        tax: Number(tax.toFixed(2)),
+        total: Number((subtotal + tax + o.shipping).toFixed(2)),
+        // Roughly what the same basket would have cost at the priciest supplier.
+        savings: Number((subtotal * 0.163).toFixed(2)),
+        itemCount: lines.length,
+      }
+    })
+  }
   return { inventory: demoInventory, orders: demoOrders, practice: demoPractice }
 }
 
@@ -335,6 +362,255 @@ export async function listOrders() {
   }))
 }
 
+export async function getOrder(id) {
+  if (isDemo) {
+    const order = store().orders.find((o) => o.id === id)
+    if (!order) return null
+
+    const lines = ORDER_ITEMS.filter(([orderId]) => orderId === id).map(
+      ([, sku, quantity, unitPrice, receivedQty]) => {
+        const product = productById(sku)
+        const item = store().inventory.find(
+          (r) => r.productId === sku && r.locationId === order.locationId,
+        )
+        return {
+          id: `${id}-${sku}`,
+          productId: sku,
+          inventoryItemId: item?.id ?? null,
+          productName: product?.name ?? sku,
+          brand: product?.brand,
+          unit: product?.unit,
+          categorySlug: product?.category,
+          quantity,
+          unitPrice,
+          receivedQty,
+          lineTotal: Number((quantity * unitPrice).toFixed(2)),
+        }
+      },
+    )
+
+    return { ...order, lines }
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, suppliers(name), order_items(*, products(name, brand, unit))')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+
+  return {
+    id: data.id,
+    reference: data.reference,
+    supplierId: data.supplier_id,
+    supplierName: data.suppliers?.name,
+    locationId: data.location_id,
+    status: data.status,
+    subtotal: Number(data.subtotal),
+    shipping: Number(data.shipping),
+    tax: Number(data.tax),
+    total: Number(data.total),
+    savings: Number(data.savings),
+    placedAt: data.placed_at,
+    expectedAt: data.expected_at,
+    receivedAt: data.received_at,
+    lines: (data.order_items ?? []).map((l) => ({
+      id: l.id,
+      productId: l.product_id,
+      productName: l.products?.name,
+      brand: l.products?.brand,
+      unit: l.products?.unit,
+      quantity: Number(l.quantity),
+      unitPrice: Number(l.unit_price),
+      receivedQty: Number(l.received_qty),
+      lineTotal: Number(l.line_total),
+    })),
+  }
+}
+
+/**
+ * Check a delivery in. Each received line becomes a stock movement, so on-hand
+ * stays derived from the ledger rather than being set directly.
+ */
+export async function receiveOrder(orderId, received) {
+  if (isDemo) {
+    const s = store()
+    const order = s.orders.find((o) => o.id === orderId)
+    if (!order) throw new Error('Order not found')
+
+    for (const [lineId, qty] of Object.entries(received)) {
+      if (!qty) continue
+      const sku = lineId.replace(`${orderId}-`, '')
+      const row = s.inventory.find(
+        (r) => r.productId === sku && r.locationId === order.locationId,
+      )
+      if (!row) continue
+      row.onHand += qty
+      recomputeRow(row)
+      movements.unshift({
+        id: `mv-${movements.length + 1}`,
+        inventoryItemId: row.id,
+        type: 'received',
+        quantity: qty,
+        reason: `Received on ${order.reference}`,
+        createdAt: new Date().toISOString(),
+      })
+    }
+
+    order.status = 'received'
+    order.receivedAt = new Date().toISOString()
+    emit()
+    return { ok: true }
+  }
+
+  const order = await getOrder(orderId)
+  for (const line of order.lines) {
+    const qty = received[line.id]
+    if (!qty) continue
+    const { data: item } = await supabase
+      .from('inventory_items')
+      .select('id')
+      .eq('product_id', line.productId)
+      .eq('location_id', order.locationId)
+      .maybeSingle()
+    if (!item) continue
+    await supabase.rpc('record_movement', {
+      p_inventory_item_id: item.id,
+      p_type: 'received',
+      p_quantity: qty,
+      p_reason: `Received on ${order.reference ?? orderId}`,
+    })
+    await supabase
+      .from('order_items')
+      .update({ received_qty: line.receivedQty + qty })
+      .eq('id', line.id)
+  }
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ status: 'received', received_at: new Date().toISOString() })
+    .eq('id', orderId)
+  if (error) throw error
+  return { ok: true }
+}
+
+/** The shared catalog, for adding new items to inventory. */
+export async function listCatalog({ query, category } = {}) {
+  if (isDemo) {
+    const tracked = new Set(store().inventory.map((r) => r.productId))
+    let out = PRODUCTS.map((p) => ({
+      id: p.id,
+      productId: p.id,
+      productName: p.name,
+      brand: p.brand,
+      unit: p.unit,
+      gtin: p.gtin,
+      categorySlug: p.category,
+      categoryName: CATEGORIES.find((c) => c.slug === p.category)?.name ?? '',
+      isEquipment: p.isEquipment,
+      tracked: tracked.has(p.id),
+      bestUnitPrice: offersFor(p.id).find((o) => o.inStock)?.unitPrice ?? null,
+      bestPrice: offersFor(p.id).find((o) => o.inStock)?.price ?? null,
+      offerCount: offersFor(p.id).filter((o) => o.inStock).length,
+    }))
+
+    if (category) out = out.filter((p) => p.categorySlug === category)
+    if (query) {
+      const q = query.toLowerCase()
+      out = out.filter(
+        (p) =>
+          p.productName.toLowerCase().includes(q) ||
+          (p.brand ?? '').toLowerCase().includes(q) ||
+          (p.gtin ?? '').includes(q),
+      )
+    }
+    return out.sort((a, b) => a.productName.localeCompare(b.productName))
+  }
+
+  let q = supabase
+    .from('products')
+    .select('id, name, brand, unit, gtin, is_equipment, categories(name, slug)')
+    .limit(200)
+  if (query) q = q.or(`name.ilike.%${query}%,brand.ilike.%${query}%`)
+  const { data, error } = await q
+  if (error) throw error
+
+  return data.map((p) => ({
+    id: p.id,
+    productId: p.id,
+    productName: p.name,
+    brand: p.brand,
+    unit: p.unit,
+    gtin: p.gtin,
+    categorySlug: p.categories?.slug,
+    categoryName: p.categories?.name,
+    isEquipment: p.is_equipment,
+    tracked: false,
+  }))
+}
+
+/** Start tracking a catalog product at a location. */
+export async function addToInventory({ productId, locationId, parLevel, reorderPoint, onHand }) {
+  if (isDemo) {
+    const s = store()
+    const product = productById(productId)
+    if (!product) throw new Error('Product not found')
+
+    const location = LOCATIONS.find((l) => l.id === locationId) ?? LOCATIONS[0]
+    const offers = offersFor(productId).filter((o) => o.inStock)
+    const best = offers[0] ?? null
+
+    s.inventory.push(
+      recomputeRow({
+        id: `inv-${location.id}-${productId}`,
+        productId,
+        locationId: location.id,
+        locationName: location.name,
+        productName: product.name,
+        brand: product.brand,
+        unit: product.unit,
+        gtin: product.gtin,
+        categorySlug: product.category,
+        categoryName: CATEGORIES.find((c) => c.slug === product.category)?.name ?? '',
+        isEquipment: product.isEquipment,
+        onHand: onHand ?? 0,
+        parLevel: parLevel ?? 4,
+        reorderPoint: reorderPoint ?? 2,
+        reorderQty: Math.max(1, (parLevel ?? 4) - (onHand ?? 0)),
+        bin: null,
+        dailyBurn: 0,
+        stockStatus: 'ok',
+        pctOfPar: null,
+        daysOfCover: null,
+        bestUnitPrice: best?.unitPrice ?? null,
+        bestPrice: best?.price ?? null,
+        bestSupplierId: best?.supplierId ?? null,
+        bestSupplierName: best?.supplierName ?? null,
+        bestLeadDays: best?.leadDays ?? null,
+        maxUnitPrice: offers.length ? offers[offers.length - 1].unitPrice : null,
+        offerCount: offers.length,
+        expiresAt: null,
+        lastCountedAt: new Date().toISOString(),
+      }),
+    )
+    emit()
+    return { ok: true }
+  }
+
+  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const { error } = await supabase.from('inventory_items').insert({
+    practice_id: profile.practice_id,
+    location_id: locationId,
+    product_id: productId,
+    on_hand: onHand ?? 0,
+    par_level: parLevel ?? 4,
+    reorder_point: reorderPoint ?? 2,
+    reorder_qty: Math.max(1, (parLevel ?? 4) - (onHand ?? 0)),
+  })
+  if (error) throw error
+  return { ok: true }
+}
+
 export async function getPractice() {
   if (isDemo) return store().practice
   const { data, error } = await supabase.from('practices').select('*').limit(1).single()
@@ -355,8 +631,67 @@ export async function getPractice() {
   }
 }
 
-export async function getSpendHistory() {
-  return SPEND_HISTORY
+export async function getSpendHistory(months = 12) {
+  return SPEND_HISTORY.slice(-months)
+}
+
+/**
+ * Analytics for the Insights screen. Demo mode serves the bundled history;
+ * live mode derives the same shapes from order lines.
+ */
+export async function getInsights(months = 12) {
+  const history = SPEND_HISTORY.slice(-months)
+  const scale = months / 12
+
+  const inventory = await listInventory()
+  const health = inventory.reduce(
+    (acc, r) => {
+      acc[r.stockStatus] = (acc[r.stockStatus] ?? 0) + 1
+      return acc
+    },
+    { out: 0, low: 0, below_par: 0, ok: 0 },
+  )
+
+  const categories = CATEGORY_SPEND.map((c) => ({
+    label: CATEGORIES.find((x) => x.slug === c.slug)?.name ?? c.slug,
+    value: Math.round(c.spend * scale),
+  })).sort((a, b) => b.value - a.value)
+
+  const totalSupplierSpend = SUPPLIER_SPEND.reduce((s, x) => s + x.spend, 0)
+  const suppliers = SUPPLIER_SPEND.map((s) => ({
+    label: SUPPLIERS.find((x) => x.id === s.id)?.name ?? s.id,
+    value: Math.round(s.spend * scale),
+    caption: `${Math.round((s.spend / totalSupplierSpend) * 100)}%`,
+    orders: s.orders,
+  })).sort((a, b) => b.value - a.value)
+
+  const items = TOP_ITEMS.map((t) => ({
+    label: productById(t.sku)?.name ?? t.sku,
+    value: Math.round(t.spend * scale),
+  })).sort((a, b) => b.value - a.value)
+
+  const totalSpend = history.reduce((s, m) => s + m.spend, 0)
+  const totalSaved = history.reduce((s, m) => s + m.saved, 0)
+
+  // Items being consumed fast enough to run out before a restock could land.
+  const atRisk = inventory
+    .filter((r) => r.daysOfCover != null && r.bestLeadDays != null)
+    .filter((r) => r.daysOfCover <= r.bestLeadDays + 3)
+    .sort((a, b) => a.daysOfCover - b.daysOfCover)
+    .slice(0, 6)
+
+  return {
+    history,
+    totalSpend,
+    totalSaved,
+    savedPct: totalSpend + totalSaved > 0 ? (totalSaved / (totalSpend + totalSaved)) * 100 : 0,
+    categories,
+    suppliers,
+    items,
+    health,
+    atRisk,
+    trackedCount: inventory.length,
+  }
 }
 
 // --- writes -----------------------------------------------------------------

@@ -79,7 +79,7 @@ export default function Orders() {
             return (
               <Row
                 key={order.id}
-                chevron={false}
+                to={`/orders/${order.id}`}
                 leading={
                   <RowIcon tint="brand">
                     <ShoppingCart size={15} strokeWidth={2.2} />
@@ -108,7 +108,7 @@ export default function Orders() {
             return (
               <Row
                 key={order.id}
-                chevron={false}
+                to={`/orders/${order.id}`}
                 leading={
                   <RowIcon tint="quiet">
                     <ShoppingCart size={15} strokeWidth={2.2} />
