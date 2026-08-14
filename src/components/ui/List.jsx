@@ -5,22 +5,27 @@ import { cn, haptic } from '@/lib/utils'
 
 export function Section({ title, footer, children, className, action }) {
   return (
-    <section className={cn('mb-2', className)}>
+    <section className={cn('mb-1', className)}>
       {title || action ? (
-        <div className="flex items-end justify-between">
+        <div className="flex items-baseline justify-between gap-2">
           {title ? <h3 className="section-label">{title}</h3> : <span />}
-          {action ? <div className="pb-2 pr-1 pt-6">{action}</div> : null}
+          {action ? <div className="pb-1.5 pt-5">{action}</div> : null}
         </div>
       ) : null}
-      <div className="ios-group">{children}</div>
-      {footer ? <p className="px-1 pt-2 text-footnote text-label-3">{footer}</p> : null}
+      <div className="panel">{children}</div>
+      {footer ? (
+        <p className="px-0.5 pt-1.5 text-footnote leading-snug text-label-3">{footer}</p>
+      ) : null}
     </section>
   )
 }
 
 /**
- * One row of a grouped list. Renders as a link, a button or a plain div
- * depending on what it's given, so the semantics stay honest.
+ * One row of a panel.
+ *
+ * Denser than the iOS equivalent — 38px minimum instead of 44 — because a
+ * pointer-and-keyboard audience reads more rows at once and scrolls less.
+ * Chevrons only appear on rows that actually navigate.
  */
 export const Row = forwardRef(function Row(
   {
@@ -48,13 +53,9 @@ export const Row = forwardRef(function Row(
     <>
       {leading ? <span className="shrink-0">{leading}</span> : null}
 
-      <span className="flex min-w-0 flex-1 flex-col py-2">
+      <span className="flex min-w-0 flex-1 flex-col py-1.5">
         <span
-          className={cn(
-            'truncate text-body',
-            destructive ? 'text-ios-red' : 'text-label',
-            interactive && !destructive ? 'font-normal' : null,
-          )}
+          className={cn('truncate text-body', destructive ? 'text-ios-red' : 'text-label')}
         >
           {title}
         </span>
@@ -65,26 +66,26 @@ export const Row = forwardRef(function Row(
       </span>
 
       {detail ? (
-        <span className="tnum shrink-0 text-callout text-label-3">{detail}</span>
+        <span className="tnum shrink-0 text-subhead text-label-3">{detail}</span>
       ) : null}
       {trailing}
       {showChevron ? (
-        <ChevronRight size={17} className="shrink-0 text-label-3/70" aria-hidden="true" />
+        <ChevronRight size={14} className="shrink-0 text-label-3/60" aria-hidden="true" />
       ) : null}
     </>
   )
 
   const classes = cn(
-    'ios-row',
-    inset && leading ? 'ios-row-inset' : null,
-    interactive && !disabled ? 'press active:bg-surface-2' : null,
+    'row',
+    inset && leading ? 'row-inset' : null,
+    interactive && !disabled ? 'press' : null,
     disabled ? 'opacity-40' : null,
     className,
   )
 
   if (to && !disabled) {
     return (
-      <Link ref={ref} to={to} className={classes} onClick={() => haptic(6)} {...rest}>
+      <Link ref={ref} to={to} className={classes} onClick={() => haptic(4)} {...rest}>
         {body}
       </Link>
     )
@@ -97,7 +98,7 @@ export const Row = forwardRef(function Row(
         type="button"
         disabled={disabled}
         onClick={(e) => {
-          haptic(6)
+          haptic(4)
           onClick(e)
         }}
         className={classes}
@@ -115,22 +116,22 @@ export const Row = forwardRef(function Row(
   )
 })
 
-/** Square art tile used as a row's leading element. */
+/** Square glyph tile. Sharp corners, flat tint — no gloss, no gradient. */
 export function RowIcon({ children, tint = 'brand', className }) {
   const tints = {
-    brand: 'bg-brand-600 text-white',
-    blue: 'bg-ios-blue text-white',
-    green: 'bg-ios-green text-white',
-    orange: 'bg-ios-orange text-white',
-    red: 'bg-ios-red text-white',
-    purple: 'bg-ios-purple text-white',
-    gray: 'bg-ios-gray text-white',
+    brand: 'bg-brand-600/12 text-brand-700 dark:text-brand-400',
+    blue: 'bg-ios-blue/12 text-ios-blue',
+    green: 'bg-ios-green/12 text-ios-green',
+    orange: 'bg-ios-orange/14 text-ios-orange',
+    red: 'bg-ios-red/12 text-ios-red',
+    purple: 'bg-ios-purple/12 text-ios-purple',
+    gray: 'bg-fill/12 text-label-2',
     quiet: 'bg-surface-2 text-label-2',
   }
   return (
     <span
       className={cn(
-        'flex h-[29px] w-[29px] items-center justify-center rounded-[7px]',
+        'flex h-6 w-6 items-center justify-center rounded-[3px]',
         tints[tint] ?? tints.brand,
         className,
       )}

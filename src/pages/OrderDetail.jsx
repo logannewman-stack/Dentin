@@ -7,13 +7,13 @@ import {
   Store,
   Truck,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { Pill, Stepper } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { Pill, Stepper } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
-import { useToast } from '@/components/ios/Toast'
+import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import { getOrder, receiveOrder } from '@/lib/repository'
 import { fullDate, money, qty, relativeTime } from '@/lib/format'
@@ -97,7 +97,7 @@ export default function OrderDetail() {
       }
     >
       {/* Summary */}
-      <div className="mt-3 rounded-card bg-surface p-4">
+      <div className="mt-3 rounded-card border border-line bg-surface p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -118,7 +118,7 @@ export default function OrderDetail() {
             return (
               <li key={stage} className="flex flex-1 items-center gap-1.5">
                 <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] text-white ${
                     done ? 'bg-brand-600' : 'bg-fill/20'
                   }`}
                   aria-hidden="true"
@@ -240,9 +240,9 @@ export default function OrderDetail() {
           on-hand stays auditable.
         </p>
 
-        <div className="ios-group">
+        <div className="panel">
           {outstanding.map((line) => (
-            <div key={line.id} className="ios-row flex-wrap py-3">
+            <div key={line.id} className="row flex-wrap py-3">
               <ProductTile product={line} size={36} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-subhead font-medium text-label">

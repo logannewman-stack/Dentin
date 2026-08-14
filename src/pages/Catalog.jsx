@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, PackagePlus, PackageSearch, Sparkles } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { EmptyState, Pill, SearchField, Stepper } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { EmptyState, Pill, SearchField, Stepper } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
-import { useToast } from '@/components/ios/Toast'
+import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import { addToInventory, listCatalog, listLocations } from '@/lib/repository'
 import { money, unitMoney } from '@/lib/format'
@@ -119,7 +119,7 @@ export default function Catalog() {
         <button
           type="button"
           onClick={() => setCategory(null)}
-          className={`shrink-0 rounded-full px-3.5 py-1.5 text-subhead font-medium transition-colors ${
+          className={`shrink-0 rounded-[3px] px-3.5 py-1.5 text-subhead font-medium transition-colors ${
             category === null ? 'bg-brand-600 text-white' : 'bg-surface text-label-2'
           }`}
         >
@@ -130,7 +130,7 @@ export default function Catalog() {
             key={c.slug}
             type="button"
             onClick={() => setCategory(c.slug === category ? null : c.slug)}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-subhead font-medium transition-colors ${
+            className={`shrink-0 rounded-[3px] px-3.5 py-1.5 text-subhead font-medium transition-colors ${
               category === c.slug ? 'bg-brand-600 text-white' : 'bg-surface text-label-2'
             }`}
           >
@@ -197,7 +197,7 @@ export default function Catalog() {
       >
         {adding ? (
           <div className="py-2">
-            <div className="flex items-start gap-3.5 rounded-card bg-surface p-4">
+            <div className="flex items-start gap-3.5 rounded-card border border-line bg-surface p-3">
               <ProductTile product={adding} size={54} />
               <div className="min-w-0 flex-1">
                 <h3 className="text-headline font-semibold leading-snug">{adding.productName}</h3>
@@ -227,7 +227,7 @@ export default function Catalog() {
               </Section>
             ) : null}
 
-            <div className="mt-4 rounded-card bg-surface p-4">
+            <div className="mt-4 rounded-card border border-line bg-surface p-3">
               <p className="text-headline font-semibold">Par level</p>
               <p className="mb-3 mt-0.5 text-footnote text-label-3">
                 What a restock brings you back up to.
@@ -235,7 +235,7 @@ export default function Catalog() {
               <Stepper value={par} onChange={setPar} min={1} unit={adding.unit} />
             </div>
 
-            <div className="mt-3 rounded-card bg-surface p-4">
+            <div className="mt-3 rounded-card border border-line bg-surface p-3">
               <p className="text-headline font-semibold">On hand today</p>
               <p className="mb-3 mt-0.5 text-footnote text-label-3">
                 Count what is on the shelf right now — you can adjust later.

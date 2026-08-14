@@ -12,13 +12,13 @@ import {
   Star,
   Truck,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { EmptyState, Pill, SegmentedControl, Toggle } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { EmptyState, Pill, SegmentedControl, Toggle } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import { NewVendorRail, VendorStatus } from '@/components/VendorBadge'
-import { useToast } from '@/components/ios/Toast'
+import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import {
   getPriceOpportunities,
@@ -34,7 +34,7 @@ function VendorCard({ vendor, savings, onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="press relative w-full overflow-hidden rounded-card bg-surface p-4 text-left"
+      className="press relative w-full overflow-hidden rounded-card border border-line bg-surface p-3 text-left"
     >
       <NewVendorRail active={!vendor.hasAccount} />
 
@@ -276,7 +276,7 @@ export default function Vendors() {
       >
         {detail ? (
           <div className="py-2">
-            <div className="rounded-card bg-surface p-4">
+            <div className="rounded-card border border-line bg-surface p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="text-headline font-semibold">{detail.name}</h3>
@@ -367,7 +367,7 @@ export default function Vendors() {
                 ['repPhone', 'Rep phone', '(800) 555-0112'],
                 ['repEmail', 'Rep email', 'rep@supplier.com'],
               ].map(([key, label, placeholder]) => (
-                <label key={key} className="ios-row block py-2.5">
+                <label key={key} className="row block py-2.5">
                   <span className="block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                     {label}
                   </span>

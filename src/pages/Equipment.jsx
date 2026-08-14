@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { CircleDot, ShieldCheck, Wrench } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, RowIcon, Section } from '@/components/ios/List'
-import { EmptyState, Pill } from '@/components/ios/Controls'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, RowIcon, Section } from '@/components/ui/List'
+import { EmptyState, Pill } from '@/components/ui/Controls'
+import Sheet from '@/components/ui/Sheet'
 import { useData } from '@/hooks/useData'
 import { listAssets, listLocations } from '@/lib/repository'
 import { fullDate, money } from '@/lib/format'
@@ -57,14 +57,14 @@ export default function Equipment() {
     <Screen title="Equipment" subtitle={assets?.length ? `${assets.length} assets` : undefined}>
       {assets?.length ? (
         <div className="mt-3 flex gap-2.5">
-          <div className="flex-1 rounded-card bg-surface p-3.5">
+          <div className="flex-1 rounded-card border border-line bg-surface p-3">
             <p className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
               Capital value
             </p>
             <p className="tnum mt-1.5 text-title2 font-bold">{money(capital)}</p>
             <p className="mt-0.5 text-caption text-label-3">at purchase</p>
           </div>
-          <div className="flex-1 rounded-card bg-surface p-3.5">
+          <div className="flex-1 rounded-card border border-line bg-surface p-3">
             <p className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
               Service due
             </p>

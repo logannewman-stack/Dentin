@@ -61,10 +61,10 @@ export function ToastProvider({ children }) {
                 dragConstraints={{ top: 0, bottom: 0 }}
                 dragElastic={{ top: 0.5, bottom: 0 }}
                 onDragEnd={(_, info) => info.offset.y < -30 && dismiss(t.id)}
-                className="pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-full bg-surface py-2.5 pl-2.5 pr-4 shadow-raised"
+                className="pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-[3px] bg-surface py-2.5 pl-2.5 pr-4 shadow-raised"
               >
                 <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${bg} text-white`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] ${bg} text-white`}
                   aria-hidden="true"
                 >
                   <Icon size={15} strokeWidth={2.8} />

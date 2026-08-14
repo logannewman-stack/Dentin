@@ -37,8 +37,8 @@ export default function HealthMeter({ counts, className }) {
             key={s.key}
             className={cn(
               'h-full',
-              i === 0 && 'rounded-l-full',
-              i === present.length - 1 && 'rounded-r-full',
+              i === 0 && 'rounded-l-[2px]',
+              i === present.length - 1 && 'rounded-r-[2px]',
             )}
             style={{
               width: `${((counts[s.key] ?? 0) / total) * 100}%`,
@@ -53,7 +53,7 @@ export default function HealthMeter({ counts, className }) {
         {present.map((s) => (
           <li key={s.key} className="flex items-center gap-1.5">
             <span
-              className="h-2 w-2 shrink-0 rounded-full"
+              className="h-2 w-2 shrink-0 rounded-[2px]"
               style={{ background: s.color }}
               aria-hidden="true"
             />

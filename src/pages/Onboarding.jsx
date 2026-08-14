@@ -49,7 +49,7 @@ function SelectCard({ selected, title, subtitle, onClick }) {
       </span>
       <span
         className={cn(
-          'flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+          'flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[3px] border-2 transition-colors',
           selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-separator',
         )}
         aria-hidden="true"
@@ -168,7 +168,7 @@ export default function Onboarding() {
             type="button"
             onClick={() => go(-1)}
             aria-label="Back"
-            className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-label"
+            className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] border border-line bg-surface text-label"
           >
             <ArrowLeft size={18} strokeWidth={2.2} />
           </button>
@@ -177,7 +177,7 @@ export default function Onboarding() {
               <span
                 key={s.key}
                 className={cn(
-                  'h-1 flex-1 rounded-full transition-colors duration-300',
+                  'h-[3px] flex-1 rounded-[1px] transition-colors duration-200',
                   i <= step ? 'bg-brand-600' : 'bg-fill/15',
                 )}
               />
@@ -200,7 +200,7 @@ export default function Onboarding() {
             exit={{ opacity: 0, x: direction * -24 }}
             transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }}
           >
-            <span className="mt-4 flex h-11 w-11 items-center justify-center rounded-[12px] bg-brand-600 text-white">
+            <span className="mt-4 flex h-11 w-11 items-center justify-center rounded-[4px] bg-brand-600 text-white">
               <current.Icon size={21} strokeWidth={2.1} aria-hidden="true" />
             </span>
             <h1 className="mt-3.5 text-title1 font-bold tracking-tight">{current.title}</h1>
@@ -292,7 +292,7 @@ export default function Onboarding() {
               {current.key === 'locations' ? (
                 <>
                   {locations.map((loc, i) => (
-                    <div key={i} className="rounded-card bg-surface p-3.5">
+                    <div key={i} className="rounded-card border border-line bg-surface p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                           Location {i + 1}
@@ -404,7 +404,7 @@ export default function Onboarding() {
           type="button"
           disabled={!current.valid}
           onClick={() => go(1)}
-          className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[14px] bg-brand-600 text-body font-semibold text-white transition-opacity active:opacity-85 disabled:opacity-40"
+          className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[4px] bg-brand-600 text-body font-semibold text-white transition-opacity active:opacity-85 disabled:opacity-40"
         >
           {isLast ? 'Finish setup' : 'Continue'}
           <ArrowRight size={17} strokeWidth={2.4} aria-hidden="true" />

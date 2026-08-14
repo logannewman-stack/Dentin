@@ -9,12 +9,12 @@ import {
   ScanBarcode,
   Upload,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { Pill } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
-import { useToast } from '@/components/ios/Toast'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { Pill } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
+import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import { importContractPrices, listVendors, matchContractRows } from '@/lib/repository'
 import { guessMapping, parseCsv } from '@/lib/csv'
@@ -123,7 +123,7 @@ export default function ContractImport() {
         </button>
       }
     >
-      <div className="mt-3 flex items-start gap-2.5 rounded-card bg-surface p-3.5">
+      <div className="mt-3 flex items-start gap-2.5 rounded-card border border-line bg-surface p-3">
         <FileSpreadsheet size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden="true" />
         <p className="text-footnote text-label-2">
           Ask your rep for a contracted-price file — most distributors will send a CSV or EDI 832
@@ -201,7 +201,7 @@ export default function ContractImport() {
             onBlur={() => text.trim() && ingest(text)}
             rows={4}
             placeholder="…or paste the file contents here"
-            className="w-full rounded-card bg-surface p-3.5 font-mono text-caption text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            className="w-full rounded-card border border-line bg-surface p-3 font-mono text-caption text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           />
         </div>
       ) : null}

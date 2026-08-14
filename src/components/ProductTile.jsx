@@ -38,24 +38,28 @@ export default function ProductTile({ product, size = 44, className, imageUrl })
         width={size}
         height={size}
         loading="lazy"
-        className={cn('shrink-0 rounded-[10px] bg-surface-2 object-cover', className)}
+        className={cn('shrink-0 rounded-[3px] bg-surface-2 object-cover', className)}
         style={{ width: size, height: size }}
       />
     )
   }
 
+  // Flat tint with a same-hue rule and inked mark, rather than a glossy
+  // gradient chip — quieter beside dense rows, and the category still reads.
   return (
     <span
       aria-hidden="true"
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-[10px] font-semibold text-white',
+        'flex shrink-0 items-center justify-center rounded-[3px] border font-semibold',
         className,
       )}
       style={{
         width: size,
         height: size,
-        fontSize: size * 0.34,
-        background: `linear-gradient(150deg, ${from}, ${to})`,
+        fontSize: size * 0.3,
+        background: `color-mix(in srgb, ${from} 14%, transparent)`,
+        borderColor: `color-mix(in srgb, ${from} 30%, transparent)`,
+        color: to,
       }}
     >
       {mark}

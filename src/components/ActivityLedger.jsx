@@ -1,5 +1,5 @@
 import { ArrowDownLeft, ArrowUpRight, ClipboardCheck, Trash2 } from 'lucide-react'
-import { Row } from '@/components/ios/List'
+import { Row } from '@/components/ui/List'
 import { qty, relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -41,7 +41,7 @@ export default function ActivityLedger({ movements, showProduct }) {
         leading={
           <span
             className={cn(
-              'flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full bg-fill/10',
+              'flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-[3px] bg-fill/10',
               meta.tone,
             )}
             aria-hidden="true"

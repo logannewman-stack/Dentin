@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, PackagePlus, Search as SearchIcon, TrendingDown } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { EmptyState, Pill, SearchField } from '@/components/ios/Controls'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { EmptyState, Pill, SearchField } from '@/components/ui/Controls'
 import ProductTile from '@/components/ProductTile'
 import { useData } from '@/hooks/useData'
 import { listCatalog, listInventory } from '@/lib/repository'
@@ -169,7 +169,7 @@ export default function Search() {
           {matches.stocked.some((i) => i.stockStatus !== 'ok') ? (
             <Row
               to="/orders/new"
-              className="mt-4 rounded-card bg-surface"
+              className="mt-4 rounded-card border border-line bg-surface"
               leading={<TrendingDown size={18} className="text-brand-600" aria-hidden="true" />}
               title="Price a restock for these"
               subtitle="Compare every supplier before you buy"

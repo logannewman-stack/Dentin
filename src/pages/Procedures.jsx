@@ -8,14 +8,14 @@ import {
   PlugZap,
   TriangleAlert,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { Pill, SegmentedControl } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { Pill, SegmentedControl } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
 import BarList from '@/components/charts/BarList'
-import { useToast } from '@/components/ios/Toast'
+import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import {
   getProcedureConsumption,
@@ -106,8 +106,8 @@ export default function Procedures() {
       </div>
 
       {/* What the mix consumed */}
-      <div className="mt-3 rounded-card bg-surface p-4">
-        <p className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
+      <div className="mt-3 rounded-card border border-line bg-surface p-3">
+        <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
           Materials consumed
         </p>
         <div className="mt-1.5 flex items-end justify-between gap-4">
@@ -132,7 +132,7 @@ export default function Procedures() {
       </div>
 
       {/* Coverage */}
-      <div className="mt-2.5 rounded-card bg-surface p-4">
+      <div className="mt-2.5 rounded-card border border-line bg-surface p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-headline font-semibold">
@@ -154,7 +154,7 @@ export default function Procedures() {
             {usage.unmapped.slice(0, 8).map((u) => (
               <span
                 key={u.code}
-                className="rounded-full bg-ios-orange/12 px-2 py-0.5 font-mono text-caption font-semibold text-ios-orange"
+                className="rounded-[3px] bg-ios-orange/12 px-2 py-0.5 font-mono text-caption font-semibold text-ios-orange"
               >
                 {u.code} ×{u.count}
               </span>
@@ -253,7 +253,7 @@ export default function Procedures() {
         />
       </Section>
 
-      <div className="mt-3 flex items-start gap-2 rounded-card bg-surface p-3.5">
+      <div className="mt-3 flex items-start gap-2 rounded-card border border-line bg-surface p-3">
         <Info size={15} className="mt-0.5 shrink-0 text-label-3" aria-hidden="true" />
         <p className="text-footnote text-label-3">
           Procedure codes are ADA intellectual property. A practice may use them in software it
@@ -270,7 +270,7 @@ export default function Procedures() {
       >
         {detail ? (
           <div className="py-2">
-            <div className="rounded-card bg-surface p-4">
+            <div className="rounded-card border border-line bg-surface p-3">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Pill tone="brand">{detail.category.replace(/-/g, ' ')}</Pill>
                 {detail.anesthetic ? (

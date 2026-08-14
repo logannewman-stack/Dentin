@@ -7,10 +7,10 @@ import {
   TrendingDown,
   Wrench,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, RowIcon, Section } from '@/components/ios/List'
-import { EmptyState, SegmentedControl } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
+import Screen from '@/components/ui/Screen'
+import { Row, RowIcon, Section } from '@/components/ui/List'
+import { EmptyState, SegmentedControl } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
 import { useData } from '@/hooks/useData'
 import { listAlerts } from '@/lib/repository'
 

@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Mail, ShieldCheck, UserPlus } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { Pill } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { Pill } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import ActivityLedger from '@/components/ActivityLedger'
-import { useToast } from '@/components/ios/Toast'
+import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import { listRecentActivity, listTeam } from '@/lib/repository'
 
@@ -106,7 +106,7 @@ export default function Team() {
               onClick={() => setDetail(member)}
               leading={
                 <span
-                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-brand-600 text-caption font-bold text-white"
+                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[3px] bg-brand-600 text-caption font-bold text-white"
                   aria-hidden="true"
                 >
                   {member.initials}
@@ -145,8 +145,8 @@ export default function Team() {
         }
       >
         <div className="py-2">
-          <div className="ios-group">
-            <label className="ios-row block py-2.5">
+          <div className="panel">
+            <label className="row block py-2.5">
               <span className="block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                 Email
               </span>
@@ -193,7 +193,7 @@ export default function Team() {
         {detail ? (
           <div className="py-2">
             <div className="flex flex-col items-center py-4">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-600 text-title2 font-bold text-white">
+              <span className="flex h-16 w-16 items-center justify-center rounded-[4px] bg-brand-600 text-title2 font-bold text-white">
                 {detail.initials}
               </span>
               <p className="mt-3 text-title3 font-semibold">{detail.name}</p>

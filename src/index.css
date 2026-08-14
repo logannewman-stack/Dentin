@@ -3,76 +3,73 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   Dentin — iOS surface tokens
-   Values track Apple's system palette so the app reads as native on device.
+   Dentin — Sharp UI
+   A software surface, not a phone OS one: cool neutrals, hairline structure,
+   dense rows, and no translucency doing decorative work.
    ========================================================================== */
 @layer base {
   :root {
-    --canvas: 242 242 247; /* systemGroupedBackground */
-    --surface: 255 255 255; /* secondarySystemGroupedBackground */
-    --surface-2: 249 249 251;
-    --surface-3: 242 242 247;
-    --label: 0 0 0;
-    --label-2: 60 60 67;
-    --label-3: 138 138 142;
-    --separator: 198 198 200;
-    --fill: 120 120 128;
+    --canvas: 246 246 247;
+    --surface: 255 255 255;
+    --surface-2: 241 241 243;
+    --surface-3: 233 233 236;
+    --label: 16 16 18;
+    --label-2: 74 74 82;
+    --label-3: 134 134 143;
+    --separator: 226 226 230;
+    --fill: 138 138 148;
 
-    --nav-material: 249 249 251;
-    --brand: 14 124 123;
+    --nav-material: 255 255 255;
+    --brand: 12 125 118;
 
-    /* Chart palette — validated for CVD separation, chroma and contrast
-       against the white chart surface. Do not hand-tune these; re-run the
-       palette validator against the surface they render on. */
-    --viz-1: 13 148 136; /* teal   — what the practice paid */
-    --viz-2: 235 104 52; /* orange — what Dentin saved */
-    --viz-grid: 225 224 217;
-    --viz-axis: 195 194 183;
-    --viz-muted: 137 135 129;
+    --viz-1: 13 148 136;
+    --viz-2: 235 104 52;
+    --viz-grid: 233 233 236;
+    --viz-axis: 214 214 219;
+    --viz-muted: 134 134 143;
   }
 
   :root[data-theme='dark'] {
-    --canvas: 0 0 0;
-    --surface: 28 28 30;
-    --surface-2: 44 44 46;
-    --surface-3: 58 58 60;
-    --label: 255 255 255;
-    --label-2: 235 235 245;
-    --label-3: 152 152 159;
-    --separator: 84 84 88;
-    --fill: 120 120 128;
+    --canvas: 10 10 12;
+    --surface: 19 19 22;
+    --surface-2: 27 27 31;
+    --surface-3: 35 35 40;
+    --label: 245 245 247;
+    --label-2: 180 180 190;
+    --label-3: 124 124 136;
+    --separator: 38 38 44;
+    --fill: 110 110 122;
 
-    --nav-material: 18 18 20;
-    --brand: 63 184 180;
+    --nav-material: 15 15 18;
+    --brand: 56 184 174;
 
-    /* Re-stepped for the dark chart surface, not an automatic flip. */
     --viz-1: 38 166 154;
     --viz-2: 217 89 38;
-    --viz-grid: 44 44 42;
-    --viz-axis: 56 56 53;
-    --viz-muted: 137 135 129;
+    --viz-grid: 35 35 40;
+    --viz-axis: 48 48 55;
+    --viz-muted: 124 124 136;
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) {
-      --canvas: 0 0 0;
-      --surface: 28 28 30;
-      --surface-2: 44 44 46;
-      --surface-3: 58 58 60;
-      --label: 255 255 255;
-      --label-2: 235 235 245;
-      --label-3: 152 152 159;
-      --separator: 84 84 88;
-      --fill: 120 120 128;
+      --canvas: 10 10 12;
+      --surface: 19 19 22;
+      --surface-2: 27 27 31;
+      --surface-3: 35 35 40;
+      --label: 245 245 247;
+      --label-2: 180 180 190;
+      --label-3: 124 124 136;
+      --separator: 38 38 44;
+      --fill: 110 110 122;
 
-      --nav-material: 18 18 20;
-      --brand: 63 184 180;
+      --nav-material: 15 15 18;
+      --brand: 56 184 174;
 
       --viz-1: 38 166 154;
       --viz-2: 217 89 38;
-      --viz-grid: 44 44 42;
-      --viz-axis: 56 56 53;
-      --viz-muted: 137 135 129;
+      --viz-grid: 35 35 40;
+      --viz-axis: 48 48 55;
+      --viz-muted: 124 124 136;
     }
   }
 
@@ -87,14 +84,15 @@
 
   body {
     @apply bg-canvas text-label font-sans antialiased;
-    font-size: 17px;
-    line-height: 22px;
-    letter-spacing: -0.41px;
-    /* Never bounce the document — individual scrollers own their overscroll. */
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: -0.008em;
     overscroll-behavior-y: none;
+    font-feature-settings: 'cv05' 1, 'ss01' 1;
   }
 
-  /* Inputs should not zoom the viewport on iOS: 16px is the threshold. */
+  /* 16px keeps iOS Safari from zooming the viewport on focus, even though the
+     rest of the interface sits at 13–14px. */
   input,
   textarea,
   select {
@@ -107,68 +105,63 @@
 }
 
 @layer components {
-  /* Translucent chrome — the thing that makes a web app read as native. */
+  /* Chrome is opaque and separated by a rule, not by blur. */
   .material-chrome {
-    background-color: rgb(var(--nav-material) / 0.82);
-    backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    background-color: rgb(var(--nav-material));
   }
 
-  /* Grouped inset list, the iOS Settings pattern. */
-  .ios-group {
-    @apply bg-surface rounded-card overflow-hidden;
+  /* A panel: hairline border defines it, radius stays tight. */
+  .panel {
+    @apply bg-surface rounded-card border border-line overflow-hidden;
   }
 
-  .ios-row {
-    @apply flex items-center gap-3 px-4 min-h-[44px] w-full text-left;
+  .row {
+    @apply flex items-center gap-2.5 px-3 min-h-[38px] w-full text-left;
   }
 
-  /* Hairline separators that stop short of the leading edge, as on iOS. */
-  .ios-row + .ios-row {
-    box-shadow: inset 0 0.5px 0 rgb(var(--separator) / 0.55);
+  .row + .row {
+    box-shadow: inset 0 1px 0 rgb(var(--separator));
   }
 
-  .ios-row-inset + .ios-row-inset {
+  /* Dividers stop short of the leading edge when a row has art, so the eye
+     tracks the column of icons rather than a full-width rule. */
+  .row-inset + .row-inset {
     background-image: linear-gradient(
       to right,
       transparent 0,
-      transparent 60px,
-      rgb(var(--separator) / 0.55) 60px,
-      rgb(var(--separator) / 0.55) 100%
+      transparent 42px,
+      rgb(var(--separator)) 42px,
+      rgb(var(--separator)) 100%
     );
-    background-size: 100% 0.5px;
+    background-size: 100% 1px;
     background-repeat: no-repeat;
     background-position: top;
   }
 
-  /* Screen supplies the 16px gutter; this is the extra iOS header inset. */
+  /* Micro-label: the workhorse of dense software UI. */
   .section-label {
-    @apply text-footnote uppercase tracking-[0.5px] text-label-3 px-1 pb-2 pt-6 font-medium;
+    @apply text-caption2 uppercase text-label-3 px-0.5 pb-1.5 pt-5 font-semibold;
+    letter-spacing: 0.07em;
   }
 
-  /* Scrollers keep momentum but never rubber-band the page behind them. */
   .scroll-area {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
 
+  /* Interaction reads as a fast state change, not a rubbery press. */
   .press {
-    @apply transition-[opacity,transform] duration-150 active:opacity-60;
+    @apply transition-colors duration-100 active:bg-surface-2;
   }
 
   .skeleton {
-    @apply relative overflow-hidden bg-surface-2;
+    @apply relative overflow-hidden bg-surface-2 rounded-card;
   }
 
   .skeleton::after {
     content: '';
     @apply absolute inset-0 animate-shimmer;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgb(var(--label) / 0.06),
-      transparent
-    );
+    background: linear-gradient(90deg, transparent, rgb(var(--label) / 0.05), transparent);
     transform: translateX(-100%);
   }
 
@@ -180,10 +173,20 @@
     scrollbar-width: none;
   }
 
-  /* Tabular figures keep quantities and prices from jittering as they change. */
   .tnum {
     font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum';
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Identifiers — SKUs, barcodes, account numbers — wear mono so they read as
+     data you can compare character by character. */
+  .ident {
+    @apply font-mono text-caption tracking-tight;
+  }
+
+  /* Focus is visible and square, the way keyboard-driven software expects. */
+  .focus-ring:focus-visible {
+    @apply outline-none ring-2 ring-brand-500/45 ring-offset-0;
   }
 }
 

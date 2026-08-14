@@ -13,7 +13,7 @@ export function VendorStatus({ hasAccount, isPreferred, className }) {
     return (
       <span
         className={cn(
-          'inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-600/12 px-2 py-0.5 text-caption font-semibold text-brand-700 dark:text-brand-400',
+          'inline-flex shrink-0 items-center gap-1 rounded-[2px] bg-brand-600/10 px-1.5 py-[1px] text-caption font-semibold ring-1 ring-inset ring-brand-600/25 text-brand-700 dark:text-brand-400',
           className,
         )}
       >
@@ -27,7 +27,7 @@ export function VendorStatus({ hasAccount, isPreferred, className }) {
     return (
       <span
         className={cn(
-          'inline-flex shrink-0 items-center gap-1 rounded-full bg-ios-green/14 px-2 py-0.5 text-caption font-semibold text-ios-green',
+          'inline-flex shrink-0 items-center gap-1 rounded-[2px] bg-ios-green/10 px-1.5 py-[1px] text-caption font-semibold text-ios-green ring-1 ring-inset ring-ios-green/25',
           className,
         )}
       >
@@ -40,7 +40,7 @@ export function VendorStatus({ hasAccount, isPreferred, className }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-caption font-bold uppercase tracking-[0.4px] text-white',
+        'inline-flex shrink-0 items-center gap-1 rounded-[2px] px-1.5 py-[1px] text-caption2 font-bold uppercase tracking-[0.06em] text-white',
         className,
       )}
       style={{ background: 'rgb(var(--viz-2))' }}

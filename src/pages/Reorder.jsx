@@ -8,11 +8,11 @@ import {
   Sparkles,
   TrendingDown,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { EmptyState, Pill, SegmentedControl, Stepper } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { EmptyState, Pill, SegmentedControl, Stepper } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
 import { useData } from '@/hooks/useData'
 import { compareOffers, createOrder, reorderSuggestions } from '@/lib/repository'
@@ -350,7 +350,7 @@ export default function Reorder() {
           style={{ background: 'rgb(var(--viz-2) / 0.12)' }}
         >
           <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] text-white"
             style={{ background: 'rgb(var(--viz-2))' }}
             aria-hidden="true"
           >
@@ -412,7 +412,7 @@ export default function Reorder() {
               leading={
                 <span
                   className={cn(
-                    'flex h-[26px] w-[26px] items-center justify-center rounded-full border-2 transition-colors',
+                    'flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border-2 transition-colors',
                     on ? 'border-brand-600 bg-brand-600 text-white' : 'border-separator',
                   )}
                   aria-hidden="true"
@@ -494,7 +494,7 @@ export default function Reorder() {
       >
         {placed ? (
           <div className="flex flex-col items-center px-6 py-8 text-center">
-            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-ios-green/12 text-ios-green">
+            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-[3px] bg-ios-green/12 text-ios-green">
               <Check size={30} strokeWidth={2.6} />
             </span>
             <h3 className="text-title3 font-semibold">
