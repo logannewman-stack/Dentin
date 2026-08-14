@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, ChevronLeft, PartyPopper, Sparkles, Truck } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Section } from '@/components/ios/List'
-import { EmptyState, Pill, SegmentedControl } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
+import Screen from '@/components/ui/Screen'
+import { Section } from '@/components/ui/List'
+import { EmptyState, Pill, SegmentedControl } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
 import ProductTile from '@/components/ProductTile'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
@@ -33,7 +33,7 @@ function OpportunityRow({ row }) {
 
       <div className="mt-3 flex items-stretch gap-2">
         {/* What you can buy today */}
-        <div className="min-w-0 flex-1 rounded-[10px] bg-surface-2 p-2.5">
+        <div className="min-w-0 flex-1 rounded-[5px] bg-surface-2 p-2.5">
           <p className="truncate text-caption2 uppercase tracking-[0.4px] text-label-3">
             You pay today
           </p>
@@ -49,7 +49,7 @@ function OpportunityRow({ row }) {
 
         {/* What the market says */}
         <div
-          className="min-w-0 flex-1 rounded-[10px] p-2.5"
+          className="min-w-0 flex-1 rounded-[5px] p-2.5"
           style={{ background: 'rgb(var(--viz-2) / 0.12)' }}
         >
           <p
@@ -168,7 +168,7 @@ export default function MarketScan() {
             key={v.supplierId}
             type="button"
             onClick={() => setVendorFilter(v.supplierId)}
-            className="ios-row press w-full justify-between py-3"
+            className="row press w-full justify-between py-3"
           >
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span className="truncate text-body text-label">{v.name}</span>
@@ -204,7 +204,7 @@ export default function MarketScan() {
       </div>
 
       {/* Item-by-item */}
-      <div className="overflow-hidden rounded-card bg-surface">
+      <div className="overflow-hidden rounded-card border border-line bg-surface">
         {rows.map((row) => (
           <OpportunityRow key={row.inventoryItemId} row={row} />
         ))}

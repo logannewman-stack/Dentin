@@ -8,11 +8,11 @@ import {
   Sparkles,
   TrendingDown,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { EmptyState, Pill, SegmentedControl, Stepper } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { EmptyState, Pill, SegmentedControl, Stepper } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
 import { useData } from '@/hooks/useData'
 import { compareOffers, createOrder, reorderSuggestions } from '@/lib/repository'

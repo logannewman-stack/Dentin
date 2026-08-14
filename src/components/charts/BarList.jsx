@@ -29,9 +29,9 @@ export default function BarList({ items, formatValue = (v) => v, className, empt
             </div>
 
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-fill/10">
+              <span className="relative h-[6px] flex-1 overflow-hidden rounded-[2px] bg-fill/12">
                 <span
-                  className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-500"
+                  className="absolute inset-y-0 left-0 rounded-[2px] transition-[width] duration-300 ease-sharp"
                   style={{
                     width: `${Math.max(pct, 2)}%`,
                     background: 'rgb(var(--viz-1))',

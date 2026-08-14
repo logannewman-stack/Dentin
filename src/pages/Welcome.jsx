@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
-import Button from '@/components/ios/Button'
+import Button from '@/components/ui/Button'
 import { useAuth } from '@/lib/AuthContext'
 import { cn } from '@/lib/utils'
 
@@ -75,7 +75,7 @@ export default function Welcome() {
           transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
           className="flex flex-col items-center text-center"
         >
-          <img src="/icon.svg" alt="" width={64} height={64} className="rounded-[15px] shadow-raised" />
+          <img src="/icon.svg" alt="" width={64} height={64} className="rounded-[6px] shadow-raised" />
           <h1 className="mt-4 text-[40px] font-bold leading-none tracking-tight text-white">
             Dentin
           </h1>
@@ -87,10 +87,10 @@ export default function Welcome() {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.08, ease: [0.32, 0.72, 0, 1] }}
-          className="mt-8 rounded-[20px] bg-white/10 p-1.5 backdrop-blur-xl"
+          className="mt-8 rounded-[8px] bg-white/10 p-1.5 backdrop-blur-xl"
         >
           {/* Segmented sign-in / create */}
-          <div className="flex gap-1 rounded-[15px] bg-black/15 p-1">
+          <div className="flex gap-1 rounded-[6px] bg-black/15 p-1">
             {[
               { key: 'signin', label: 'Sign in' },
               { key: 'signup', label: 'Create account' },
@@ -104,7 +104,7 @@ export default function Welcome() {
                 }}
                 aria-pressed={mode === t.key}
                 className={cn(
-                  'flex-1 rounded-[11px] py-2 text-subhead font-semibold transition-colors duration-200',
+                  'flex-1 rounded-[5px] py-2 text-subhead font-semibold transition-colors duration-200',
                   mode === t.key ? 'bg-white text-brand-800' : 'text-white/75',
                 )}
               >
@@ -179,7 +179,7 @@ export default function Welcome() {
             <button
               type="submit"
               disabled={busy}
-              className="mt-4 flex h-[50px] w-full items-center justify-center gap-2 rounded-[14px] bg-white text-body font-semibold text-brand-800 transition-opacity active:opacity-80 disabled:opacity-60"
+              className="mt-4 flex h-[50px] w-full items-center justify-center gap-2 rounded-[6px] bg-white text-body font-semibold text-brand-800 transition-opacity active:opacity-80 disabled:opacity-60"
             >
               {busy ? (
                 <Loader2 size={18} className="animate-spin" />

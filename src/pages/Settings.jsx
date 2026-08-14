@@ -15,11 +15,11 @@ import {
   Users,
   Wrench,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, RowIcon, Section } from '@/components/ios/List'
-import { Pill, SegmentedControl, Toggle } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, RowIcon, Section } from '@/components/ui/List'
+import { Pill, SegmentedControl, Toggle } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
@@ -307,7 +307,7 @@ export default function Settings() {
       ) : null}
 
       {pushState.reason === 'ios-needs-install' ? (
-        <div className="mt-2 flex items-start gap-2 rounded-card bg-surface p-3.5">
+        <div className="mt-2 flex items-start gap-2 rounded-card border border-line bg-surface p-3">
           <Share size={15} className="mt-0.5 shrink-0 text-ios-blue" aria-hidden="true" />
           <p className="text-footnote text-label-2">
             To install on iPhone: tap Share, then <strong>Add to Home Screen</strong>. Dentin then
@@ -392,9 +392,9 @@ export default function Settings() {
         }
       >
         <div className="space-y-4 py-3">
-          <div className="ios-group">
+          <div className="panel">
             {FIELDS.map((field) => (
-              <label key={field.key} className="ios-row block py-2.5">
+              <label key={field.key} className="row block py-2.5">
                 <span className="block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                   {field.label}
                 </span>

@@ -13,11 +13,11 @@ import {
   Sparkles,
   TrendingDown,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { Gauge, Pill, Stepper } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { Gauge, Pill, Stepper } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
@@ -154,7 +154,7 @@ export default function ItemDetail() {
       }
     >
       {/* Identity + stock */}
-      <div className="mt-3 rounded-card bg-surface p-4">
+      <div className="mt-3 rounded-card border border-line bg-surface p-3">
         <div className="flex items-start gap-3.5">
           <ProductTile product={item} size={64} imageUrl={item.imageUrl} />
           <div className="min-w-0 flex-1">
@@ -290,7 +290,7 @@ export default function ItemDetail() {
                 leading={
                   <span
                     className={cn(
-                      'flex h-[29px] w-[29px] items-center justify-center rounded-[7px] text-caption font-bold',
+                      'flex h-[29px] w-[29px] items-center justify-center rounded-[4px] text-caption font-bold',
                       offer.isBest
                         ? 'bg-ios-green text-white'
                         : offer.hasAccount
@@ -512,8 +512,8 @@ export default function ItemDetail() {
 
         {/* Lot capture on receipt — the only moment the box is in hand */}
         {sheet === 'receive' ? (
-          <div className="ios-group mb-2">
-            <label className="ios-row block py-2.5">
+          <div className="panel mb-2">
+            <label className="row block py-2.5">
               <span className="block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                 Lot number
               </span>
@@ -524,7 +524,7 @@ export default function ItemDetail() {
                 className="mt-0.5 w-full bg-transparent font-mono text-body text-label placeholder:font-sans placeholder:text-label-3 focus:outline-none"
               />
             </label>
-            <label className="ios-row block py-2.5">
+            <label className="row block py-2.5">
               <span className="block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                 Expiry date
               </span>
@@ -552,7 +552,7 @@ export default function ItemDetail() {
         }
       >
         <div className="space-y-5 py-4">
-          <div className="rounded-card bg-surface p-4">
+          <div className="rounded-card border border-line bg-surface p-3">
             <p className="text-headline font-semibold">Par level</p>
             <p className="mb-3 mt-0.5 text-footnote text-label-3">
               The quantity a restock brings you back up to.
@@ -560,7 +560,7 @@ export default function ItemDetail() {
             <Stepper value={par} onChange={setPar} min={0} unit={item.unit} />
           </div>
 
-          <div className="rounded-card bg-surface p-4">
+          <div className="rounded-card border border-line bg-surface p-3">
             <p className="text-headline font-semibold">Reorder point</p>
             <p className="mb-3 mt-0.5 text-footnote text-label-3">
               Drop to this and Dentin alerts you.

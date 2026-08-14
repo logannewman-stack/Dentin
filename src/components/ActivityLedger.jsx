@@ -1,5 +1,5 @@
 import { ArrowDownLeft, ArrowUpRight, ClipboardCheck, Trash2 } from 'lucide-react'
-import { Row } from '@/components/ios/List'
+import { Row } from '@/components/ui/List'
 import { qty, relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 

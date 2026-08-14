@@ -9,11 +9,11 @@ import {
   SlashSquare,
   Truck,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, Section } from '@/components/ios/List'
-import { Pill, SegmentedControl } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
-import Sheet from '@/components/ios/Sheet'
+import Screen from '@/components/ui/Screen'
+import { Row, Section } from '@/components/ui/List'
+import { Pill, SegmentedControl } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
+import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
@@ -119,7 +119,7 @@ export default function PriceCheck() {
       leading={back}
     >
       {/* What exactly are we pricing */}
-      <div className="mt-3 rounded-card bg-surface p-4">
+      <div className="mt-3 rounded-card border border-line bg-surface p-3">
         <div className="flex items-start gap-3.5">
           <ProductTile product={{ ...product, categorySlug: product.categorySlug }} size={54} />
           <div className="min-w-0 flex-1">
@@ -149,12 +149,12 @@ export default function PriceCheck() {
 
       {/* Scan state, then the spread */}
       {scanning ? (
-        <div className="mt-3 flex items-center gap-3 rounded-card bg-surface p-4">
+        <div className="mt-3 flex items-center gap-3 rounded-card border border-line bg-surface p-3">
           <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand-600/25 border-t-brand-600" />
           <p className="text-subhead text-label-2">Checking {checked} vendors for this exact item…</p>
         </div>
       ) : offers.length > 1 ? (
-        <div className="mt-3 rounded-card bg-surface p-4">
+        <div className="mt-3 rounded-card border border-line bg-surface p-3">
           <div className="flex items-baseline justify-between gap-3">
             <div>
               <p className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">

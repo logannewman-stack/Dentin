@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import { Building2, PackagePlus, ShoppingCart, Sparkles, TrendingDown } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, RowIcon, Section } from '@/components/ios/List'
-import { EmptyState, Pill } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
+import Screen from '@/components/ui/Screen'
+import { Row, RowIcon, Section } from '@/components/ui/List'
+import { EmptyState, Pill } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
 import { useData } from '@/hooks/useData'
 import { listOrders, reorderSuggestions } from '@/lib/repository'
 import { fullDate, money, relativeTime } from '@/lib/format'
@@ -44,7 +44,7 @@ export default function Orders() {
     >
       {/* Savings to date — the product's whole promise, quantified */}
       {totalSaved > 0 ? (
-        <div className="mt-3 flex items-center gap-3.5 rounded-card bg-surface p-4">
+        <div className="mt-3 flex items-center gap-3.5 rounded-card border border-line bg-surface p-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ios-green/12 text-ios-green">
             <TrendingDown size={21} strokeWidth={2.2} />
           </span>
@@ -56,7 +56,7 @@ export default function Orders() {
       ) : null}
 
       {needsReorder > 0 ? (
-        <div className="mt-3 rounded-card bg-surface p-4">
+        <div className="mt-3 rounded-card border border-line bg-surface p-3">
           <div className="flex items-center gap-3">
             <RowIcon tint="orange">
               <PackagePlus size={16} strokeWidth={2.2} />

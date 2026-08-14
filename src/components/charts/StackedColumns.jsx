@@ -122,7 +122,7 @@ export default function StackedColumns({
                   {isActive ? (
                     <span
                       role="tooltip"
-                      className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-[10px] bg-surface px-2.5 py-2 shadow-raised"
+                      className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-[5px] bg-surface px-2.5 py-2 shadow-raised"
                     >
                       <span className="block text-caption font-semibold text-label">{d.label}</span>
                       {series.map((s) => (

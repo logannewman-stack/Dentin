@@ -12,10 +12,10 @@ import {
   Truck,
   Wrench,
 } from 'lucide-react'
-import Screen from '@/components/ios/Screen'
-import { Row, RowIcon, Section } from '@/components/ios/List'
-import { Gauge, Pill } from '@/components/ios/Controls'
-import Button from '@/components/ios/Button'
+import Screen from '@/components/ui/Screen'
+import { Row, RowIcon, Section } from '@/components/ui/List'
+import { Gauge, Pill } from '@/components/ui/Controls'
+import Button from '@/components/ui/Button'
 import Sparkline from '@/components/charts/Sparkline'
 import ProductTile from '@/components/ProductTile'
 import { useData } from '@/hooks/useData'
@@ -58,11 +58,11 @@ function StatCard({ label, value, caption, tone = 'label', icon: Icon, to }) {
   )
 
   return to ? (
-    <Link to={to} className="press flex-1 rounded-card bg-surface p-3.5">
+    <Link to={to} className="press flex-1 rounded-card border border-line bg-surface p-3">
       {inner}
     </Link>
   ) : (
-    <div className="flex-1 rounded-card bg-surface p-3.5">{inner}</div>
+    <div className="flex-1 rounded-card border border-line bg-surface p-3">{inner}</div>
   )
 }
 
@@ -233,7 +233,7 @@ export default function Dashboard() {
 
       {/* Restock basket */}
       {stats.attention.length > 0 ? (
-        <div className="mt-3 rounded-card bg-surface p-4">
+        <div className="mt-3 rounded-card border border-line bg-surface p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="text-headline font-semibold">Restock to par</h3>

@@ -10,9 +10,9 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import Sheet from '@/components/ios/Sheet'
-import Button from '@/components/ios/Button'
-import { Pill, Stepper } from '@/components/ios/Controls'
+import Sheet from '@/components/ui/Sheet'
+import Button from '@/components/ui/Button'
+import { Pill, Stepper } from '@/components/ui/Controls'
 import ProductTile from '@/components/ProductTile'
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
 import { recordMovement, resolveGtin } from '@/lib/repository'
@@ -91,7 +91,7 @@ export default function Scan() {
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80" />
           <div className="absolute left-1/2 top-1/2 h-44 w-[78%] max-w-[320px] -translate-x-1/2 -translate-y-1/2">
-            <div className="absolute inset-0 rounded-[18px] border-2 border-white/25" />
+            <div className="absolute inset-0 rounded-[4px] border-2 border-white/25" />
             {/* Corner brackets */}
             {[
               'left-0 top-0 border-l-[3px] border-t-[3px] rounded-tl-[18px]',
@@ -159,7 +159,7 @@ export default function Scan() {
         className="absolute inset-x-0 bottom-0 px-4"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
       >
-        <div className="mx-auto flex max-w-sm gap-1 rounded-[14px] bg-black/50 p-1 backdrop-blur">
+        <div className="mx-auto flex max-w-sm gap-1 rounded-[6px] bg-black/50 p-1 backdrop-blur">
           {MODES.map(({ value, label, hint, Icon }) => (
             <button
               key={value}
@@ -169,7 +169,7 @@ export default function Scan() {
                 setMode(value)
               }}
               aria-pressed={mode === value}
-              className={`flex flex-1 flex-col items-center gap-0.5 rounded-[11px] py-2.5 transition-colors ${
+              className={`flex flex-1 flex-col items-center gap-0.5 rounded-[5px] py-2.5 transition-colors ${
                 mode === value ? 'bg-white text-black' : 'text-white/75'
               }`}
             >
@@ -227,7 +227,7 @@ export default function Scan() {
       >
         {hit?.matched ? (
           <div className="py-3">
-            <div className="flex items-start gap-3.5 rounded-card bg-surface p-4">
+            <div className="flex items-start gap-3.5 rounded-card border border-line bg-surface p-3">
               <ProductTile
                 product={{ brand: hit.brand, categorySlug: hit.categoryName }}
                 size={54}
@@ -241,7 +241,7 @@ export default function Scan() {
 
             {hit.inventoryItemId ? (
               <>
-                <div className="mt-4 flex flex-col items-center gap-1 rounded-card bg-surface p-5">
+                <div className="mt-4 flex flex-col items-center gap-1 rounded-card border border-line bg-surface p-4">
                   <p className="text-subhead text-label-3">
                     {mode === 'received' ? 'How many arrived?' : 'How many used?'}
                   </p>
@@ -269,7 +269,7 @@ export default function Scan() {
                 </button>
               </>
             ) : (
-              <div className="mt-4 rounded-card bg-surface p-4 text-center">
+              <div className="mt-4 rounded-card border border-line bg-surface p-3 text-center">
                 <Pill tone="warning">Not tracked yet</Pill>
                 <p className="mt-2 text-subhead text-label-3">
                   This product is in the catalog but is not on your inventory list.
@@ -321,7 +321,7 @@ export default function Scan() {
             autoComplete="off"
             placeholder="099999000010"
             aria-label="Barcode number"
-            className="w-full rounded-card bg-surface px-4 py-4 text-center font-mono text-title3 tracking-[1px] text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            className="w-full rounded-card border border-line bg-surface px-4 py-4 text-center font-mono text-title3 tracking-[1px] text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           />
           <p className="mt-2.5 text-center text-footnote text-label-3">
             Useful when a box is scuffed or the label is worn.
