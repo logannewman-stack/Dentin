@@ -238,8 +238,16 @@ export default function ItemDetail() {
           ) : null}
 
           <Section
-            title={`All suppliers (${offers.length})`}
+            title={`Vendors carrying this (${offers.length})`}
             footer="Unit price normalizes pack sizes, so a box of 200 and a box of 50 compare honestly. Vendors marked NEW need an account opened before you can order."
+            action={
+              <Link
+                to={`/price-check/${item.productId}`}
+                className="press text-subhead font-medium text-brand-600 dark:text-brand-400"
+              >
+                Check all
+              </Link>
+            }
           >
             {offers.map((offer) => (
               <Row
@@ -312,7 +320,11 @@ export default function ItemDetail() {
           detail={qty(item.reorderPoint)}
           onClick={() => openSheet('settings')}
         />
-        <Row title="Barcode" detail={item.gtin ?? '—'} chevron={false} />
+        <Row
+          title="Barcode"
+          detail={item.gtin ?? '—'}
+          to={`/price-check/${item.productId}`}
+        />
         <Row title="Last counted" detail={fullDate(item.lastCountedAt)} chevron={false} />
         {item.expiresAt ? (
           <Row

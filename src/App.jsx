@@ -19,6 +19,7 @@ const Equipment = lazy(() => import('@/pages/Equipment'))
 const Insights = lazy(() => import('@/pages/Insights'))
 const Catalog = lazy(() => import('@/pages/Catalog'))
 const Vendors = lazy(() => import('@/pages/Vendors'))
+const PriceCheck = lazy(() => import('@/pages/PriceCheck'))
 const MarketScan = lazy(() => import('@/pages/MarketScan'))
 const Search = lazy(() => import('@/pages/Search'))
 const Settings = lazy(() => import('@/pages/Settings'))
@@ -99,6 +100,7 @@ function AppRoutes() {
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/inventory/:id" element={<ItemDetail />} />
             <Route path="/catalog" element={<Catalog />} />
+            <Route path="/price-check/:productId" element={<PriceCheck />} />
             <Route path="/search" element={<Search />} />
             <Route path="/scan" element={<Scan />} />
             <Route path="/orders" element={<Orders />} />

@@ -215,6 +215,82 @@ function hash(str) {
   return Math.abs(h)
 }
 
+/**
+ * Catalog coverage.
+ *
+ * No distributor carries everything. Full-line houses stock capital equipment
+ * and implant systems; consumable specialists and marketplaces do not. Getting
+ * this wrong is what makes a price comparison lie — quoting a chair from a
+ * vendor who has never sold one.
+ *
+ * `excludes` are whole categories the vendor does not trade in. `gapRate` is
+ * the share of individual SKUs they happen not to stock inside categories they
+ * do cover, applied deterministically per SKU so results never flicker.
+ */
+const VENDOR_COVERAGE = {
+  'henry-schein': { excludes: [], gapRate: 0.04 },
+  patterson: { excludes: [], gapRate: 0.06 },
+  benco: { excludes: [], gapRate: 0.1 },
+  darby: { excludes: ['equipment', 'implants'], gapRate: 0.12 },
+  net32: { excludes: ['equipment'], gapRate: 0.14 },
+  'dental-city': { excludes: ['equipment', 'implants', 'orthodontics'], gapRate: 0.18 },
+  safco: { excludes: ['equipment', 'implants', 'imaging'], gapRate: 0.22 },
+}
+
+/**
+ * How a vendor's listing was matched back to the manufacturer's product.
+ *
+ * Full-line distributors publish GS1 barcodes, so those match exactly.
+ * Marketplaces usually publish only a manufacturer part number, and the long
+ * tail is matched on brand plus normalized name and pack size — which is a
+ * guess, and is labelled as one in the UI.
+ */
+const MATCH_STRATEGY = {
+  'henry-schein': 'gtin',
+  patterson: 'gtin',
+  benco: 'gtin',
+  darby: 'mpn',
+  net32: 'mpn',
+  'dental-city': 'mpn',
+  safco: 'name',
+}
+
+export const MATCH_CONFIDENCE = {
+  gtin: {
+    label: 'Barcode match',
+    detail: 'Vendor lists the same GS1 barcode',
+    rank: 0,
+    verified: true,
+  },
+  mpn: {
+    label: 'Part number match',
+    detail: 'Same manufacturer part number and brand',
+    rank: 1,
+    verified: true,
+  },
+  name: {
+    label: 'Likely match',
+    detail: 'Matched on brand, description and pack size — worth verifying',
+    rank: 2,
+    verified: false,
+  },
+}
+
+/** Does this vendor trade in this product at all? */
+export function carriesProduct(vendorId, product) {
+  const coverage = VENDOR_COVERAGE[vendorId]
+  if (!coverage || !product) return false
+  if (coverage.excludes.includes(product.category)) return false
+  // Deterministic per-SKU gap, stable across renders.
+  return (hash(`${vendorId}:${product.sku}`) % 100) / 100 >= coverage.gapRate
+}
+
+/** The vendor's own SKU for a product — every distributor renumbers. */
+export function vendorSkuFor(vendorId, product) {
+  const prefix = vendorId.slice(0, 3).toUpperCase()
+  return `${prefix}-${(hash(vendorId + product.sku) % 900000) + 100000}`
+}
+
 export const PRODUCTS = CATALOG.map(
   ([sku, name, brand, category, gtin, unit, packSize, basePrice, isEquipment]) => ({
     id: sku,
@@ -241,14 +317,22 @@ export function productByGtin(gtin) {
   return PRODUCT_BY_GTIN.get(String(gtin).trim()) ?? null
 }
 
-/** Every supplier's offer on a product, cheapest first. */
+/**
+ * Every vendor's offer on one exact product, cheapest first.
+ *
+ * Only vendors that actually carry the item appear. Each offer records how it
+ * was matched back to the manufacturer's product, so the UI can distinguish a
+ * barcode-verified listing from a probable one.
+ */
 export function offersFor(productId) {
   const product = PRODUCT_BY_ID.get(productId)
   if (!product) return []
 
-  const offers = SUPPLIERS.map((s) => {
+  const offers = SUPPLIERS.filter((s) => carriesProduct(s.id, product)).map((s) => {
     const jitter = (hash(product.sku + s.id) % 90) / 1000 - 0.045
     const price = Number((product.basePrice * s.margin * (1 + jitter)).toFixed(2))
+    const matchedBy = MATCH_STRATEGY[s.id] ?? 'name'
+
     return {
       supplierId: s.id,
       supplierName: s.name,
@@ -259,6 +343,9 @@ export function offersFor(productId) {
       leadDays: Math.max(1, s.leadDays + ((hash(product.sku + s.id) % 3) - 1)),
       shipFee: s.shipFee,
       freeShipOver: s.freeShipOver,
+      vendorSku: vendorSkuFor(s.id, product),
+      matchedBy,
+      matchVerified: MATCH_CONFIDENCE[matchedBy].verified,
     }
   })
 
@@ -266,6 +353,24 @@ export function offersFor(productId) {
     if (a.inStock !== b.inStock) return a.inStock ? -1 : 1
     if (a.unitPrice !== b.unitPrice) return a.unitPrice - b.unitPrice
     return a.leadDays - b.leadDays
+  })
+}
+
+/** Vendors that do not list this product, and why — shown so the scan is honest. */
+export function nonCarriersFor(productId) {
+  const product = PRODUCT_BY_ID.get(productId)
+  if (!product) return []
+
+  return SUPPLIERS.filter((s) => !carriesProduct(s.id, product)).map((s) => {
+    const coverage = VENDOR_COVERAGE[s.id]
+    const categoryExcluded = coverage?.excludes.includes(product.category)
+    return {
+      supplierId: s.id,
+      supplierName: s.name,
+      reason: categoryExcluded
+        ? `Does not carry ${CATEGORIES.find((c) => c.slug === product.category)?.name ?? 'this category'}`
+        : 'Not listed in their catalog',
+    }
   })
 }
 

@@ -39,6 +39,14 @@ and a cheaper quote behind an account application is reported separately as
 an opportunity rather than folded in as a saving. Order baskets are built
 only from vendors you can order from.
 
+**Price one exact product across every vendor.** Price check resolves a
+product by its GS1 barcode and manufacturer part number, finds every vendor
+that actually lists *that* item, and normalizes each to a per-unit price. It
+reports two things most comparisons hide: the vendors that do **not** carry it
+(so "nobody is cheaper" is never confused with "nobody else sells it"), and
+how each listing was matched — barcode, part number, or a name-and-pack guess
+that says so on its face.
+
 **See what the accounts you don't have are costing you.** Competitive pricing
 sweeps every tracked item, compares the best account price against the best
 price on the market, and totals the gap — grouped by which vendor would need
@@ -117,6 +125,8 @@ reordering — is explorable immediately with no backend. Settings shows a
    - `supabase/migrations/0002_views_and_rpc.sql` — stock health views, price RPCs
    - `supabase/migrations/0003_supplier_accounts.sql` — vendor accounts, the
      vendor roster view, and the competitive-pricing view
+   - `supabase/migrations/0004_contract_prices.sql` — your negotiated pricing
+     and the effective-price view that prefers it over list
 3. Run `supabase/seed.sql` to load the dental catalog and supplier market.
 4. Put the project URL and anon key in `.env.local`:
 
@@ -188,9 +198,45 @@ request whose `Authorization` header is not `Bearer $CRON_SECRET`.
 | --- | --- | --- |
 | `/api/price-search?q=` | GET | Catalog search with best offer and market spread, ranked by savings opportunity |
 | `/api/barcode-lookup?gtin=` | GET | Resolve a barcode to a product and the practice's inventory row |
+| `/api/vendor-prices?productId=` | GET | Fan out across vendor connectors for one exact product; returns every carrier, every non-carrier, and how each was matched |
 | `/api/cron/low-stock` | GET | Daily sweep: raises alerts, sends digest push (cron-authenticated) |
 
-`price-search` and `barcode-lookup` run as the calling user, so RLS applies.
+These run as the calling user, so RLS applies.
+
+---
+
+## Getting real vendor pricing
+
+`/api/vendor-prices` fans out across pluggable connectors in
+`api/_lib/connectors/`. Two ship working — your imported contract prices, and
+the stored catalog — and the interface is documented in that directory's
+README.
+
+**No major distributor is wired up, and none can be without a commercial
+agreement.** That is how the industry works, not an omission. The realistic
+path, in order of value:
+
+1. **Ask each rep for your contracted-price file.** Most distributors will
+   provide a CSV or EDI 832 for your account. Load it into `contract_prices`
+   (migration `0004`) and it wins over every list price automatically — an
+   eight-figure practice does not pay list, so comparing list prices compares
+   the wrong numbers.
+2. **Punchout (cXML)** where offered, for live carts at your negotiated rates.
+3. **GS1/GDSN** for product identity, so vendor SKUs can be matched to each
+   other at all.
+
+Do not scrape. Beyond the terms-of-service exposure, scraped list pricing is
+usually wrong for an account holder — which makes the comparison worse than
+not having one.
+
+### Why matching is the hard part
+
+The same glove is `HEN-321114` at Henry Schein, `DAR-282971` at Darby and a
+seller listing on Net32. Dentin matches on manufacturer identity instead:
+barcode first, then manufacturer part number, then brand plus normalized name
+and pack size. The key that resolved is carried through to the UI, because a
+name match is a guess and pricing against it as though it were not is how you
+end up buying the wrong pack size.
 
 ---
 

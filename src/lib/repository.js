@@ -21,6 +21,7 @@ import {
   SUPPLIER_SPEND,
   TOP_ITEMS,
   buildInventory,
+  nonCarriersFor,
   offersFor,
   productByGtin,
   productById,
@@ -262,6 +263,95 @@ export async function compareOffers(productId) {
         ? Number((accountBest.price - marketBest.price).toFixed(2))
         : 0,
   }))
+}
+
+/**
+ * Full price discovery for one exact product.
+ *
+ * Returns the product's identity keys, every vendor that carries it (with the
+ * price, how the listing was matched, and whether the practice can order from
+ * them today), and the vendors that do not stock it at all. The non-carrier
+ * list matters: "nobody cheaper" and "nobody else sells it" are different
+ * answers and a buyer needs to tell them apart.
+ */
+export async function findVendorPrices(productId) {
+  const accountIds = await accountSupplierIds()
+
+  if (isDemo) {
+    const product = productById(productId)
+    if (!product) return null
+
+    const offers = offersFor(productId).map((o) => ({
+      ...o,
+      hasAccount: accountIds.has(o.supplierId),
+    }))
+
+    const inStock = offers.filter((o) => o.inStock)
+    const marketBest = inStock[0] ?? null
+    const accountBest = inStock.find((o) => o.hasAccount) ?? null
+
+    return {
+      product: {
+        id: product.id,
+        name: product.name,
+        brand: product.brand,
+        unit: product.unit,
+        packSize: product.packSize,
+        gtin: product.gtin,
+        mfrSku: product.sku,
+        categorySlug: product.category,
+        isEquipment: product.isEquipment,
+      },
+      offers: offers.map((o) => ({
+        ...o,
+        isBest: accountBest ? o.supplierId === accountBest.supplierId : false,
+        isMarketBest: marketBest ? o.supplierId === marketBest.supplierId : false,
+      })),
+      nonCarriers: nonCarriersFor(productId),
+      accountBest,
+      marketBest,
+      scannedAt: new Date().toISOString(),
+    }
+  }
+
+  const { data: product, error } = await supabase
+    .from('products')
+    .select('id, name, brand, unit, pack_size, gtin, mfr_sku, is_equipment, categories(slug)')
+    .eq('id', productId)
+    .single()
+  if (error) throw error
+
+  const offers = await compareOffers(productId)
+  const inStock = offers.filter((o) => o.inStock)
+
+  // Any supplier with no offer row for this product does not list it.
+  const listed = new Set(offers.map((o) => o.supplierId))
+  const { data: allSuppliers } = await supabase.from('suppliers').select('id, name')
+
+  return {
+    product: {
+      id: product.id,
+      name: product.name,
+      brand: product.brand,
+      unit: product.unit,
+      packSize: product.pack_size,
+      gtin: product.gtin,
+      mfrSku: product.mfr_sku,
+      categorySlug: product.categories?.slug,
+      isEquipment: product.is_equipment,
+    },
+    offers,
+    nonCarriers: (allSuppliers ?? [])
+      .filter((s) => !listed.has(s.id))
+      .map((s) => ({
+        supplierId: s.id,
+        supplierName: s.name,
+        reason: 'Not listed in their catalog',
+      })),
+    accountBest: inStock.find((o) => o.hasAccount) ?? null,
+    marketBest: inStock[0] ?? null,
+    scannedAt: new Date().toISOString(),
+  }
 }
 
 export async function reorderSuggestions(locationId) {
