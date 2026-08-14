@@ -10,8 +10,10 @@ import HealthMeter from '@/components/charts/HealthMeter'
 import Sparkline from '@/components/charts/Sparkline'
 import ProductTile from '@/components/ProductTile'
 import { useData } from '@/hooks/useData'
-import { getInsights } from '@/lib/repository'
-import { coverShort, moneyRound, percent } from '@/lib/format'
+import { getInsights, getSpendBenchmark } from '@/lib/repository'
+import { negotiationLeverage } from '@/lib/benchmarks'
+import { coverShort, money, moneyRound, percent } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 const RANGES = [
   { value: 3, label: '3M' },
@@ -46,6 +48,7 @@ function Card({ title, subtitle, children, footer, action }) {
 export default function Insights() {
   const [months, setMonths] = useState(12)
   const { data, loading } = useData(() => getInsights(months), [months])
+  const { data: benchmark } = useData(() => getSpendBenchmark(), [])
 
   if (loading || !data) {
     return (
@@ -60,6 +63,10 @@ export default function Insights() {
   }
 
   const rangeLabel = months === 12 ? 'the last 12 months' : `the last ${months} months`
+  // The concentrated slice of spend worth negotiating on.
+  const leverage = negotiationLeverage(
+    data.categories.map((c) => ({ label: c.label, value: c.value, spend: c.value })),
+  )
 
   return (
     <Screen title="Insights" subtitle={`${data.trackedCount} items tracked`}>
@@ -88,6 +95,112 @@ export default function Insights() {
           </span>
         </div>
       </div>
+
+      {/* Supply spend against collections — the benchmark the industry runs on */}
+      {benchmark?.band ? (
+        <Card
+          title="Supply spend vs. collections"
+          subtitle={`Trailing ${benchmark.months} months · ${benchmark.band.label}`}
+          footer={`${benchmark.band.note} Clinical supplies only — lab fees, equipment and office supplies are excluded, and folding those in is the usual reason a practice concludes it is overspending when it is not.`}
+        >
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p
+                className={cn(
+                  'tnum text-large font-bold leading-none',
+                  benchmark.status === 'over'
+                    ? 'text-ios-orange'
+                    : benchmark.status === 'under'
+                      ? 'text-ios-green'
+                      : 'text-label',
+                )}
+              >
+                {benchmark.pct.toFixed(1)}%
+              </p>
+              <p className="mt-1 text-footnote text-label-3">
+                {moneyRound(benchmark.supplySpend)} on {moneyRound(benchmark.collections)}
+              </p>
+            </div>
+            <Pill
+              tone={
+                benchmark.status === 'over'
+                  ? 'warning'
+                  : benchmark.status === 'under'
+                    ? 'good'
+                    : 'brand'
+              }
+            >
+              {benchmark.status === 'over'
+                ? 'Above band'
+                : benchmark.status === 'under'
+                  ? 'Below band'
+                  : 'On target'}
+            </Pill>
+          </div>
+
+          {/* The target band, drawn against a 0–20% scale */}
+          <div className="mt-4">
+            <div className="relative h-2 w-full rounded-full bg-fill/12">
+              <span
+                className="absolute inset-y-0 rounded-full bg-ios-green/35"
+                style={{
+                  left: `${(benchmark.band.low / 20) * 100}%`,
+                  width: `${((benchmark.band.high - benchmark.band.low) / 20) * 100}%`,
+                }}
+                aria-hidden="true"
+              />
+              <span
+                className="absolute top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-label"
+                style={{ left: `${Math.min(98, (benchmark.pct / 20) * 100)}%` }}
+                aria-hidden="true"
+              />
+            </div>
+            <div className="mt-1.5 flex justify-between text-caption text-label-3">
+              <span>0%</span>
+              <span className="tnum">
+                target {benchmark.band.low}–{benchmark.band.high}%
+              </span>
+              <span>20%</span>
+            </div>
+          </div>
+
+          {benchmark.overBy > 0 ? (
+            <p className="mt-3 border-t border-separator/50 pt-3 text-footnote text-label-2">
+              Running <strong>{moneyRound(benchmark.overBy)}</strong> above the top of the band
+              over {benchmark.months} months — about{' '}
+              <strong>{moneyRound(benchmark.annualisedOverBy)}</strong> a year if it holds.
+            </p>
+          ) : null}
+
+          {benchmark.usesCostPerProcedure ? (
+            <p className="mt-3 text-footnote text-label-3">
+              For this specialty, watch cost per procedure alongside this — high case fees can
+              hide per-case material inflation that a percentage will not show.
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {/* Cost per procedure, straight off the completed-procedure feed */}
+      {benchmark?.procedureCount ? (
+        <Link
+          to="/procedures"
+          className="press mt-3 flex items-center justify-between rounded-card bg-surface p-4"
+        >
+          <span className="min-w-0">
+            <span className="block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
+              Cost per procedure
+            </span>
+            <span className="tnum mt-1 block text-title2 font-bold">
+              {money(benchmark.costPerProcedure)}
+            </span>
+            <span className="mt-0.5 block text-footnote text-label-3">
+              across {benchmark.procedureCount} procedures in 30 days
+            </span>
+          </span>
+          <ArrowRight size={18} className="shrink-0 text-label-3" aria-hidden="true" />
+        </Link>
+      ) : null}
 
       {/* Spend vs list price */}
       <Card
@@ -151,6 +264,35 @@ export default function Insights() {
       <Card title="Highest-spend items" subtitle={`Top SKUs, ${rangeLabel}`}>
         <BarList items={data.items} formatValue={moneyRound} emptyLabel="No spend recorded yet" />
       </Card>
+
+      {/* Where negotiation actually pays */}
+      {leverage.items.length ? (
+        <Card
+          title="Negotiation leverage"
+          subtitle={`${leverage.items.length} SKUs carry ${percent(leverage.share * 100)} of category spend`}
+          footer="Take this list to a rep, not the whole catalog. Concentrated volume is what moves a price; a long tail of small lines does not."
+        >
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="tnum text-title1 font-bold leading-none">
+                {moneyRound(leverage.total)}
+              </p>
+              <p className="mt-1 text-footnote text-label-3">
+                in {leverage.items.length} of {data.categories.length} categories
+              </p>
+            </div>
+            <Pill tone="brand">{percent(leverage.coversPct)} of lines</Pill>
+          </div>
+
+          <div className="mt-4">
+            <BarList
+              items={leverage.items}
+              formatValue={moneyRound}
+              emptyLabel="Not enough spend history yet"
+            />
+          </div>
+        </Card>
+      ) : null}
 
       {/* Cover risk */}
       {data.atRisk.length > 0 ? (

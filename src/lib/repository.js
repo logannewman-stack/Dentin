@@ -7,6 +7,8 @@
  */
 import { isSupabaseConfigured, supabase } from './supabase'
 import { parseInteger, parseMoney } from './csv'
+import { PROCEDURE_TEMPLATES, TEMPLATE_BY_CODE, expandProcedure, unitsPerPack } from './cdt'
+import { SPEND_WINDOW_MONTHS, assessSpend } from './benchmarks'
 import {
   ASSETS,
   CATEGORIES,
@@ -25,6 +27,7 @@ import {
   buildInventory,
   buildLots,
   buildMovements,
+  buildProcedureLog,
   nonCarriersFor,
   offersFor,
   productByGtin,
@@ -558,6 +561,196 @@ export async function discardLot(lotId, reason = 'Expired') {
   })
   await supabase.from('lots').update({ quantity: 0 }).eq('id', lotId)
   return { ok: true }
+}
+
+// --- procedure-driven consumption -------------------------------------------
+let demoProcedures = null
+
+function procedureLog() {
+  if (!demoProcedures) demoProcedures = buildProcedureLog()
+  return demoProcedures
+}
+
+/** The BOM template map, joined to catalog products for display. */
+export async function listProcedureTemplates() {
+  return PROCEDURE_TEMPLATES.map((t) => {
+    const expanded = expandProcedure({ code: t.code, surfaces: t.code.startsWith('D23') ? 'MO' : null })
+    return {
+      code: t.code,
+      name: t.name,
+      category: t.category,
+      setup: t.setup,
+      anesthetic: t.anesthetic ?? 0,
+      canals: t.canals ?? null,
+      parametric: t.materials.some((m) => m.perSurface || m.perCanal),
+      lineCount: expanded?.entries.length ?? 0,
+      entries: (expanded?.entries ?? []).map((e) => {
+        const product = productById(e.sku)
+        return {
+          sku: e.sku,
+          each: e.each,
+          productName: product?.name ?? e.sku,
+          unit: product?.unit,
+          packSize: product ? unitsPerPack(product) : 1,
+          categorySlug: product?.category,
+        }
+      }),
+    }
+  })
+}
+
+/**
+ * Convert completed procedures into consumption.
+ *
+ * Materials are expanded per procedure in individual units, then divided by
+ * pack size, because inventory is counted in packs. Fractions accumulate
+ * across the batch rather than rounding per procedure — rounding a tenth of a
+ * glove box up on every visit would overstate usage by an order of magnitude.
+ */
+export function projectConsumption(procedures) {
+  const byProduct = new Map()
+
+  for (const proc of procedures) {
+    const expanded = expandProcedure({
+      code: proc.code,
+      surfaces: proc.surfaces,
+      units: proc.units ?? 1,
+    })
+    if (!expanded) continue
+
+    for (const entry of expanded.entries) {
+      const product = productById(entry.sku)
+      if (!product) continue
+      // Bulk-dispensed materials yield many uses per pack; counted ones do not.
+      const packs = entry.each / unitsPerPack(product)
+      const current = byProduct.get(entry.sku) ?? { sku: entry.sku, each: 0, packs: 0, procedures: 0 }
+      current.each += entry.each
+      current.packs += packs
+      current.procedures += 1
+      byProduct.set(entry.sku, current)
+    }
+  }
+
+  return [...byProduct.values()]
+    .map((row) => {
+      const product = productById(row.sku)
+      return {
+        ...row,
+        productName: product?.name ?? row.sku,
+        unit: product?.unit,
+        packSize: product ? unitsPerPack(product) : 1,
+        categorySlug: product?.category,
+        estimatedCost: row.packs * (offersFor(row.sku).find((o) => o.inStock)?.price ?? 0),
+      }
+    })
+    .sort((a, b) => b.estimatedCost - a.estimatedCost)
+}
+
+/** Completed procedures over a window, with what they consumed. */
+export async function getProcedureConsumption({ days = 30 } = {}) {
+  const cutoff = Date.now() - days * 86400000
+  const procedures = procedureLog().filter((p) => new Date(p.completedAt).getTime() >= cutoff)
+
+  const consumption = projectConsumption(procedures)
+  const matched = procedures.filter((p) => TEMPLATE_BY_CODE.has(p.code))
+
+  // Codes the PMS reported that have no BOM yet — the gap to close.
+  const unmappedCounts = new Map()
+  for (const p of procedures) {
+    if (TEMPLATE_BY_CODE.has(p.code)) continue
+    unmappedCounts.set(p.code, (unmappedCounts.get(p.code) ?? 0) + 1)
+  }
+
+  const byCode = new Map()
+  for (const p of matched) {
+    const entry = byCode.get(p.code) ?? {
+      code: p.code,
+      name: TEMPLATE_BY_CODE.get(p.code)?.name ?? p.code,
+      count: 0,
+    }
+    entry.count += 1
+    byCode.set(p.code, entry)
+  }
+
+  const materialCost = consumption.reduce((sum, c) => sum + c.estimatedCost, 0)
+
+  return {
+    days,
+    procedureCount: procedures.length,
+    mappedCount: matched.length,
+    coverage: procedures.length ? (matched.length / procedures.length) * 100 : 0,
+    unmapped: [...unmappedCounts.entries()]
+      .map(([code, count]) => ({ code, count }))
+      .sort((a, b) => b.count - a.count),
+    byCode: [...byCode.values()].sort((a, b) => b.count - a.count),
+    consumption,
+    materialCost,
+    costPerProcedure: matched.length ? materialCost / matched.length : 0,
+  }
+}
+
+/**
+ * Post a batch of completed procedures to stock.
+ *
+ * Writes one movement per product rather than per procedure, so the ledger
+ * stays readable: "42 prophylaxis consumed 0.42 boxes of prophy angles" is an
+ * auditable line; 42 near-zero entries are not.
+ */
+export async function postProcedureConsumption({ days = 7, locationId } = {}) {
+  const cutoff = Date.now() - days * 86400000
+  const procedures = procedureLog().filter((p) => new Date(p.completedAt).getTime() >= cutoff)
+  const consumption = projectConsumption(procedures)
+
+  const rows = await listInventory({ locationId })
+  let posted = 0
+  let skipped = 0
+
+  for (const line of consumption) {
+    const item = rows.find((r) => r.productId === line.sku)
+    if (!item) {
+      skipped += 1
+      continue
+    }
+    // Round to a hundredth of a pack; below that it is noise, not consumption.
+    const quantity = Math.round(line.packs * 100) / 100
+    if (quantity <= 0) continue
+
+    await recordMovement({
+      inventoryItemId: item.id,
+      type: 'consumed',
+      quantity,
+      reason: `${line.procedures} procedures, last ${days} days`,
+    })
+    posted += 1
+  }
+
+  return { posted, skipped, procedures: procedures.length }
+}
+
+/** Supply spend against collections, on the trailing window the industry uses. */
+export async function getSpendBenchmark() {
+  const practice = await getPractice()
+  const history = SPEND_HISTORY.slice(-SPEND_WINDOW_MONTHS)
+  const supplySpend = history.reduce((sum, m) => sum + m.spend, 0)
+  const collections = (practice.collectionsPerMonth ?? 0) * SPEND_WINDOW_MONTHS
+
+  const assessment = assessSpend({
+    supplySpend,
+    collections,
+    practiceType: practice.practiceType ?? 'general',
+  })
+
+  const procedures = await getProcedureConsumption({ days: 30 })
+
+  return {
+    supplySpend,
+    collections,
+    months: SPEND_WINDOW_MONTHS,
+    practiceType: practice.practiceType ?? 'general',
+    costPerProcedure: procedures.costPerProcedure,
+    procedureCount: procedures.procedureCount,
+    ...assessment,
+  }
 }
 
 export async function listTeam() {

@@ -68,6 +68,26 @@ the carton is in hand, and tracked to their expiry date. Expired lots are
 separated from merely-soon ones, because an expired anesthetic carpule in a
 drawer is a finding, not a housekeeping note.
 
+**Know whether you are overspending at all.** Supply spend is reported against
+collections on a trailing three-month window and scored against the published
+band for the practice's specialty — 5–7% for general dentistry, 10–15% for oral
+surgery. Clinical supplies only; folding in lab fees and equipment is the usual
+reason a practice concludes it is overspending when it is not. Where case fees
+are high enough to mask material inflation, cost per procedure is surfaced
+alongside it.
+
+**Decrement stock when the procedure is done.** Dentin maps CDT procedure codes
+to a bill of materials and draws stock down on completion — scaling with the
+restored surface count and canal count the PMS reports. The standalone
+inventory tools do not do this; the ones that do are PMS-native and tie you to
+their supply catalog. See `docs/INTEGRATIONS.md` for the Open Dental wiring and
+the CDT licensing constraint.
+
+**Set par levels by formula, not by feel.** Reorder points are computed as
+daily burn × supplier lead time plus safety stock, with par bands at 30–60 days
+of cover. Where a threshold is set below what lead time requires, Dentin says
+how many days short it will run.
+
 **Stay ahead of compliance.** Sterilizers, compressors, chairs and imaging are
 tracked with serials, warranty dates and service intervals, because the
 service log is the first thing a board inspection asks for.
@@ -280,10 +300,12 @@ src/
   pages/                Welcome, Onboarding, Dashboard, Inventory, ItemDetail,
                         Scan, Catalog, Search, Orders, OrderDetail, Reorder,
                         Vendors, MarketScan, PriceCheck, ContractImport,
-                        Insights, Alerts, Expiry, Equipment, Team, Settings
+                        Insights, Procedures, Alerts, Expiry, Equipment, Team,
+                        Settings
   hooks/                useData, useBarcodeScanner
   lib/                  repository (the data seam), supabase, AuthContext,
-                        push, format, csv, demoData
+                        benchmarks (industry bands + formulas), cdt (procedure
+                        bill of materials), push, format, csv, demoData
 supabase/
   migrations/           Schema, RLS, views, RPCs
   seed.sql              Dental catalog and supplier market

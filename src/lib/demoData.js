@@ -392,6 +392,71 @@ export const PRACTICE = {
   postalCode: '78746',
   country: 'US',
   timezone: 'America/Chicago',
+  // Drives the supply-spend benchmark band.
+  practiceType: 'general',
+  // Collections is the denominator the industry benchmarks against. Set so the
+  // demo practice lands where the published average actually sits — a shade
+  // over 7% against a 5–7% band, which is the case worth showing.
+  collectionsPerMonth: 107500,
+  orderCadence: 'biweekly',
+  lastOrderedAt: null,
+  pmsName: 'Open Dental',
+  pmsConnected: false,
+}
+
+/**
+ * Completed procedures, as a PMS would report them.
+ *
+ * Shape mirrors what Open Dental's `procedurelogs` endpoint returns for
+ * completed work — code, date, surfaces, tooth, provider, units — so the
+ * consumption engine reads the same fields whether it is fed by the demo or
+ * by a live feed.
+ */
+const PROCEDURE_MIX = [
+  ['D1110', 42, null],
+  ['D0120', 38, null],
+  ['D4910', 14, null],
+  ['D2392', 12, 'MO'],
+  ['D2391', 9, 'O'],
+  ['D0274', 22, null],
+  ['D2393', 7, 'MOD'],
+  ['D1206', 16, null],
+  ['D2740', 6, null],
+  ['D4341', 8, null],
+  ['D1351', 11, null],
+  ['D3330', 3, null],
+  ['D7140', 5, null],
+  ['D2950', 4, null],
+  ['D3310', 2, null],
+  ['D2394', 3, 'MODBL'],
+  ['D7210', 2, null],
+  ['D6010', 2, null],
+  ['D9944', 3, null],
+  ['D1120', 9, null],
+]
+
+export function buildProcedureLog() {
+  const rows = []
+  let n = 0
+
+  for (const [code, count, surf] of PROCEDURE_MIX) {
+    for (let i = 0; i < count; i += 1) {
+      const s = hash(`${code}:${i}`)
+      const provider = TEAM[s % 2 === 0 ? 0 : 3] // the two doctors
+      rows.push({
+        id: `proc-${n++}`,
+        code,
+        surfaces: surf,
+        toothNumber: surf ? 3 + (s % 28) : null,
+        units: 1,
+        providerId: provider.id,
+        providerName: provider.name,
+        completedAt: new Date(Date.now() - (1 + (s % 27)) * 86400000).toISOString(),
+      })
+    }
+  }
+
+  return rows.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
 }
 
 /**

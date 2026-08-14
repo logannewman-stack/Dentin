@@ -22,6 +22,7 @@ import ProductTile from '@/components/ProductTile'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
 import ActivityLedger from '@/components/ActivityLedger'
+import { assessLevels } from '@/lib/benchmarks'
 import {
   compareOffers,
   discardLot,
@@ -84,6 +85,14 @@ export default function ItemDetail() {
 
   // A cheaper price at a vendor you cannot order from is an opportunity, not
   // a saving — it is reported separately so the two never blur together.
+  // Formula-driven levels, so par settings are derived rather than guessed.
+  const levels = assessLevels({
+    dailyBurn: item.dailyBurn,
+    leadDays: best?.leadDays ?? item.bestLeadDays,
+    reorderPoint,
+    parLevel: par,
+  })
+
   const unlockable =
     best && marketBest && !marketBest.hasAccount ? best.price - marketBest.price : 0
 
@@ -571,11 +580,51 @@ export default function ItemDetail() {
                 : ''}
             </p>
             <Stepper value={reorderPoint} onChange={setReorderPoint} min={0} max={par || 9999} />
-            {best && item.dailyBurn > 0 && reorderPoint / item.dailyBurn < best.leadDays ? (
-              <p className="mt-3 flex items-start gap-1.5 text-footnote text-ios-orange">
-                <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-                You will run out before the delivery lands. Consider at least{' '}
-                {Math.ceil(best.leadDays * item.dailyBurn)}.
+
+            {/* Formula: (daily burn x lead time) + safety stock. A reorder
+                point below burn x lead time guarantees a gap however promptly
+                the order goes in — the most common par-level mistake. */}
+            {levels?.suggestedReorderPoint ? (
+              <div className="mt-3 border-t border-separator/50 pt-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-footnote text-label-3">
+                    Formula suggests{' '}
+                    <span className="tnum font-semibold text-label">
+                      {levels.suggestedReorderPoint}
+                    </span>
+                  </span>
+                  {reorderPoint !== levels.suggestedReorderPoint ? (
+                    <button
+                      type="button"
+                      onClick={() => setReorderPoint(levels.suggestedReorderPoint)}
+                      className="press text-subhead font-medium text-brand-600 dark:text-brand-400"
+                    >
+                      Use it
+                    </button>
+                  ) : (
+                    <Pill tone="good" icon={Check}>
+                      Matches
+                    </Pill>
+                  )}
+                </div>
+                <p className="mt-1.5 text-caption text-label-3">
+                  {item.dailyBurn.toFixed(2)}/day x {best?.leadDays ?? '\u2014'}d lead, plus 20% of a
+                  week&apos;s use as safety stock
+                </p>
+                {levels.reorderPointIsLow ? (
+                  <p className="mt-2 flex items-start gap-1.5 text-footnote text-ios-orange">
+                    <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    At {qty(reorderPoint)} you run dry about {levels.daysShort} day
+                    {levels.daysShort === 1 ? '' : 's'} before the delivery lands.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {levels?.suggestedParMax ? (
+              <p className="mt-2 text-caption text-label-3">
+                A par of {levels.suggestedParMin}&ndash;{levels.suggestedParMax} covers 30&ndash;60
+                days at this burn rate.
               </p>
             ) : null}
           </div>

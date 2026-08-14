@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  Activity,
   Bell,
   Building2,
   CalendarClock,
@@ -195,6 +196,16 @@ export default function Settings() {
           title="Team & roles"
           subtitle="Who can order, and who moved the stock"
           to="/team"
+        />
+        <Row
+          leading={
+            <RowIcon tint="blue">
+              <Activity size={15} strokeWidth={2.2} />
+            </RowIcon>
+          }
+          title="Procedures & consumption"
+          subtitle="What each procedure draws from stock"
+          to="/procedures"
         />
         <Row
           leading={
