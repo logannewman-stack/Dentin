@@ -16,6 +16,7 @@ import {
   LOCATIONS,
   ORDERS,
   ORDER_ITEMS,
+  PAYMENT_METHODS,
   PRACTICE,
   PRODUCTS,
   SPEND_HISTORY,
@@ -24,6 +25,7 @@ import {
   SUPPLIER_SPEND,
   TEAM,
   TOP_ITEMS,
+  VENDOR_DIRECTORY,
   buildInventory,
   buildLots,
   buildMovements,
@@ -36,6 +38,9 @@ import {
 
 export const isDemo = !isSupabaseConfigured
 
+// Static app data (not demo-only): the vendor directory taxonomy.
+export { VENDOR_KINDS } from './demoData'
+
 // --- demo store -------------------------------------------------------------
 let demoInventory = null
 // Declared alongside inventory because store() populates them together —
@@ -43,9 +48,39 @@ let demoInventory = null
 let demoLots = null
 let demoMovements = null
 let demoOrders = null
+let demoOrderItems = null
+let demoPaymentMethods = null
 let demoPractice = null
 const movements = []
 const listeners = new Set()
+
+const DAY_MS = 86400000
+const addDaysIso = (iso, days) => new Date(new Date(iso).getTime() + days * DAY_MS).toISOString()
+const parseTermDays = (terms) => {
+  const m = /net\s*(\d+)/i.exec(terms ?? '')
+  return m ? Number(m[1]) : 0
+}
+
+/** Recompute an order's money from its lines, so they can never disagree. */
+function recomputeOrderTotals(order) {
+  const lines = demoOrderItems.filter(([orderId]) => orderId === order.id)
+  const subtotal = lines.reduce((sum, [, , quantity, unitPrice]) => sum + quantity * unitPrice, 0)
+  const supplier = SUPPLIERS.find((s) => s.id === order.supplierId)
+  const shipping =
+    order.status === 'draft' || order.shipping == null
+      ? supplier && supplier.freeShipOver > 0 && subtotal >= supplier.freeShipOver
+        ? 0
+        : (supplier?.shipFee ?? 0)
+      : order.shipping
+  const tax = subtotal * 0.0825
+  order.subtotal = Number(subtotal.toFixed(2))
+  order.shipping = Number(shipping.toFixed(2))
+  order.tax = Number(tax.toFixed(2))
+  order.total = Number((subtotal + tax + shipping).toFixed(2))
+  order.savings = Number((subtotal * 0.163).toFixed(2))
+  order.itemCount = lines.length
+  return order
+}
 
 function store() {
   if (!demoInventory) {
@@ -62,26 +97,57 @@ function store() {
   }
   if (!demoPractice) demoPractice = { ...PRACTICE }
   if (!demoOrders) {
-    // Totals are derived from the line items rather than stored alongside
-    // them, so an order can never disagree with what is on it.
+    // Lines are copied into a mutable ledger so draft orders and receiving can
+    // change them; totals are derived from the lines rather than stored, so an
+    // order can never disagree with what is on it.
+    demoOrderItems = ORDER_ITEMS.map((row) => [...row])
     demoOrders = ORDERS.map((o) => {
-      const lines = ORDER_ITEMS.filter(([orderId]) => orderId === o.id)
-      if (!lines.length) return { ...o }
+      const order = { ...o }
+      if (demoOrderItems.some(([orderId]) => orderId === o.id)) recomputeOrderTotals(order)
 
-      const subtotal = lines.reduce((sum, [, , quantity, unitPrice]) => sum + quantity * unitPrice, 0)
-      const tax = subtotal * 0.0825
-      return {
-        ...o,
-        subtotal: Number(subtotal.toFixed(2)),
-        tax: Number(tax.toFixed(2)),
-        total: Number((subtotal + tax + o.shipping).toFixed(2)),
-        // Roughly what the same basket would have cost at the priciest supplier.
-        savings: Number((subtotal * 0.163).toFixed(2)),
-        itemCount: lines.length,
+      // Payables: distributor accounts invoice on terms; vendors with no
+      // account (marketplace checkouts) charge when the order is placed, so
+      // they are never "owed". Older received invoices are settled; recent
+      // ones still owe the vendor.
+      const account = accounts().find((a) => a.supplierId === o.supplierId)
+      const termDays = parseTermDays(account?.terms)
+      const active = o.status !== 'cancelled' && o.status !== 'draft'
+      if (!active) {
+        order.paymentStatus = null
+        order.paidAt = null
+      } else if (!account) {
+        order.termsLabel = 'Charged at checkout'
+        order.paymentDueAt = o.placedAt ?? null
+        order.paymentStatus = 'paid'
+        order.paidAt = o.placedAt ?? null
+        order.paymentMethodId = 'pm-visa'
+        order.paymentMethodLabel = 'Visa Signature · ···· 9214'
+      } else {
+        order.termsLabel = account.terms ?? 'Due on receipt'
+        order.paymentDueAt = o.placedAt ? addDaysIso(o.placedAt, termDays) : null
+        const settled =
+          o.status === 'received' &&
+          o.receivedAt &&
+          Date.now() - new Date(o.receivedAt).getTime() > 14 * DAY_MS
+        if (settled) {
+          order.paymentStatus = 'paid'
+          order.paidAt = addDaysIso(o.receivedAt, 3)
+          order.paymentMethodId = 'pm-ach'
+          order.paymentMethodLabel = 'Operating account · ACH ····4821'
+        } else {
+          order.paymentStatus = 'unpaid'
+          order.paidAt = null
+        }
       }
+      return order
     })
   }
-  return { inventory: demoInventory, orders: demoOrders, practice: demoPractice }
+  return {
+    inventory: demoInventory,
+    orders: demoOrders,
+    orderItems: demoOrderItems,
+    practice: demoPractice,
+  }
 }
 
 function emit() {
@@ -965,15 +1031,19 @@ export async function listOrders() {
     placedAt: o.placed_at,
     expectedAt: o.expected_at,
     receivedAt: o.received_at,
+    paymentStatus: o.payment_status ?? null,
+    paymentDueAt: o.payment_due_at ?? null,
+    paidAt: o.paid_at ?? null,
   }))
 }
 
 export async function getOrder(id) {
   if (isDemo) {
-    const order = store().orders.find((o) => o.id === id)
+    const s = store()
+    const order = s.orders.find((o) => o.id === id)
     if (!order) return null
 
-    const lines = ORDER_ITEMS.filter(([orderId]) => orderId === id).map(
+    const lines = s.orderItems.filter(([orderId]) => orderId === id).map(
       ([, sku, quantity, unitPrice, receivedQty]) => {
         const product = productById(sku)
         const item = store().inventory.find(
@@ -1020,6 +1090,9 @@ export async function getOrder(id) {
     placedAt: data.placed_at,
     expectedAt: data.expected_at,
     receivedAt: data.received_at,
+    paymentStatus: data.payment_status ?? null,
+    paymentDueAt: data.payment_due_at ?? null,
+    paidAt: data.paid_at ?? null,
     lines: (data.order_items ?? []).map((l) => ({
       id: l.id,
       productId: l.product_id,
@@ -1047,6 +1120,8 @@ export async function receiveOrder(orderId, received) {
     for (const [lineId, qty] of Object.entries(received)) {
       if (!qty) continue
       const sku = lineId.replace(`${orderId}-`, '')
+      const line = s.orderItems.find(([oid, lineSku]) => oid === orderId && lineSku === sku)
+      if (line) line[4] = Math.min(line[2], (line[4] ?? 0) + qty)
       const row = s.inventory.find(
         (r) => r.productId === sku && r.locationId === order.locationId,
       )
@@ -1063,8 +1138,11 @@ export async function receiveOrder(orderId, received) {
       })
     }
 
-    order.status = 'received'
-    order.receivedAt = new Date().toISOString()
+    const allIn = s.orderItems
+      .filter(([oid]) => oid === orderId)
+      .every(([, , quantity, , receivedQty]) => (receivedQty ?? 0) >= quantity)
+    order.status = allIn ? 'received' : 'partial'
+    if (allIn) order.receivedAt = new Date().toISOString()
     emit()
     return { ok: true }
   }
@@ -1095,6 +1173,320 @@ export async function receiveOrder(orderId, received) {
   const { error } = await supabase
     .from('orders')
     .update({ status: 'received', received_at: new Date().toISOString() })
+    .eq('id', orderId)
+  if (error) throw error
+  return { ok: true }
+}
+
+// --- draft orders & duplicate-order guard -----------------------------------
+
+/**
+ * Everything already inbound for a product: open orders (submitted, in
+ * transit, partially received) that still owe units. This is what powers the
+ * "you already have this on the way" check before an order is doubled up.
+ */
+export async function findInboundFor(productId) {
+  if (isDemo) {
+    const s = store()
+    const inbound = []
+    for (const order of s.orders) {
+      if (!['submitted', 'confirmed', 'shipped', 'partial'].includes(order.status)) continue
+      const line = s.orderItems.find(([oid, sku]) => oid === order.id && sku === productId)
+      if (!line) continue
+      const remaining = line[2] - (line[4] ?? 0)
+      if (remaining <= 0) continue
+      inbound.push({
+        orderId: order.id,
+        reference: order.reference,
+        supplierName: order.supplierName,
+        status: order.status,
+        quantity: remaining,
+        expectedAt: order.expectedAt,
+      })
+    }
+    return inbound
+  }
+
+  const { data, error } = await supabase
+    .from('order_items')
+    .select('quantity, received_qty, orders!inner(id, reference, status, expected_at, suppliers(name))')
+    .eq('product_id', productId)
+    .in('orders.status', ['submitted', 'confirmed', 'shipped', 'partial'])
+  if (error) throw error
+  return (data ?? [])
+    .map((l) => ({
+      orderId: l.orders.id,
+      reference: l.orders.reference,
+      supplierName: l.orders.suppliers?.name,
+      status: l.orders.status,
+      quantity: Number(l.quantity) - Number(l.received_qty ?? 0),
+      expectedAt: l.orders.expected_at,
+    }))
+    .filter((l) => l.quantity > 0)
+}
+
+/**
+ * Drop a line into the vendor's draft order, creating the draft if none is
+ * open. One draft per vendor: "add to next order" always has one unambiguous
+ * destination, and repeated adds merge quantities instead of stacking lines.
+ */
+export async function addToDraftOrder({ productId, supplierId, supplierName, quantity = 1, unitPrice }) {
+  if (isDemo) {
+    const s = store()
+    let draft = s.orders.find((o) => o.status === 'draft' && o.supplierId === supplierId)
+    if (!draft) {
+      const maxRef = s.orders.reduce(
+        (max, o) => Math.max(max, Number(String(o.reference ?? '').replace(/\D/g, '')) || 0),
+        1042,
+      )
+      const account = accounts().find((a) => a.supplierId === supplierId)
+      draft = {
+        id: `ord-${maxRef + 1}`,
+        reference: `PO-${maxRef + 1}`,
+        supplierId,
+        supplierName:
+          supplierName ?? SUPPLIERS.find((sup) => sup.id === supplierId)?.name ?? supplierId,
+        locationId: 'loc-main',
+        status: 'draft',
+        subtotal: 0,
+        shipping: null,
+        tax: 0,
+        total: 0,
+        savings: 0,
+        itemCount: 0,
+        placedAt: null,
+        expectedAt: null,
+        createdAt: new Date().toISOString(),
+        termsLabel: account?.terms ?? 'Due on receipt',
+        paymentStatus: null,
+        paymentDueAt: null,
+        paidAt: null,
+      }
+      s.orders.unshift(draft)
+    }
+
+    const price = unitPrice ?? offersFor(productId).find((o) => o.supplierId === supplierId)?.price ?? 0
+    const line = s.orderItems.find(([oid, sku]) => oid === draft.id && sku === productId)
+    if (line) {
+      line[2] += quantity
+      if (unitPrice != null) line[3] = unitPrice
+    } else {
+      s.orderItems.push([draft.id, productId, quantity, price, 0])
+    }
+    recomputeOrderTotals(draft)
+    emit()
+    return {
+      orderId: draft.id,
+      reference: draft.reference,
+      supplierName: draft.supplierName,
+      lineQuantity: line ? line[2] : quantity,
+      merged: Boolean(line),
+      itemCount: draft.itemCount,
+      total: draft.total,
+    }
+  }
+
+  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  let { data: draft } = await supabase
+    .from('orders')
+    .select('id, reference')
+    .eq('supplier_id', supplierId)
+    .eq('status', 'draft')
+    .maybeSingle()
+  if (!draft) {
+    const { data: created, error: createError } = await supabase
+      .from('orders')
+      .insert({ practice_id: profile.practice_id, supplier_id: supplierId, status: 'draft' })
+      .select('id, reference')
+      .single()
+    if (createError) throw createError
+    draft = created
+  }
+  const { data: existing } = await supabase
+    .from('order_items')
+    .select('id, quantity')
+    .eq('order_id', draft.id)
+    .eq('product_id', productId)
+    .maybeSingle()
+  if (existing) {
+    const { error } = await supabase
+      .from('order_items')
+      .update({ quantity: Number(existing.quantity) + quantity })
+      .eq('id', existing.id)
+    if (error) throw error
+  } else {
+    const { error } = await supabase.from('order_items').insert({
+      order_id: draft.id,
+      product_id: productId,
+      quantity,
+      unit_price: unitPrice ?? 0,
+    })
+    if (error) throw error
+  }
+  return { orderId: draft.id, reference: draft.reference, merged: Boolean(existing) }
+}
+
+/** Send a draft to the vendor: it becomes a submitted PO with an ETA. */
+export async function submitDraftOrder(orderId) {
+  if (isDemo) {
+    const s = store()
+    const order = s.orders.find((o) => o.id === orderId)
+    if (!order) throw new Error('Order not found')
+    if (order.status !== 'draft') throw new Error('Only drafts can be submitted')
+
+    const supplier = SUPPLIERS.find((sup) => sup.id === order.supplierId)
+    order.status = 'submitted'
+    order.placedAt = new Date().toISOString()
+    order.expectedAt = addDaysIso(order.placedAt, supplier?.leadDays ?? 4)
+    order.shipping = null // let the recompute apply the vendor's shipping rule
+    recomputeOrderTotals(order)
+    const account = accounts().find((a) => a.supplierId === order.supplierId)
+    if (account) {
+      order.termsLabel = account.terms ?? 'Due on receipt'
+      order.paymentDueAt = addDaysIso(order.placedAt, parseTermDays(account.terms))
+      order.paymentStatus = 'unpaid'
+    } else {
+      // No account terms — marketplace-style checkout, charged on submit.
+      const method =
+        (await listPaymentMethods()).find((m) => m.isDefault) ?? (await listPaymentMethods())[0]
+      order.termsLabel = 'Charged at checkout'
+      order.paymentDueAt = order.placedAt
+      order.paymentStatus = 'paid'
+      order.paidAt = order.placedAt
+      order.paymentMethodId = method?.id ?? null
+      order.paymentMethodLabel = method ? `${method.label} · ${method.detail}` : null
+    }
+    emit()
+    return { ok: true, reference: order.reference, expectedAt: order.expectedAt }
+  }
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ status: 'submitted', placed_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .eq('status', 'draft')
+  if (error) throw error
+  return { ok: true }
+}
+
+/** Remove a line from a draft; an emptied draft is removed entirely. */
+export async function removeOrderLine(orderId, productId) {
+  if (isDemo) {
+    const s = store()
+    const order = s.orders.find((o) => o.id === orderId)
+    if (!order || order.status !== 'draft') throw new Error('Only draft lines can be removed')
+    const idx = s.orderItems.findIndex(([oid, sku]) => oid === orderId && sku === productId)
+    if (idx !== -1) s.orderItems.splice(idx, 1)
+    if (!s.orderItems.some(([oid]) => oid === orderId)) {
+      demoOrders = s.orders.filter((o) => o.id !== orderId)
+    } else {
+      recomputeOrderTotals(order)
+    }
+    emit()
+    return { ok: true, emptied: !s.orderItems.some(([oid]) => oid === orderId) }
+  }
+
+  const { error } = await supabase
+    .from('order_items')
+    .delete()
+    .eq('order_id', orderId)
+    .eq('product_id', productId)
+  if (error) throw error
+  return { ok: true }
+}
+
+// --- vendor payments ---------------------------------------------------------
+
+export async function listPaymentMethods() {
+  if (isDemo) {
+    if (!demoPaymentMethods) demoPaymentMethods = PAYMENT_METHODS.map((m) => ({ ...m }))
+    return demoPaymentMethods
+  }
+  const { data, error } = await supabase
+    .from('payment_methods')
+    .select('*')
+    .order('is_default', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    kind: m.kind,
+    label: m.label,
+    detail: m.detail,
+    isDefault: m.is_default,
+  }))
+}
+
+export async function savePaymentMethod({ kind, label, detail, isDefault = false }) {
+  if (isDemo) {
+    await listPaymentMethods()
+    if (isDefault) demoPaymentMethods.forEach((m) => (m.isDefault = false))
+    demoPaymentMethods.push({
+      id: `pm-${Date.now().toString(36)}`,
+      kind,
+      label,
+      detail,
+      isDefault: isDefault || demoPaymentMethods.length === 0,
+    })
+    emit()
+    return { ok: true }
+  }
+  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const { error } = await supabase.from('payment_methods').insert({
+    practice_id: profile.practice_id,
+    kind,
+    label,
+    detail,
+    is_default: isDefault,
+  })
+  if (error) throw error
+  return { ok: true }
+}
+
+export async function removePaymentMethod(id) {
+  if (isDemo) {
+    await listPaymentMethods()
+    demoPaymentMethods = demoPaymentMethods.filter((m) => m.id !== id)
+    emit()
+    return { ok: true }
+  }
+  const { error } = await supabase.from('payment_methods').delete().eq('id', id)
+  if (error) throw error
+  return { ok: true }
+}
+
+/**
+ * Settle an order with the vendor. In demo mode the payment posts instantly;
+ * against Supabase the payment row is recorded and the order marked paid —
+ * actual money movement rides on the practice's connected processor (see
+ * docs/INTEGRATIONS.md), which is deliberately outside this app's trust
+ * boundary.
+ */
+export async function payOrder(orderId, { methodId }) {
+  if (isDemo) {
+    const s = store()
+    const order = s.orders.find((o) => o.id === orderId)
+    if (!order) throw new Error('Order not found')
+    if (order.paymentStatus === 'paid') throw new Error('Already paid')
+    const method = (await listPaymentMethods()).find((m) => m.id === methodId)
+    if (!method) throw new Error('Pick a payment method')
+
+    order.paymentStatus = 'paid'
+    order.paidAt = new Date().toISOString()
+    order.paymentMethodId = method.id
+    order.paymentMethodLabel = `${method.label} · ${method.detail}`
+    const confirmation = `PAY-${String(Date.now()).slice(-6)}`
+    order.paymentConfirmation = confirmation
+    emit()
+    return { ok: true, confirmation, amount: order.total, supplierName: order.supplierName }
+  }
+
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      payment_status: 'paid',
+      paid_at: new Date().toISOString(),
+      payment_method_id: methodId,
+    })
     .eq('id', orderId)
   if (error) throw error
   return { ok: true }
@@ -1396,7 +1788,7 @@ function accounts() {
 export async function listVendors() {
   if (isDemo) {
     const orders = store().orders
-    return SUPPLIERS.map((s) => {
+    const priced = SUPPLIERS.map((s) => {
       const account = accounts().find((a) => a.supplierId === s.id) ?? null
       const mine = orders.filter((o) => o.supplierId === s.id && o.status !== 'cancelled')
       const spendRow = SUPPLIER_SPEND.find((x) => x.id === s.id)
@@ -1411,6 +1803,7 @@ export async function listVendors() {
         freeShipOver: s.freeShipOver,
         shipFee: s.shipFee,
         leadDays: s.leadDays,
+        priced: true,
         hasAccount: Boolean(account),
         accountNumber: account?.accountNumber ?? null,
         repName: account?.repName ?? null,
@@ -1423,7 +1816,44 @@ export async function listVendors() {
         totalSpend: spendRow?.spend ?? mine.reduce((sum, o) => sum + o.total, 0),
         lastOrderedAt: mine[0]?.placedAt ?? null,
       }
-    }).sort((a, b) => {
+    })
+
+    // Accounts held with directory vendors Dentin does not price yet (a direct
+    // maker, a local lab). They belong on "Your accounts" — they are real
+    // relationships — just without pricing claims attached.
+    const pricedIds = new Set(SUPPLIERS.map((s) => s.id))
+    const directoryAccounts = accounts()
+      .filter((a) => !pricedIds.has(a.supplierId))
+      .map((account) => {
+        const dir = VENDOR_DIRECTORY.find((d) => d.id === account.supplierId)
+        return {
+          supplierId: account.supplierId,
+          name: dir?.name ?? account.supplierId,
+          website: dir?.website ?? null,
+          blurb: dir?.blurb ?? '',
+          strengths: dir?.knownFor ?? [],
+          caveats: [],
+          freeShipOver: 0,
+          shipFee: 0,
+          leadDays: null,
+          priced: false,
+          kind: dir?.kind ?? null,
+          hq: dir?.hq ?? null,
+          hasAccount: true,
+          accountNumber: account.accountNumber ?? null,
+          repName: account.repName ?? null,
+          repPhone: account.repPhone ?? null,
+          repEmail: account.repEmail ?? null,
+          terms: account.terms ?? null,
+          isPreferred: account.isPreferred ?? false,
+          openedAt: account.openedAt ?? null,
+          orderCount: 0,
+          totalSpend: 0,
+          lastOrderedAt: null,
+        }
+      })
+
+    return [...priced, ...directoryAccounts].sort((a, b) => {
       if (a.hasAccount !== b.hasAccount) return a.hasAccount ? -1 : 1
       if (a.isPreferred !== b.isPreferred) return a.isPreferred ? -1 : 1
       return b.totalSpend - a.totalSpend
@@ -1444,6 +1874,7 @@ export async function listVendors() {
       freeShipOver: Number(v.free_ship_over ?? 0),
       shipFee: Number(v.flat_ship_fee ?? 0),
       leadDays: v.avg_lead_days,
+      priced: true,
       hasAccount: v.has_account,
       accountNumber: v.account_number,
       repName: v.rep_name,
@@ -1463,6 +1894,34 @@ export async function listVendors() {
     })
 }
 
+/**
+ * The dental vendor landscape: every vendor Dentin prices plus the wider
+ * directory of real industry vendors (directory metadata ships with the app,
+ * so this works identically in demo and live). Each entry reports whether a
+ * price feed exists and whether the practice already holds the account.
+ */
+export async function listVendorDirectory() {
+  const vendors = await listVendors()
+  const vendorById = new Map(vendors.map((v) => [v.supplierId, v]))
+
+  return VENDOR_DIRECTORY.map((d) => {
+    const linked = vendorById.get(d.supplierId ?? d.id) ?? null
+    return {
+      directoryId: d.id,
+      supplierId: d.supplierId ?? d.id,
+      name: linked?.name ?? d.name,
+      kind: d.kind,
+      hq: d.hq ?? null,
+      website: linked?.website ?? d.website ?? null,
+      blurb: linked?.blurb ?? d.blurb ?? '',
+      knownFor: d.knownFor ?? linked?.strengths ?? [],
+      priced: Boolean(linked?.priced),
+      hasAccount: Boolean(linked?.hasAccount),
+      vendor: linked, // full vendor row when priced or account held
+    }
+  })
+}
+
 export async function saveVendorAccount(supplierId, patch) {
   if (isDemo) {
     const existing = accounts().find((a) => a.supplierId === supplierId)
@@ -1470,6 +1929,12 @@ export async function saveVendorAccount(supplierId, patch) {
     else accounts().push({ supplierId, ...patch })
     emit()
     return { ok: true }
+  }
+
+  // Directory-only vendors have no row in the live suppliers catalog yet, so
+  // an account with one cannot be stored until that catalog entry exists.
+  if (String(supplierId).startsWith('dir-')) {
+    throw new Error('This vendor is not in your live catalog yet — contact support to add it.')
   }
 
   const { data: profile } = await supabase.from('profiles').select('practice_id').single()

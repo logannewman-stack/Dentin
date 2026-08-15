@@ -15,6 +15,7 @@ import { Pill, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
+import AddToOrder from '@/components/AddToOrder'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
 import { findVendorPrices } from '@/lib/repository'
@@ -231,6 +232,17 @@ export default function PriceCheck() {
                 onExplain={() => setExplain(offer.matchedBy)}
               />
               {offer.isMarketBest ? <Pill tone="good">Cheapest</Pill> : null}
+              {offer.hasAccount && offer.inStock ? (
+                <AddToOrder
+                  productId={productId}
+                  productName={data?.product?.name ?? 'This item'}
+                  supplierId={offer.supplierId}
+                  supplierName={offer.supplierName}
+                  unitPrice={offer.price}
+                  className="ml-auto"
+                  label="Add"
+                />
+              ) : null}
             </span>
           </Row>
         ))}

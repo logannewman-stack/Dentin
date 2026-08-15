@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  BadgeCheck,
   Check,
   ChevronLeft,
+  CreditCard,
+  Landmark,
   PackageCheck,
+  Send,
   Store,
   Truck,
+  X,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
 import { Row, Section } from '@/components/ui/List'
@@ -15,8 +20,16 @@ import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
-import { getOrder, receiveOrder } from '@/lib/repository'
+import {
+  getOrder,
+  listPaymentMethods,
+  payOrder,
+  receiveOrder,
+  removeOrderLine,
+  submitDraftOrder,
+} from '@/lib/repository'
 import { fullDate, money, qty, relativeTime } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 const STATUS = {
   draft: { label: 'Draft', tone: 'quiet' },
@@ -35,9 +48,19 @@ export default function OrderDetail() {
   const toast = useToast()
 
   const { data: order, loading } = useData(() => getOrder(id), [id])
+  const { data: methods } = useData(() => listPaymentMethods(), [])
   const [receiving, setReceiving] = useState(false)
   const [counts, setCounts] = useState({})
   const [busy, setBusy] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [methodId, setMethodId] = useState(null)
+  const [payBusy, setPayBusy] = useState(false)
+
+  useEffect(() => {
+    if (methods?.length && !methodId) {
+      setMethodId((methods.find((m) => m.isDefault) ?? methods[0]).id)
+    }
+  }, [methods, methodId])
 
   useEffect(() => {
     if (!order) return
@@ -81,6 +104,55 @@ export default function OrderDetail() {
     }
   }
 
+  const isDraft = order.status === 'draft'
+  const overdue =
+    order.paymentStatus === 'unpaid' &&
+    order.paymentDueAt &&
+    new Date(order.paymentDueAt) < new Date()
+
+  const sendDraft = async () => {
+    setBusy(true)
+    try {
+      const result = await submitDraftOrder(order.id)
+      toast({
+        title: `${order.reference} sent to ${order.supplierName}`,
+        body: result.expectedAt ? `Arrives ~${fullDate(result.expectedAt)}` : undefined,
+      })
+    } catch (e) {
+      toast({ title: 'Could not submit', body: e.message, tone: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const dropLine = async (line) => {
+    try {
+      const result = await removeOrderLine(order.id, line.productId)
+      toast({ title: 'Removed from draft', body: line.productName })
+      if (result.emptied) navigate('/orders')
+    } catch (e) {
+      toast({ title: 'Could not remove', body: e.message, tone: 'error' })
+    }
+  }
+
+  const settle = async () => {
+    setPayBusy(true)
+    try {
+      const result = await payOrder(order.id, { methodId })
+      setPaying(false)
+      toast({
+        title: `Paid ${order.supplierName}`,
+        body: `${money(result.amount ?? order.total)}${
+          result.confirmation ? ` · ${result.confirmation}` : ''
+        }`,
+      })
+    } catch (e) {
+      toast({ title: 'Payment failed', body: e.message, tone: 'error' })
+    } finally {
+      setPayBusy(false)
+    }
+  }
+
   return (
     <Screen
       title={order.reference ?? 'Order'}
@@ -105,14 +177,17 @@ export default function OrderDetail() {
               <h2 className="truncate text-headline font-semibold">{order.supplierName}</h2>
             </div>
             <p className="mt-0.5 text-footnote text-label-3">
-              {order.reference} · placed {relativeTime(order.placedAt)}
+              {order.reference} ·{' '}
+              {isDraft
+                ? 'draft — not sent yet'
+                : `placed ${relativeTime(order.placedAt)}`}
             </p>
           </div>
           <Pill tone={status.tone}>{status.label}</Pill>
         </div>
 
         {/* Timeline */}
-        <ol className="mt-4 flex items-center gap-1.5">
+        <ol className={cn('mt-4 flex items-center gap-1.5', isDraft && 'hidden')}>
           {TIMELINE.map((stage, i) => {
             const done = i <= stageIndex
             return (
@@ -137,7 +212,7 @@ export default function OrderDetail() {
             )
           })}
         </ol>
-        <div className="mt-1.5 flex justify-between">
+        <div className={cn('mt-1.5 flex justify-between', isDraft && 'hidden')}>
           {['Submitted', 'In transit', 'Received'].map((label) => (
             <span key={label} className="text-caption2 text-label-3">
               {label}
@@ -145,7 +220,15 @@ export default function OrderDetail() {
           ))}
         </div>
 
-        {order.expectedAt && order.status !== 'received' ? (
+        {isDraft ? (
+          <p className="mt-4 border-t border-separator/50 pt-3 text-footnote text-label-2">
+            Lines added from price checks and the market scan collect here. Nothing reaches{' '}
+            {order.supplierName} until you submit.
+            {order.termsLabel ? ` Terms: ${order.termsLabel}.` : ''}
+          </p>
+        ) : null}
+
+        {order.expectedAt && order.status !== 'received' && !isDraft ? (
           <p className="mt-3 flex items-center gap-1.5 border-t border-separator/50 pt-3 text-footnote text-label-2">
             <Truck size={14} className="shrink-0 text-label-3" aria-hidden="true" />
             Expected {fullDate(order.expectedAt)}
@@ -153,8 +236,14 @@ export default function OrderDetail() {
         ) : null}
       </div>
 
-      {/* Receive */}
-      {outstanding.length > 0 ? (
+      {/* Draft → send it; otherwise → receive it */}
+      {isDraft ? (
+        <div className="mt-3">
+          <Button className="w-full" size="lg" icon={Send} loading={busy} onClick={sendDraft}>
+            Submit to {order.supplierName}
+          </Button>
+        </div>
+      ) : outstanding.length > 0 ? (
         <div className="mt-3">
           <Button
             className="w-full"
@@ -179,18 +268,32 @@ export default function OrderDetail() {
               line.unit ?? 'unit'
             }`}
             trailing={
-              <div className="text-right">
-                <p className="tnum text-callout font-semibold">{money(line.lineTotal)}</p>
-                {line.receivedQty >= line.quantity ? (
-                  <p className="text-caption text-ios-green">Received</p>
-                ) : line.receivedQty > 0 ? (
-                  <p className="tnum text-caption text-ios-orange">
-                    {qty(line.receivedQty)}/{qty(line.quantity)}
-                  </p>
-                ) : (
-                  <p className="text-caption text-label-3">Pending</p>
-                )}
-              </div>
+              isDraft ? (
+                <div className="flex items-center gap-2.5">
+                  <p className="tnum text-callout font-semibold">{money(line.lineTotal)}</p>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${line.productName}`}
+                    onClick={() => dropLine(line)}
+                    className="press flex h-7 w-7 items-center justify-center rounded-[3px] border border-line text-label-3"
+                  >
+                    <X size={14} strokeWidth={2.4} />
+                  </button>
+                </div>
+              ) : (
+                <div className="text-right">
+                  <p className="tnum text-callout font-semibold">{money(line.lineTotal)}</p>
+                  {line.receivedQty >= line.quantity ? (
+                    <p className="text-caption text-ios-green">Received</p>
+                  ) : line.receivedQty > 0 ? (
+                    <p className="tnum text-caption text-ios-orange">
+                      {qty(line.receivedQty)}/{qty(line.quantity)}
+                    </p>
+                  ) : (
+                    <p className="text-caption text-label-3">Pending</p>
+                  )}
+                </div>
+              )
             }
           />
         ))}
@@ -222,6 +325,142 @@ export default function OrderDetail() {
           />
         ) : null}
       </Section>
+
+      {/* Payment — settle the vendor without leaving the order */}
+      {order.paymentStatus ? (
+        <div className="mt-4 rounded-card border border-line bg-surface p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-headline font-semibold">Payment</p>
+            {order.paymentStatus === 'paid' ? (
+              <Pill tone="good" icon={BadgeCheck}>
+                Paid
+              </Pill>
+            ) : overdue ? (
+              <Pill tone="critical">Overdue</Pill>
+            ) : (
+              <Pill tone="warning">Unpaid</Pill>
+            )}
+          </div>
+
+          {order.paymentStatus === 'paid' ? (
+            <div className="mt-2 border-t border-separator/50 pt-2.5">
+              <p className="text-subhead text-label-2">
+                Paid {order.paidAt ? fullDate(order.paidAt) : ''} ·{' '}
+                {order.paymentMethodLabel ?? 'On file'}
+              </p>
+              {order.paymentConfirmation ? (
+                <p className="ident mt-1 text-caption text-label-3">
+                  Confirmation {order.paymentConfirmation}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mt-2 border-t border-separator/50 pt-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className={cn('text-subhead', overdue ? 'font-semibold text-ios-red' : 'text-label-2')}>
+                    {order.paymentDueAt
+                      ? `${overdue ? 'Was due' : 'Due'} ${fullDate(order.paymentDueAt)}`
+                      : 'Due on receipt'}
+                  </p>
+                  {order.termsLabel ? (
+                    <p className="text-caption text-label-3">{order.termsLabel}</p>
+                  ) : null}
+                </div>
+                <p className="tnum shrink-0 text-title3 font-bold">{money(order.total)}</p>
+              </div>
+              <Button className="mt-3 w-full" size="lg" onClick={() => setPaying(true)}>
+                Pay {order.supplierName}
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Pay sheet */}
+      <Sheet
+        open={paying}
+        onClose={() => setPaying(false)}
+        title={`Pay ${order.supplierName}`}
+        detent="medium"
+        footer={
+          <Button
+            className="w-full"
+            size="lg"
+            loading={payBusy}
+            disabled={!methodId}
+            onClick={settle}
+          >
+            Pay {money(order.total)}
+          </Button>
+        }
+      >
+        <div className="py-3">
+          <div className="rounded-card border border-line bg-surface p-4 text-center">
+            <p className="text-caption2 uppercase tracking-[0.07em] text-label-3">
+              {order.reference} · {order.supplierName}
+            </p>
+            <p className="tnum mt-1 text-[34px] font-bold leading-none">{money(order.total)}</p>
+            {order.paymentDueAt ? (
+              <p className={cn('mt-1.5 text-footnote', overdue ? 'text-ios-red' : 'text-label-3')}>
+                {overdue ? 'Was due' : 'Due'} {fullDate(order.paymentDueAt)}
+                {order.termsLabel ? ` · ${order.termsLabel}` : ''}
+              </p>
+            ) : null}
+          </div>
+
+          <p className="section-label px-1">Pay with</p>
+          <div className="panel">
+            {(methods ?? []).map((m) => {
+              const Icon = m.kind === 'bank' ? Landmark : CreditCard
+              const selected = methodId === m.id
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setMethodId(m.id)}
+                  aria-pressed={selected}
+                  className="row press w-full py-2.5 text-left"
+                >
+                  <span
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] border',
+                      selected
+                        ? 'border-brand-600 bg-brand-600/10 text-brand-700 dark:text-brand-400'
+                        : 'border-line text-label-3',
+                    )}
+                  >
+                    <Icon size={15} strokeWidth={2} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-subhead font-medium text-label">
+                      {m.label}
+                      {m.isDefault ? (
+                        <span className="ml-1.5 text-caption text-label-3">Default</span>
+                      ) : null}
+                    </span>
+                    <span className="ident block text-caption text-label-3">{m.detail}</span>
+                  </span>
+                  <span
+                    className={cn(
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-[2px] border',
+                      selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-line',
+                    )}
+                    aria-hidden="true"
+                  >
+                    {selected ? <Check size={13} strokeWidth={3} /> : null}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <p className="px-1 pt-2 text-footnote text-label-3">
+            Payments post on your account terms and land on the vendor statement with the PO
+            number, so reconciliation is a match, not a hunt.
+          </p>
+        </div>
+      </Sheet>
 
       {/* Receiving sheet */}
       <Sheet

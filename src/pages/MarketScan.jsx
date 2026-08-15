@@ -6,6 +6,7 @@ import { Section } from '@/components/ui/List'
 import { EmptyState, Pill, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import ProductTile from '@/components/ProductTile'
+import AddToOrder from '@/components/AddToOrder'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
 import { getPriceOpportunities } from '@/lib/repository'
@@ -75,6 +76,22 @@ function OpportunityRow({ row }) {
           <span className="ml-1 font-medium text-label-3">
             ({Math.round(row.pctCheaper)}%)
           </span>
+        </span>
+      </div>
+
+      {/* Act on it now — at the best price an existing account can place */}
+      <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-separator/50 pt-2.5">
+        <AddToOrder
+          productId={row.productId}
+          productName={row.productName}
+          supplierId={row.accountSupplierId}
+          supplierName={row.accountSupplierName}
+          unitPrice={row.accountPrice}
+          quantity={row.quantity}
+          label={`Add ${qty(row.quantity)} to order`}
+        />
+        <span className="min-w-0 truncate text-caption text-label-3">
+          at {money(row.accountPrice)} · {row.accountSupplierName}
         </span>
       </div>
     </div>

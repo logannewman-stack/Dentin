@@ -49,6 +49,9 @@ export function ToastProvider({ children }) {
         <AnimatePresence initial={false}>
           {toasts.map((t) => {
             const { Icon, bg } = TONES[t.tone] ?? TONES.info
+            // Undo stays the default action affordance; callers doing
+            // navigation ("View order") pass their own Icon, or null for none.
+            const ActionIcon = t.action?.Icon === undefined ? Undo2 : t.action.Icon
             return (
               <motion.div
                 key={t.id}
@@ -86,7 +89,7 @@ export function ToastProvider({ children }) {
                     }}
                     className="press flex shrink-0 items-center gap-1 text-subhead font-semibold text-brand-600 dark:text-brand-400"
                   >
-                    <Undo2 size={13} strokeWidth={2.6} />
+                    {ActionIcon ? <ActionIcon size={13} strokeWidth={2.6} /> : null}
                     {t.action.label}
                   </button>
                 ) : null}

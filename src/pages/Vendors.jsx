@@ -14,20 +14,24 @@ import {
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
 import { Row, Section } from '@/components/ui/List'
-import { EmptyState, Pill, SegmentedControl, Toggle } from '@/components/ui/Controls'
+import { EmptyState, Pill, SearchField, SegmentedControl, Toggle } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import Sheet from '@/components/ui/Sheet'
 import { NewVendorRail, VendorStatus } from '@/components/VendorBadge'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import {
+  VENDOR_KINDS,
   getPriceOpportunities,
+  listVendorDirectory,
   listVendors,
   removeVendorAccount,
   saveVendorAccount,
 } from '@/lib/repository'
 import { fullDate, money, moneyRound, relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
+
+const KIND_LABEL = Object.fromEntries(VENDOR_KINDS.map((k) => [k.id, k.label]))
 
 function VendorCard({ vendor, savings, onOpen }) {
   return (
@@ -73,15 +77,60 @@ function VendorCard({ vendor, savings, onOpen }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 pl-1 text-caption text-label-3">
-        <span className="flex items-center gap-1">
-          <Truck size={11} aria-hidden="true" />~{vendor.leadDays}d
-        </span>
-        <span>
-          {vendor.freeShipOver > 0
-            ? `Free ship over ${moneyRound(vendor.freeShipOver)}`
-            : `${money(vendor.shipFee)} flat ship`}
-        </span>
+        {vendor.priced === false ? (
+          <>
+            {vendor.kind ? <span>{KIND_LABEL[vendor.kind] ?? vendor.kind}</span> : null}
+            {vendor.hq ? <span>{vendor.hq}</span> : null}
+            <span>No price feed yet</span>
+          </>
+        ) : (
+          <>
+            <span className="flex items-center gap-1">
+              <Truck size={11} aria-hidden="true" />~{vendor.leadDays}d
+            </span>
+            <span>
+              {vendor.freeShipOver > 0
+                ? `Free ship over ${moneyRound(vendor.freeShipOver)}`
+                : `${money(vendor.shipFee)} flat ship`}
+            </span>
+          </>
+        )}
         {vendor.hasAccount && vendor.repName ? <span>Rep: {vendor.repName}</span> : null}
+      </div>
+    </button>
+  )
+}
+
+/**
+ * A directory listing — a real vendor Dentin does not price yet. Deliberately
+ * quieter than VendorCard: no numbers are claimed, just who they are.
+ */
+function DirectoryCard({ entry, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="press w-full rounded-card border border-line bg-surface p-3 text-left"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-subhead font-semibold">{entry.name}</h3>
+            {entry.hasAccount ? <VendorStatus hasAccount isPreferred={false} /> : null}
+          </div>
+          <p className="mt-0.5 line-clamp-1 text-footnote text-label-3">{entry.blurb}</p>
+          {entry.knownFor?.length ? (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {entry.knownFor.slice(0, 3).map((k) => (
+                <Pill key={k}>{k}</Pill>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="shrink-0 text-right text-caption text-label-3">
+          <p>{KIND_LABEL[entry.kind] ?? entry.kind}</p>
+          {entry.hq ? <p className="mt-0.5">{entry.hq}</p> : null}
+        </div>
       </div>
     </button>
   )
@@ -92,6 +141,7 @@ export default function Vendors() {
   const toast = useToast()
 
   const { data: vendors } = useData(() => listVendors(), [])
+  const { data: directory } = useData(() => listVendorDirectory(), [])
   const { data: opportunity } = useData(() => getPriceOpportunities(), [])
 
   // Deep-linkable, so "find new vendors" entry points can land on Discover.
@@ -99,6 +149,8 @@ export default function Vendors() {
   const tab = params.get('tab') === 'new' ? 'new' : 'accounts'
   const setTab = (next) => setParams(next === 'new' ? { tab: 'new' } : {}, { replace: true })
 
+  const [q, setQ] = useState('')
+  const [kindFilter, setKindFilter] = useState('all')
   const [detail, setDetail] = useState(null)
   const [form, setForm] = useState({})
   const [busy, setBusy] = useState(false)
@@ -110,6 +162,30 @@ export default function Vendors() {
       newVendors: all.filter((v) => !v.hasAccount),
     }
   }, [vendors])
+
+  // The searchable pool: every directory entry. Without a query, entries the
+  // practice already holds are left to the Accounts tab; a search finds them
+  // anyway — looking up "Henry Schein" should never come back empty.
+  const searching = q.trim().length > 0 || kindFilter !== 'all'
+  const directoryResults = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    const pool = directory ?? []
+    const scoped = searching ? pool : pool.filter((d) => !d.hasAccount)
+    return scoped.filter((d) => {
+      if (kindFilter !== 'all' && d.kind !== kindFilter) return false
+      if (!needle) return true
+      const hay = [d.name, d.blurb, d.hq, KIND_LABEL[d.kind], ...(d.knownFor ?? [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return hay.includes(needle)
+    })
+  }, [directory, q, kindFilter, searching])
+
+  const newTabCount = useMemo(
+    () => (directory ?? []).filter((d) => !d.hasAccount).length,
+    [directory],
+  )
 
   const savingsBy = useMemo(() => {
     const map = new Map()
@@ -159,12 +235,34 @@ export default function Vendors() {
     }
   }
 
-  const list = tab === 'accounts' ? withAccounts : newVendors
+  // Directory entries without a price feed still open the same detail sheet —
+  // built into vendor-row shape so one sheet serves both.
+  const openDirectoryDetail = (entry) =>
+    openDetail(
+      entry.vendor ?? {
+        supplierId: entry.supplierId,
+        name: entry.name,
+        blurb: entry.blurb,
+        website: entry.website,
+        strengths: entry.knownFor ?? [],
+        caveats: [],
+        freeShipOver: 0,
+        shipFee: 0,
+        leadDays: null,
+        priced: false,
+        kind: entry.kind,
+        hq: entry.hq,
+        hasAccount: false,
+        isPreferred: false,
+      },
+    )
+
+  const visibleDirectory = directoryResults.filter((d) => searching || !d.priced)
 
   return (
     <Screen
       title="Vendors"
-      subtitle={`${withAccounts.length} accounts · ${newVendors.length} available`}
+      subtitle={`${withAccounts.length} accounts · ${newTabCount} available`}
       largeTitle={false}
       leading={
         <button
@@ -215,45 +313,121 @@ export default function Vendors() {
           onChange={setTab}
           options={[
             { value: 'accounts', label: 'Your accounts', count: withAccounts.length },
-            { value: 'new', label: 'Find new', count: newVendors.length },
+            { value: 'new', label: 'Find new', count: newTabCount },
           ]}
         />
       </div>
 
-      {tab === 'new' ? (
-        <p className="px-1 pb-1 pt-2 text-footnote text-label-3">
-          Vendors Dentin prices but you cannot order from yet. Opening an account is usually a
-          form and a credit check.
-        </p>
-      ) : null}
+      {tab === 'accounts' ? (
+        <>
+          <div className="mt-2 flex flex-col gap-2.5">
+            {withAccounts.map((vendor) => (
+              <VendorCard
+                key={vendor.supplierId}
+                vendor={vendor}
+                savings={savingsBy.get(vendor.supplierId) ?? 0}
+                onOpen={() => openDetail(vendor)}
+              />
+            ))}
+          </div>
 
-      <div className="mt-2 flex flex-col gap-2.5">
-        {list.map((vendor) => (
-          <VendorCard
-            key={vendor.supplierId}
-            vendor={vendor}
-            savings={savingsBy.get(vendor.supplierId) ?? 0}
-            onOpen={() => openDetail(vendor)}
-          />
-        ))}
-      </div>
+          {withAccounts.length === 0 ? (
+            <EmptyState
+              icon={Building2}
+              title="No accounts yet"
+              body="Add the suppliers you already buy from so Dentin only quotes prices you can actually place."
+              action={<Button onClick={() => setTab('new')}>Browse vendors</Button>}
+            />
+          ) : null}
+        </>
+      ) : (
+        <>
+          <div className="pt-2">
+            <SearchField
+              value={q}
+              onChange={setQ}
+              placeholder="Search vendors — name, brand, category"
+            />
+          </div>
 
-      {list.length === 0 ? (
-        <EmptyState
-          icon={Building2}
-          title={tab === 'accounts' ? 'No accounts yet' : 'No new vendors'}
-          body={
-            tab === 'accounts'
-              ? 'Add the suppliers you already buy from so Dentin only quotes prices you can actually place.'
-              : 'You already hold an account with every vendor Dentin prices.'
-          }
-          action={
-            tab === 'accounts' ? (
-              <Button onClick={() => setTab('new')}>Browse vendors</Button>
-            ) : null
-          }
-        />
-      ) : null}
+          {/* Kind filter — the directory is big enough to need a map */}
+          <div className="scroll-area -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4 pb-0.5 lg:mx-0 lg:flex-wrap lg:px-0">
+            {[{ id: 'all', label: 'All' }, ...VENDOR_KINDS].map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                onClick={() => setKindFilter(k.id)}
+                aria-pressed={kindFilter === k.id}
+                className={cn(
+                  'shrink-0 whitespace-nowrap rounded-[3px] border px-2.5 py-1 text-footnote font-medium transition-colors duration-100',
+                  kindFilter === k.id
+                    ? 'border-label bg-label text-surface'
+                    : 'border-line bg-surface text-label-2 hover:bg-surface-2',
+                )}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Vendors Dentin already prices lead — they come with live numbers */}
+          {!searching && newVendors.length ? (
+            <>
+              <p className="section-label px-1">Priced by Dentin</p>
+              <div className="flex flex-col gap-2.5">
+                {newVendors.map((vendor) => (
+                  <VendorCard
+                    key={vendor.supplierId}
+                    vendor={vendor}
+                    savings={savingsBy.get(vendor.supplierId) ?? 0}
+                    onOpen={() => openDetail(vendor)}
+                  />
+                ))}
+              </div>
+              <p className="section-label px-1">Vendor directory</p>
+            </>
+          ) : null}
+
+          <div className={cn('flex flex-col gap-2', searching && 'mt-3')}>
+            {visibleDirectory.map((d) =>
+              d.priced && d.vendor ? (
+                <VendorCard
+                  key={d.directoryId}
+                  vendor={d.vendor}
+                  savings={savingsBy.get(d.supplierId) ?? 0}
+                  onOpen={() => openDetail(d.vendor)}
+                />
+              ) : (
+                <DirectoryCard key={d.directoryId} entry={d} onOpen={() => openDirectoryDetail(d)} />
+              ),
+            )}
+          </div>
+
+          {visibleDirectory.length === 0 ? (
+            <EmptyState
+              icon={Building2}
+              title="No vendors match"
+              body="Try a shorter name — the directory spans distributors, makers, instruments, equipment, implants and labs."
+              action={
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setQ('')
+                    setKindFilter('all')
+                  }}
+                >
+                  Clear search
+                </Button>
+              }
+            />
+          ) : null}
+
+          <p className="px-1 pb-1 pt-3 text-footnote text-label-3">
+            Vendors marked NEW are already priced by Dentin. Directory vendors show pricing once a
+            feed is connected — adding the account still keeps terms, reps and orders in one place.
+          </p>
+        </>
+      )}
 
       {/* Vendor detail */}
       <Sheet
@@ -286,18 +460,35 @@ export default function Vendors() {
               </div>
 
               <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-separator/50 pt-3">
-                <div>
-                  <dt className="text-caption text-label-3">Typical lead time</dt>
-                  <dd className="tnum text-callout font-semibold">~{detail.leadDays} days</dd>
-                </div>
-                <div>
-                  <dt className="text-caption text-label-3">Shipping</dt>
-                  <dd className="text-callout font-semibold">
-                    {detail.freeShipOver > 0
-                      ? `Free over ${moneyRound(detail.freeShipOver)}`
-                      : `${money(detail.shipFee)} flat`}
-                  </dd>
-                </div>
+                {detail.priced === false ? (
+                  <>
+                    <div>
+                      <dt className="text-caption text-label-3">Category</dt>
+                      <dd className="text-callout font-semibold">
+                        {KIND_LABEL[detail.kind] ?? '—'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-caption text-label-3">Headquarters</dt>
+                      <dd className="text-callout font-semibold">{detail.hq ?? '—'}</dd>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <dt className="text-caption text-label-3">Typical lead time</dt>
+                      <dd className="tnum text-callout font-semibold">~{detail.leadDays} days</dd>
+                    </div>
+                    <div>
+                      <dt className="text-caption text-label-3">Shipping</dt>
+                      <dd className="text-callout font-semibold">
+                        {detail.freeShipOver > 0
+                          ? `Free over ${moneyRound(detail.freeShipOver)}`
+                          : `${money(detail.shipFee)} flat`}
+                      </dd>
+                    </div>
+                  </>
+                )}
                 {detail.hasAccount ? (
                   <>
                     <div>
@@ -329,7 +520,7 @@ export default function Vendors() {
 
             {/* What they are good at */}
             {detail.strengths?.length ? (
-              <Section title="Strengths">
+              <Section title={detail.priced === false ? 'Known for' : 'Strengths'}>
                 {detail.strengths.map((s) => (
                   <Row
                     key={s}
@@ -357,7 +548,9 @@ export default function Vendors() {
               footer={
                 detail.hasAccount
                   ? 'Preferred vendors win price ties and are suggested first when building an order.'
-                  : 'Add the account number once you open it — Dentin will then treat this vendor as orderable.'
+                  : detail.priced === false
+                    ? 'Dentin does not price this vendor yet — tracking the account keeps terms, reps and orders in one place until a price feed is connected.'
+                    : 'Add the account number once you open it — Dentin will then treat this vendor as orderable.'
               }
             >
               {[

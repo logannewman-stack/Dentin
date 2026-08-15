@@ -7,6 +7,7 @@ import {
   Check,
   FileSpreadsheet,
   Info,
+  Landmark,
   MapPin,
   Moon,
   Share,
@@ -178,6 +179,12 @@ export default function Settings() {
           title="Import contract pricing"
           subtitle="Load the negotiated price file from your rep"
           to="/vendors/import"
+        />
+        <Row
+          leading={<Landmark size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          title="Payment methods"
+          subtitle="How vendors get paid — ACH and cards on file"
+          to="/settings/payments"
         />
       </Section>
 

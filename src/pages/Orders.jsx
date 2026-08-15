@@ -1,5 +1,12 @@
 import { useMemo } from 'react'
-import { Building2, PackagePlus, ShoppingCart, Sparkles, TrendingDown } from 'lucide-react'
+import {
+  Building2,
+  Landmark,
+  PackagePlus,
+  ShoppingCart,
+  Sparkles,
+  TrendingDown,
+} from 'lucide-react'
 import Screen from '@/components/ui/Screen'
 import { Row, RowIcon, Section } from '@/components/ui/List'
 import { EmptyState, Pill } from '@/components/ui/Controls'
@@ -21,12 +28,15 @@ export default function Orders() {
   const { data: orders } = useData(() => listOrders(), [])
   const { data: suggestions } = useData(() => reorderSuggestions(), [])
 
-  const { open, past, totalSaved } = useMemo(() => {
+  const { open, past, totalSaved, payables } = useMemo(() => {
     const all = orders ?? []
     return {
       open: all.filter((o) => ['draft', 'submitted', 'confirmed', 'partial'].includes(o.status)),
       past: all.filter((o) => ['received', 'cancelled'].includes(o.status)),
       totalSaved: all.reduce((sum, o) => sum + (o.savings ?? 0), 0),
+      payables: all
+        .filter((o) => o.paymentStatus === 'unpaid')
+        .sort((a, b) => new Date(a.paymentDueAt ?? 0) - new Date(b.paymentDueAt ?? 0)),
     }
   }, [orders])
 
@@ -72,6 +82,37 @@ export default function Orders() {
         </div>
       ) : null}
 
+      {/* What the practice owes vendors — payable in one tap from the order */}
+      {payables.length > 0 ? (
+        <Section
+          title="Awaiting payment"
+          footer="Payments post from your methods on file and reference the PO number."
+        >
+          {payables.map((order) => {
+            const late = order.paymentDueAt && new Date(order.paymentDueAt) < new Date()
+            return (
+              <Row
+                key={order.id}
+                to={`/orders/${order.id}`}
+                leading={<Landmark size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+                title={order.supplierName ?? 'Order'}
+                subtitle={`${order.reference} · ${
+                  order.paymentDueAt
+                    ? `${late ? 'was due' : 'due'} ${fullDate(order.paymentDueAt)}`
+                    : 'due on receipt'
+                }`}
+                trailing={
+                  <div className="text-right">
+                    <p className="tnum text-callout font-semibold">{money(order.total)}</p>
+                    <Pill tone={late ? 'critical' : 'warning'}>{late ? 'Overdue' : 'Unpaid'}</Pill>
+                  </div>
+                }
+              />
+            )
+          })}
+        </Section>
+      ) : null}
+
       <Section title="Vendors" footer="Dentin only quotes prices you can actually place today.">
         <Row
           to="/vendors"
@@ -104,7 +145,11 @@ export default function Orders() {
                 leading={<ShoppingCart size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
                 title={order.supplierName ?? 'Order'}
                 subtitle={`${order.reference} · ${
-                  order.expectedAt ? `arrives ${fullDate(order.expectedAt)}` : 'no ETA'
+                  order.status === 'draft'
+                    ? `${order.itemCount ?? '—'} line${order.itemCount === 1 ? '' : 's'}, not sent`
+                    : order.expectedAt
+                      ? `arrives ${fullDate(order.expectedAt)}`
+                      : 'no ETA'
                 }`}
                 trailing={
                   <div className="text-right">
