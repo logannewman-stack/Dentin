@@ -7,17 +7,20 @@ const DEMO_KEY = 'dentin:demo-session'
 const ONBOARDED_KEY = 'dentin:onboarded'
 
 /**
- * Auth bypass — open the app straight on Today, no sign-in, no setup wizard.
+ * BYPASS_AUTH means the build has no real auth backend — the app runs the
+ * demo practice and "signing in" is a local flag.
  *
- * On by default until Supabase is configured, so the app is immediately
- * demoable. Once a live project is wired the real session takes over; set
- * VITE_BYPASS_AUTH=true to keep skipping the gate even then.
- *
- * /welcome and /onboarding stay reachable by URL either way, so the flows can
- * still be shown without turning the gate back on.
+ * That is not the same as skipping the front door. A first-time visitor to
+ * the deployed site always lands on Welcome and chooses: sign in, create an
+ * account, or preview the mock practice. The choice persists locally, so
+ * they only see the door once. Set VITE_BYPASS_AUTH=true (local dev) to
+ * skip the door entirely and open straight on Today.
  */
 export const BYPASS_AUTH =
   import.meta.env.VITE_BYPASS_AUTH === 'true' || !isSupabaseConfigured
+
+// Explicit dev flag only — the implicit demo build still shows the door.
+const AUTO_ENTER = import.meta.env.VITE_BYPASS_AUTH === 'true'
 
 /**
  * Auth for both worlds.
@@ -28,20 +31,21 @@ export const BYPASS_AUTH =
  * backend exists.
  */
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(BYPASS_AUTH ? { demo: true, bypassed: true } : null)
-  const [loading, setLoading] = useState(!BYPASS_AUTH)
+  const [session, setSession] = useState(() => {
+    if (AUTO_ENTER) return { demo: true, bypassed: true }
+    if (!isSupabaseConfigured && localStorage.getItem(DEMO_KEY) === 'true') {
+      return { demo: true }
+    }
+    return null
+  })
+  // Only a real backend needs an async session check; demo state is local.
+  const [loading, setLoading] = useState(isSupabaseConfigured && !AUTO_ENTER)
   const [onboarded, setOnboarded] = useState(
-    () => BYPASS_AUTH || localStorage.getItem(ONBOARDED_KEY) === 'true',
+    () => AUTO_ENTER || localStorage.getItem(ONBOARDED_KEY) === 'true',
   )
 
   useEffect(() => {
-    if (BYPASS_AUTH) return undefined
-
-    if (!isSupabaseConfigured) {
-      setSession(localStorage.getItem(DEMO_KEY) === 'true' ? { demo: true } : null)
-      setLoading(false)
-      return undefined
-    }
+    if (AUTO_ENTER || !isSupabaseConfigured) return undefined
 
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
@@ -57,7 +61,10 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async ({ email, password }) => {
     if (!isSupabaseConfigured) {
+      // Signing in claims an existing practice — no setup wizard.
       localStorage.setItem(DEMO_KEY, 'true')
+      localStorage.setItem(ONBOARDED_KEY, 'true')
+      setOnboarded(true)
       setSession({ demo: true })
       return { error: null }
     }
@@ -80,12 +87,12 @@ export function AuthProvider({ children }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    // With the door force-skipped there is nothing to sign out of — the app
+    // would simply re-enter — so leave the session in place.
+    if (AUTO_ENTER) return
     localStorage.removeItem(DEMO_KEY)
     localStorage.removeItem(ONBOARDED_KEY)
     if (isSupabaseConfigured) await supabase.auth.signOut()
-    // With the gate bypassed there is nothing to sign out of — the app would
-    // simply re-enter — so leave the session in place.
-    if (BYPASS_AUTH) return
     setOnboarded(false)
     setSession(null)
   }, [])
@@ -109,6 +116,7 @@ export function AuthProvider({ children }) {
       loading,
       onboarded,
       bypassed: BYPASS_AUTH,
+      autoEntered: AUTO_ENTER,
       isDemoAuth: !isSupabaseConfigured,
       signIn,
       signUp,

@@ -42,7 +42,7 @@ function useTheme() {
 export default function Account() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { signOut, bypassed } = useAuth()
+  const { signOut, bypassed, autoEntered } = useAuth()
   const [theme, setTheme] = useTheme()
 
   const { data: user } = useData(() => getCurrentUser(), [])
@@ -188,16 +188,26 @@ export default function Account() {
       {/* Session */}
       <Section
         footer={
-          bypassed
+          autoEntered
             ? 'Sign-in is bypassed in this build, so there is no session to end — this previews the sign-in screen instead.'
-            : undefined
+            : bypassed
+              ? 'You are in the mock practice. Leaving returns to the welcome screen — nothing here touches a real account.'
+              : undefined
         }
       >
-        {bypassed ? (
+        {autoEntered ? (
           <Row
             leading={<LogOut size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
             title="Preview the sign-in screen"
             onClick={() => navigate('/welcome')}
+          />
+        ) : bypassed ? (
+          <Row
+            leading={<LogOut size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+            title="Leave the preview"
+            subtitle="Back to sign in and create account"
+            chevron={false}
+            onClick={signOut}
           />
         ) : (
           <Row

@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
-import Button from '@/components/ui/Button'
+import { ArrowRight, Compass, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/lib/AuthContext'
 import { cn } from '@/lib/utils'
 
@@ -62,7 +61,7 @@ export default function Welcome() {
       />
 
       <div
-        className="relative flex min-h-[100dvh] flex-col px-6"
+        className="relative mx-auto flex min-h-[100dvh] w-full max-w-[26rem] flex-col px-6"
         style={{
           paddingTop: 'calc(env(safe-area-inset-top) + 48px)',
           paddingBottom: 'calc(env(safe-area-inset-bottom) + 28px)',
@@ -212,19 +211,40 @@ export default function Welcome() {
 
         {isDemoAuth ? (
           <div className="mt-8">
-            <Button
-              variant="plain"
-              className="w-full !text-white/85"
+            <div className="mb-3 flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-white/15" />
+              <span className="text-caption font-medium uppercase tracking-[0.5px] text-white/45">
+                or
+              </span>
+              <span className="h-px flex-1 bg-white/15" />
+            </div>
+
+            <button
+              type="button"
               onClick={() => {
                 exploreDemo()
                 navigate('/', { replace: true })
               }}
+              className="group flex w-full items-center gap-3.5 rounded-[4px] border border-white/25 bg-white/10 px-4 py-3.5 text-left backdrop-blur-xl transition-colors duration-150 hover:bg-white/[0.16] active:bg-white/20"
             >
-              Explore the demo practice
-            </Button>
-            <p className="mt-1 text-center text-caption text-white/45">
-              A furnished practice with live pricing — no account needed
-            </p>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
+                <Compass size={18} strokeWidth={2} aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-body font-semibold text-white">
+                  Preview a mock practice
+                </span>
+                <span className="mt-0.5 block text-caption text-white/60">
+                  A furnished demo — sample inventory, orders and live pricing. No account needed.
+                </span>
+              </span>
+              <ArrowRight
+                size={17}
+                strokeWidth={2.4}
+                className="shrink-0 text-white/60 transition-transform duration-150 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </button>
           </div>
         ) : null}
       </div>
