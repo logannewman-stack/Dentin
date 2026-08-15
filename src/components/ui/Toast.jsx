@@ -41,7 +41,7 @@ export function ToastProvider({ children }) {
       {children}
 
       <div
-        className="pointer-events-none fixed inset-x-0 z-[60] flex flex-col items-center gap-2 px-4"
+        className="pointer-events-none fixed inset-x-0 z-[60] flex flex-col items-center gap-2 px-4 lg:pl-60"
         style={{ top: 'calc(env(safe-area-inset-top) + 8px)' }}
         role="status"
         aria-live="polite"

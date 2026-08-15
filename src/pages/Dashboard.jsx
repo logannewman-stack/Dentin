@@ -61,11 +61,11 @@ function Kpi({ label, icon: Icon, value, caption, tone = 'label', to }) {
   )
 
   return to ? (
-    <Link to={to} className="press block min-w-0 p-3">
+    <Link to={to} className="press block min-w-0 bg-surface p-3">
       {inner}
     </Link>
   ) : (
-    <div className="min-w-0 p-3">{inner}</div>
+    <div className="min-w-0 bg-surface p-3">{inner}</div>
   )
 }
 
@@ -122,7 +122,7 @@ export default function Dashboard() {
   return (
     <Screen
       logo
-      title="Dentin"
+      title="Today"
       subtitle={practice?.name}
       trailing={
         <>
@@ -176,7 +176,7 @@ export default function Dashboard() {
       ) : null}
 
       {/* Instrument panel — one bordered grid, not four floating cards */}
-      <div className="panel grid grid-cols-2 [&>*]:border-line [&>*:nth-child(odd)]:border-r [&>*:nth-child(n+3)]:border-t">
+      <div className="panel grid grid-cols-2 gap-px bg-line lg:grid-cols-4">
         <Kpi
           label="Needs action"
           icon={PackageCheck}
@@ -216,6 +216,8 @@ export default function Dashboard() {
         />
       </div>
 
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-4">
+      <div className="min-w-0">
       {/* Needs attention — a table, because this is a working list */}
       {topAttention.length > 0 ? (
         <section className="mt-1">
@@ -288,6 +290,8 @@ export default function Dashboard() {
         </section>
       ) : null}
 
+      </div>
+      <div className="min-w-0">
       {/* The purchase decision, priced */}
       {stats.attention.length > 0 ? (
         <div className="panel mt-2">
@@ -330,6 +334,9 @@ export default function Dashboard() {
           <ArrowRight size={14} className="shrink-0 text-label-3" aria-hidden="true" />
         </Link>
       ) : null}
+
+      </div>
+      </div>
 
       {/* Compliance */}
       {serviceDue.length > 0 ? (

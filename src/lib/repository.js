@@ -753,6 +753,71 @@ export async function getSpendBenchmark() {
   }
 }
 
+// --- current user ------------------------------------------------------------
+let demoUser = null
+
+export async function getCurrentUser() {
+  if (isDemo) {
+    if (!demoUser) {
+      const me = TEAM[0]
+      demoUser = {
+        id: me.id,
+        name: me.name,
+        email: 'l.newman@ridgelinedental.example',
+        role: me.role,
+        initials: me.initials,
+      }
+    }
+    return demoUser
+  }
+
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth?.user) return null
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, role')
+    .eq('id', auth.user.id)
+    .single()
+  const name = profile?.full_name ?? auth.user.email
+  return {
+    id: auth.user.id,
+    name,
+    email: auth.user.email,
+    role: profile?.role ?? 'owner',
+    initials: String(name)
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? '')
+      .join(''),
+  }
+}
+
+export async function updateCurrentUser(patch) {
+  if (isDemo) {
+    await getCurrentUser()
+    Object.assign(demoUser, patch)
+    demoUser.initials = String(demoUser.name ?? '?')
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? '')
+      .join('')
+    emit()
+    return { ok: true }
+  }
+
+  const { data: auth } = await supabase.auth.getUser()
+  if (patch.name != null) {
+    await supabase.from('profiles').update({ full_name: patch.name }).eq('id', auth.user.id)
+  }
+  if (patch.email != null && patch.email !== auth.user.email) {
+    // Email changes go through Supabase's confirmation flow, not a table write.
+    const { error } = await supabase.auth.updateUser({ email: patch.email })
+    if (error) throw error
+  }
+  emit()
+  return { ok: true }
+}
+
 export async function listTeam() {
   if (isDemo) return TEAM
   const { data, error } = await supabase

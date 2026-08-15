@@ -45,7 +45,7 @@ export default function Sheet({ open, onClose, title, children, footer, detent =
 
           <motion.div
             className={cn(
-              'absolute inset-x-0 bottom-0 flex flex-col rounded-t-sheet border-t border-line bg-canvas shadow-sheet',
+              'absolute inset-x-0 bottom-0 flex flex-col rounded-t-sheet border-t border-line bg-canvas shadow-sheet lg:left-56',
               heights[detent],
             )}
             initial={{ y: '100%' }}

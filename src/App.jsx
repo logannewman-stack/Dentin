@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import TabBar from '@/components/ui/TabBar'
+import SideNav from '@/components/ui/SideNav'
 import { ToastProvider } from '@/components/ui/Toast'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
@@ -23,6 +24,7 @@ const PriceCheck = lazy(() => import('@/pages/PriceCheck'))
 const ContractImport = lazy(() => import('@/pages/ContractImport'))
 const Expiry = lazy(() => import('@/pages/Expiry'))
 const Team = lazy(() => import('@/pages/Team'))
+const Account = lazy(() => import('@/pages/Account'))
 const Procedures = lazy(() => import('@/pages/Procedures'))
 const MarketScan = lazy(() => import('@/pages/MarketScan'))
 const Search = lazy(() => import('@/pages/Search'))
@@ -115,6 +117,7 @@ function AppRoutes() {
             <Route path="/vendors/import" element={<ContractImport />} />
             <Route path="/expiry" element={<Expiry />} />
             <Route path="/team" element={<Team />} />
+            <Route path="/account" element={<Account />} />
             <Route path="/procedures" element={<Procedures />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/equipment" element={<Equipment />} />
@@ -129,6 +132,7 @@ function AppRoutes() {
         </RouteShell>
       </Suspense>
 
+      <SideNav badges={{ '/': urgent }} />
       <TabBar badges={{ '/': urgent }} />
     </>
   )

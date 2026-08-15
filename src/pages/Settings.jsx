@@ -24,7 +24,7 @@ import Sheet from '@/components/ui/Sheet'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
-import { getPractice, isDemo, listLocations } from '@/lib/repository'
+import { getCurrentUser, getPractice, isDemo, listLocations } from '@/lib/repository'
 import { permission, pushSupport, sendTestNotification, subscribeToPush } from '@/lib/push'
 
 const FIELDS = [
@@ -60,6 +60,7 @@ export default function Settings() {
   const { signOut, bypassed } = useAuth()
   const { data: practice } = useData(() => getPractice(), [])
   const { data: locations } = useData(() => listLocations(), [])
+  const { data: me } = useData(() => getCurrentUser(), [])
 
   const [theme, setTheme] = useTheme()
   const [addressOpen, setAddressOpen] = useState(false)
@@ -128,6 +129,20 @@ export default function Settings() {
 
   return (
     <Screen title="Practice" subtitle={practice?.name}>
+      {/* The person, before the practice */}
+      <Section title="Account">
+        <Row
+          to="/account"
+          leading={
+            <span className="flex h-6 w-6 items-center justify-center rounded-[3px] bg-brand-600 text-caption2 font-bold text-white">
+              {me?.initials ?? '·'}
+            </span>
+          }
+          title={me?.name ?? 'Your account'}
+          subtitle={me?.email ?? 'Profile, appearance and security'}
+        />
+      </Section>
+
       {/* Practice identity */}
       <Section title="Practice">
         <Row

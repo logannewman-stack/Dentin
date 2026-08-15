@@ -39,8 +39,16 @@ something, the eye learns to trust it.
 **The dashboard is an instrument panel.** One bordered KPI grid with internal
 hairline dividers instead of four floating cards; a column-headed table for
 the working list (ITEM / COVER / PAR); alerts as a 2px left rail on a quiet
-panel rather than a filled poster. Content rides a `max-w-2xl` rail so the app
-holds its shape on a desktop window.
+panel rather than a filled poster.
+
+**Desktop is its own layout, not a stretched phone.** At `lg` the bottom tab
+bar becomes a left sidebar (grouped nav, badge counts, the account block at
+the bottom), content widens to a `max-w-6xl` working rail beside it, the KPI
+grid goes four across, and the dashboard splits into a working table plus a
+right rail for the purchase decision. Below `lg` the tab bar and phone column
+return. Everything keys off viewport — a resized window or an iPad in
+landscape lands in the right layout with no user-agent sniffing, which is the
+robust form of device recognition.
 
 **The type ramp is software-sized.** Body dropped 17px → 14px, and the whole
 scale re-cut around it. iOS loosens tracking as type grows; this tightens it

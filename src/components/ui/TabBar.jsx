@@ -25,7 +25,7 @@ export default function TabBar({ badges = {} }) {
 
   return (
     <nav
-      className="material-chrome fixed inset-x-0 bottom-0 z-40 border-t border-line"
+      className="material-chrome fixed inset-x-0 bottom-0 z-40 border-t border-line lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Primary"
     >
