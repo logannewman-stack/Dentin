@@ -10,11 +10,13 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { format } from 'date-fns'
 import Sheet from '@/components/ui/Sheet'
 import Button from '@/components/ui/Button'
 import { Pill, Stepper } from '@/components/ui/Controls'
 import ProductTile from '@/components/ProductTile'
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
+import { gtinCandidates, parseScanPayload } from '@/lib/gs1'
 import { recordMovement, resolveGtin } from '@/lib/repository'
 import { qty } from '@/lib/format'
 import { haptic } from '@/lib/utils'
@@ -36,9 +38,19 @@ export default function Scan() {
 
   const lookup = useCallback(async (code) => {
     haptic([10, 30, 10])
-    const result = await resolveGtin(code)
+    const scan = parseScanPayload(code)
+
+    // A GS1 code writes the same product up to three ways (GTIN-14 vs UPC-12
+    // vs EAN-13); try the candidates in most-likely order until one resolves.
+    let result = null
+    for (const candidate of scan.gtin ? gtinCandidates(scan.gtin) : []) {
+      result = await resolveGtin(candidate)
+      if (result.matched) break
+    }
+    if (!result?.matched) result = { matched: false, gtin: scan.gtin ?? scan.raw }
+
     setAmount(1)
-    setHit(result)
+    setHit({ ...result, scan })
   }, [])
 
   const { videoRef, status, error, torchOn, torchAvailable, toggleTorch } = useBarcodeScanner({
@@ -61,10 +73,19 @@ export default function Scan() {
         type: mode,
         quantity: amount,
         reason: `Scanned ${hit.gtin}`,
+        // 2D codes carry the lot either way; expiry only updates stock on
+        // receipt — using an item shouldn't rewrite what's on the shelf.
+        lotNumber: hit.scan?.lot ?? undefined,
+        expiresAt: mode === 'received' ? (hit.scan?.expiresAt ?? undefined) : undefined,
       })
       setToast({
         title: mode === 'received' ? 'Stock received' : 'Stock updated',
-        body: `${hit.name} · ${mode === 'received' ? '+' : '−'}${qty(amount)}`,
+        body: [
+          `${hit.name} · ${mode === 'received' ? '+' : '−'}${qty(amount)}`,
+          mode === 'received' && hit.scan?.lot ? `Lot ${hit.scan.lot}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
       })
       setHit(null)
     } finally {
@@ -73,6 +94,14 @@ export default function Scan() {
   }
 
   const cameraBroken = ['denied', 'unsupported', 'error'].includes(status)
+
+  // Lot + expiry read out of a GS1 DataMatrix/QR payload, if the code had them.
+  const scanLot = hit?.scan?.lot ?? null
+  const scanExpiry = hit?.scan?.expiresAt ?? null
+  const scanExpired = Boolean(scanExpiry && scanExpiry < format(new Date(), 'yyyy-MM-dd'))
+  const expiryLabel = scanExpiry
+    ? format(new Date(`${scanExpiry}T00:00:00`), 'MMM d, yyyy')
+    : null
 
   return (
     <div className="fixed inset-0 z-20 bg-black">
@@ -83,7 +112,7 @@ export default function Scan() {
         playsInline
         autoPlay
         className="h-full w-full object-cover"
-        aria-label="Barcode camera"
+        aria-label="Barcode and QR code camera"
       />
 
       {/* Vignette + reticle */}
@@ -114,7 +143,7 @@ export default function Scan() {
           <h2 className="text-title3 font-semibold text-white">Camera unavailable</h2>
           <p className="mt-1.5 max-w-[32ch] text-subhead text-white/60">{error}</p>
           <Button className="mt-6" variant="secondary" icon={Keyboard} onClick={() => setManualOpen(true)}>
-            Enter barcode manually
+            Enter the code manually
           </Button>
         </div>
       ) : null}
@@ -134,7 +163,7 @@ export default function Scan() {
         </button>
 
         <p className="text-footnote font-medium text-white/85">
-          {status === 'scanning' ? 'Point at the barcode' : 'Starting camera…'}
+          {status === 'scanning' ? 'Point at a barcode or QR code' : 'Starting camera…'}
         </p>
 
         {torchAvailable ? (
@@ -188,7 +217,7 @@ export default function Scan() {
           className="press mx-auto mt-3 flex items-center gap-1.5 text-footnote font-medium text-white/70"
         >
           <Keyboard size={14} strokeWidth={2.2} />
-          Enter a barcode manually
+          Enter a code manually
         </button>
       </div>
 
@@ -239,6 +268,32 @@ export default function Scan() {
               </div>
             </div>
 
+            {scanLot || scanExpiry ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line bg-surface px-3 py-2.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
+                  {scanLot ? (
+                    <p className="text-footnote text-label-2">
+                      Lot <span className="ident text-label">{scanLot}</span>
+                    </p>
+                  ) : null}
+                  {scanExpiry ? (
+                    <p
+                      className={`text-footnote ${
+                        scanExpired ? 'font-semibold text-ios-red' : 'text-label-2'
+                      }`}
+                    >
+                      {scanExpired ? 'Expired' : 'Expires'} {expiryLabel}
+                    </p>
+                  ) : null}
+                </div>
+                {scanExpired && mode === 'received' ? (
+                  <Pill tone="critical">Do not shelve</Pill>
+                ) : (
+                  <Pill tone={mode === 'received' ? 'good' : 'quiet'}>Read from the code</Pill>
+                )}
+              </div>
+            ) : null}
+
             {hit.inventoryItemId ? (
               <>
                 <div className="mt-4 flex flex-col items-center gap-1 rounded-card border border-line bg-surface p-4">
@@ -282,11 +337,27 @@ export default function Scan() {
             <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-[3px] bg-fill/10 text-label-3">
               <PackageSearch size={26} strokeWidth={1.7} />
             </span>
-            <h3 className="text-headline font-semibold">No catalog match</h3>
-            <p className="mt-1 font-mono text-subhead text-label-3">{hit?.gtin}</p>
+            <h3 className="text-headline font-semibold">
+              {['url', 'text'].includes(hit?.scan?.kind) ? 'Not a product code' : 'No catalog match'}
+            </h3>
+            <p className="mt-1 max-w-full break-all font-mono text-subhead text-label-3">
+              {String(hit?.gtin ?? '').length > 72
+                ? `${String(hit.gtin).slice(0, 72)}…`
+                : hit?.gtin}
+            </p>
+            {scanLot || scanExpiry ? (
+              <p className="mt-1.5 text-footnote text-label-2">
+                Decoded {scanLot ? `lot ${scanLot}` : ''}
+                {scanLot && scanExpiry ? ' · ' : ''}
+                {scanExpiry ? `expires ${expiryLabel}` : ''}
+              </p>
+            ) : null}
             <p className="mt-2 max-w-[34ch] text-footnote text-label-3">
-              Barcodes resolve against your catalog. Add this product and its barcode to match it
-              on the next scan.
+              {hit?.scan?.kind === 'url'
+                ? 'This QR code opens a web page rather than identifying a product. Scan the code printed on the product label instead.'
+                : hit?.scan?.kind === 'text'
+                  ? 'This code does not carry a product number. Scan the code printed on the product label instead.'
+                  : 'Codes resolve against your catalog. Add this product and its barcode to match it on the next scan.'}
             </p>
           </div>
         )}
@@ -296,7 +367,7 @@ export default function Scan() {
       <Sheet
         open={manualOpen}
         onClose={() => setManualOpen(false)}
-        title="Enter barcode"
+        title="Enter a code"
         detent="small"
         footer={
           <Button
@@ -316,15 +387,15 @@ export default function Scan() {
         <div className="py-4">
           <input
             value={manualCode}
-            onChange={(e) => setManualCode(e.target.value.replace(/\D/g, ''))}
-            inputMode="numeric"
+            onChange={(e) => setManualCode(e.target.value)}
             autoComplete="off"
+            spellCheck={false}
             placeholder="099999000010"
-            aria-label="Barcode number"
+            aria-label="Barcode or QR code"
             className="w-full rounded-card border border-line bg-surface px-4 py-4 text-center font-mono text-title3 tracking-[1px] text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           />
           <p className="mt-2.5 text-center text-footnote text-label-3">
-            Useful when a box is scuffed or the label is worn.
+            Type the number under the barcode. GS1 strings like (01)…(17)…(10)… work too.
           </p>
         </div>
       </Sheet>

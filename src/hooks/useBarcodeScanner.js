@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'data_matrix']
+const FORMATS = [
+  'ean_13',
+  'ean_8',
+  'upc_a',
+  'upc_e',
+  'code_128',
+  'code_39',
+  'itf',
+  'data_matrix',
+  'qr_code',
+]
 
 /**
- * Barcode scanning off the rear camera.
+ * Barcode and QR scanning off the rear camera.
  *
  * Prefers the platform BarcodeDetector (Chrome/Android, Safari 17+) because it
  * is hardware-accelerated and costs nothing to ship. Falls back to ZXing,
- * loaded on demand, so older iOS still scans.
+ * loaded on demand, so older iOS still scans. ZXing's multi-format reader
+ * already covers QR, so both paths read the same symbologies.
  *
- * Dental packaging is mostly UPC-A/EAN-13 on the carton with a Data Matrix on
- * unit-of-use items, so both symbologies are enabled.
+ * Dental packaging is mostly UPC-A/EAN-13 on the carton with a GS1 DataMatrix
+ * or QR on unit-of-use items — those 2D codes carry lot and expiry, which the
+ * Scan screen extracts via parseScanPayload.
  */
 export function useBarcodeScanner({ onDetect, enabled = true }) {
   const videoRef = useRef(null)
