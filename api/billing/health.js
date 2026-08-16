@@ -124,14 +124,21 @@ export default async function handler(req, res) {
           const { data } = await stripe.promotionCodes.list({
             code,
             limit: 1,
-            expand: ['data.coupon.applies_to'],
+            expand: ['data.coupon'],
           })
           const pc = data[0]
           if (!pc) {
             add(`promo code ${code}`, false, 'not found in this mode')
             continue
           }
-          const c = pc.coupon
+          // Newer Stripe API versions return the coupon as an id unless
+          // expanded — resolve either shape to the full object.
+          let c = pc.coupon
+          if (typeof c === 'string') c = await stripe.coupons.retrieve(c)
+          if (!c || typeof c !== 'object') {
+            add(`promo code ${code}`, false, 'coupon not readable on this API version')
+            continue
+          }
           const notes = [`${c.percent_off ?? '??'}% off · ${c.duration}`]
           const problems = []
           if (!pc.active) problems.push('code is deactivated')
