@@ -2139,10 +2139,36 @@ export async function listCatalog({ query, category } = {}) {
   let q = supabase
     .from('products')
     .select('id, name, brand, unit, gtin, is_equipment, categories(name, slug)')
+    .order('name')
     .limit(200)
-  if (query) q = q.or(`name.ilike.%${query}%,brand.ilike.%${query}%`)
+  if (query) {
+    // PostgREST's or() filter is comma-delimited with parens, so strip those
+    // from user-typed text — a stray "," must not split the filter apart.
+    const safe = query.replace(/[,()]/g, ' ').trim()
+    if (safe) q = q.or(`name.ilike.%${safe}%,brand.ilike.%${safe}%,gtin.ilike.%${safe}%`)
+  }
   const { data, error } = await q
   if (error) throw error
+
+  // Search hits carry a "from $X · N vendors" preview — one batched offers
+  // query for the whole result page, not a lookup per row.
+  const best = new Map()
+  if (query && data.length) {
+    const { data: offers } = await supabase
+      .from('supplier_offers')
+      .select('product_id, price')
+      .in('product_id', data.map((p) => p.id))
+      .eq('in_stock', true)
+    for (const o of offers ?? []) {
+      const price = Number(o.price)
+      const b = best.get(o.product_id)
+      if (!b) best.set(o.product_id, { price, count: 1 })
+      else {
+        b.count += 1
+        if (price < b.price) b.price = price
+      }
+    }
+  }
 
   return data.map((p) => ({
     id: p.id,
@@ -2155,6 +2181,8 @@ export async function listCatalog({ query, category } = {}) {
     categoryName: p.categories?.name,
     isEquipment: p.is_equipment,
     tracked: false,
+    bestPrice: best.get(p.id)?.price ?? null,
+    offerCount: best.get(p.id)?.count ?? 0,
   }))
 }
 

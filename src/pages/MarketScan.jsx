@@ -1,16 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   ChevronLeft,
-  ChevronRight,
   PackageSearch,
   PartyPopper,
   Sparkles,
   Truck,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
-import { Section } from '@/components/ui/List'
+import { Row, Section } from '@/components/ui/List'
 import { EmptyState, Pill, SearchField, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import ProductTile from '@/components/ProductTile'
@@ -109,42 +108,60 @@ function OpportunityRow({ row }) {
 /** A catalog hit — tapping it opens the every-vendor price check for that product. */
 function SearchResultRow({ product, onOpen }) {
   return (
-    <button type="button" onClick={onOpen} className="row press w-full gap-3 py-2.5 text-left">
-      <ProductTile product={product} size={36} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-body text-label">{product.productName}</span>
-        <span className="block truncate text-caption text-label-3">
-          {product.brand}
-          {product.categoryName ? ` · ${product.categoryName}` : ''}
-        </span>
-      </span>
-      <span className="shrink-0 text-right">
-        {product.bestPrice != null ? (
-          <>
+    <Row
+      onClick={onOpen}
+      chevron
+      leading={<ProductTile product={product} size={36} />}
+      title={product.productName}
+      subtitle={[product.brand, product.categoryName].filter(Boolean).join(' · ')}
+      trailing={
+        product.bestPrice != null ? (
+          <span className="shrink-0 text-right">
             <span className="tnum block text-callout font-semibold text-label">
               from {money(product.bestPrice)}
             </span>
             <span className="block text-caption text-label-3">
               {product.offerCount} vendor{product.offerCount === 1 ? '' : 's'}
             </span>
-          </>
+          </span>
         ) : (
-          <span className="text-caption text-label-3">Compare</span>
-        )}
-      </span>
-      <ChevronRight size={16} className="shrink-0 text-label-3" aria-hidden="true" />
-    </button>
+          <span className="shrink-0 text-caption text-label-3">Compare</span>
+        )
+      }
+    />
   )
 }
 
 export default function MarketScan() {
   const navigate = useNavigate()
   const { data, loading } = useData(() => getPriceOpportunities(), [])
-  // The whole catalog loads once; typing filters it client-side, and picking
-  // a hit opens the all-vendor price check for that product.
-  const { data: catalog } = useData(() => listCatalog(), [])
   const [vendorFilter, setVendorFilter] = useState('all')
   const [query, setQuery] = useState('')
+  // Debounced repository search — the server does the matching in live mode,
+  // so a hit can be anything in the catalog, not just what's already loaded.
+  const [search, setSearch] = useState({ state: 'idle', rows: [] })
+
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setSearch({ state: 'idle', rows: [] })
+      return undefined
+    }
+    setSearch((s) => ({ ...s, state: 'loading' }))
+    let cancelled = false
+    const t = setTimeout(async () => {
+      try {
+        const found = await listCatalog({ query: q })
+        if (!cancelled) setSearch({ state: 'ready', rows: found.slice(0, 30) })
+      } catch {
+        if (!cancelled) setSearch({ state: 'error', rows: [] })
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [query])
 
   const rows = useMemo(() => {
     if (!data) return []
@@ -152,19 +169,6 @@ export default function MarketScan() {
       ? data.rows
       : data.rows.filter((r) => r.marketSupplierId === vendorFilter)
   }, [data, vendorFilter])
-
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return []
-    return (catalog ?? [])
-      .filter(
-        (p) =>
-          p.productName.toLowerCase().includes(q) ||
-          (p.brand ?? '').toLowerCase().includes(q) ||
-          (p.gtin ?? '').includes(q),
-      )
-      .slice(0, 30)
-  }, [catalog, query])
 
   const searching = query.trim().length > 0
 
@@ -208,12 +212,24 @@ export default function MarketScan() {
     >
       {searching ? (
         /* --- Search mode: any catalog product → its all-vendor price check --- */
-        results.length ? (
+        search.state === 'error' ? (
+          <EmptyState
+            icon={PackageSearch}
+            title="Search is unavailable"
+            body="The catalog could not be reached — check the connection and try again."
+          />
+        ) : search.state === 'loading' ? (
+          <div className="mt-3 space-y-2">
+            <div className="skeleton h-14 rounded-card" />
+            <div className="skeleton h-14 rounded-card" />
+            <div className="skeleton h-14 rounded-card" />
+          </div>
+        ) : search.rows.length ? (
           <Section
-            title={`Results · ${results.length}`}
+            title={`Results · ${search.rows.length}`}
             footer="Pick an item to pull every vendor's price on it, side by side."
           >
-            {results.map((p) => (
+            {search.rows.map((p) => (
               <SearchResultRow
                 key={p.productId}
                 product={p}
