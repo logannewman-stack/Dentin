@@ -19,9 +19,10 @@ export default async function handler(req, res) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET
   if (!secret) return json(res, 500, { error: 'STRIPE_WEBHOOK_SECRET is not configured' })
 
+  let stripe
   let event
   try {
-    const stripe = stripeClient()
+    stripe = stripeClient()
     const payload = await rawBody(req)
     event = stripe.webhooks.constructEvent(payload, req.headers['stripe-signature'], secret)
   } catch (e) {
@@ -29,29 +30,35 @@ export default async function handler(req, res) {
   }
 
   const admin = adminClient()
+  // supabase-js reports failures in `error` instead of throwing. A swallowed
+  // write would 200 a delivery we actually lost — and Stripe would never
+  // retry it — so a failed upsert must throw.
+  const upsert = async (row) => {
+    const { error } = await admin
+      .from('subscriptions')
+      .upsert(row, { onConflict: 'practice_id' })
+    if (error) throw new Error(`subscriptions upsert failed: ${error.message}`)
+  }
 
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object
         const practiceId = session.client_reference_id ?? session.metadata?.practice_id
-        if (!practiceId) break
-        // The subscription object arrives via its own event moments later;
-        // record the customer link now so the portal works immediately.
-        await admin.from('subscriptions').upsert(
-          {
-            practice_id: practiceId,
-            stripe_customer_id:
-              typeof session.customer === 'string' ? session.customer : session.customer?.id,
-            stripe_subscription_id:
-              typeof session.subscription === 'string'
-                ? session.subscription
-                : (session.subscription?.id ?? null),
-            status: 'incomplete',
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'practice_id' },
-        )
+        const subId =
+          typeof session.subscription === 'string'
+            ? session.subscription
+            : session.subscription?.id
+        if (!practiceId || !subId) break
+        // Stripe does not guarantee event order — customer.subscription.created
+        // (already `trialing`) routinely lands before this event, and a blind
+        // status write would clobber it. Mirror the subscription's current
+        // state instead; on redelivery this stays idempotent.
+        const sub =
+          typeof session.subscription === 'object' && session.subscription?.status
+            ? session.subscription
+            : await stripe.subscriptions.retrieve(subId)
+        await upsert(subscriptionRow(sub, practiceId))
         break
       }
 
@@ -61,9 +68,7 @@ export default async function handler(req, res) {
         const sub = event.data.object
         const practiceId = sub.metadata?.practice_id
         if (!practiceId) break
-        await admin
-          .from('subscriptions')
-          .upsert(subscriptionRow(sub, practiceId), { onConflict: 'practice_id' })
+        await upsert(subscriptionRow(sub, practiceId))
         break
       }
 

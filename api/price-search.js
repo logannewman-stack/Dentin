@@ -15,7 +15,10 @@ export default async function handler(req, res) {
   const q = String(req.query.q ?? '').trim()
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20))
 
-  if (q.length < 2) {
+  // PostgREST's or() grammar is comma/paren-delimited — strip those from user
+  // text so "resin, flowable" cannot split the filter into extra clauses.
+  const safe = q.replace(/[,()]/g, ' ').trim()
+  if (safe.length < 2) {
     return json(res, 400, { error: 'Query must be at least 2 characters' })
   }
 
@@ -25,7 +28,7 @@ export default async function handler(req, res) {
     const { data: products, error } = await supabase
       .from('products')
       .select('id, name, brand, manufacturer, gtin, unit, pack_size, image_url, is_equipment')
-      .or(`name.ilike.%${q}%,brand.ilike.%${q}%,manufacturer.ilike.%${q}%`)
+      .or(`name.ilike.%${safe}%,brand.ilike.%${safe}%,manufacturer.ilike.%${safe}%`)
       .limit(limit)
 
     if (error) return json(res, 400, { error: error.message })

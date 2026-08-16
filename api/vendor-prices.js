@@ -30,8 +30,17 @@ export default async function handler(req, res) {
   try {
     const supabase = userClient(req)
 
-    // Scope contract pricing to the caller's practice.
-    const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+    // Scope contract pricing to the caller's practice — their own profile
+    // row, not a teammate's (RLS exposes the whole practice's profiles, so an
+    // unscoped .single() errors the moment a practice has two users).
+    const { data: auth } = await supabase.auth.getUser()
+    const { data: profile } = auth?.user
+      ? await supabase
+          .from('profiles')
+          .select('practice_id')
+          .eq('id', auth.user.id)
+          .maybeSingle()
+      : { data: null }
     const practiceId = profile?.practice_id ?? null
 
     // Fill in identity keys from the catalog when given a product id.

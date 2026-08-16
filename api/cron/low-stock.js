@@ -31,39 +31,52 @@ export default async function handler(req, res) {
   try {
     const supabase = adminClient()
     const summary = []
+    // supabase-js returns errors instead of throwing. Swallowing one here
+    // would report "0 items short" for a practice that is actually out of
+    // stock — silent alert loss. Fail the run so the next cron retries.
+    const must = ({ data, error }, what) => {
+      if (error) throw new Error(`${what}: ${error.message}`)
+      return data
+    }
 
-    const { data: practices, error: practiceError } = await supabase
-      .from('practices')
-      .select('id, name')
-    if (practiceError) throw practiceError
+    const practices = must(await supabase.from('practices').select('id, name'), 'practices query')
 
     for (const practice of practices ?? []) {
       // --- what is short ---
-      const { data: short } = await supabase
-        .from('v_inventory_status')
-        .select('id, product_id, product_name, on_hand, par_level, stock_status, days_of_cover')
-        .eq('practice_id', practice.id)
-        .in('stock_status', ['out', 'low'])
+      const short = must(
+        await supabase
+          .from('v_inventory_status')
+          .select('id, product_id, product_name, on_hand, par_level, stock_status, days_of_cover')
+          .eq('practice_id', practice.id)
+          .in('stock_status', ['out', 'low']),
+        'inventory status query',
+      )
 
       // --- what is expiring inside 30 days ---
       const horizon = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
-      const { data: expiring } = await supabase
-        .from('lots')
-        .select('id, lot_number, expires_at, quantity, inventory_item_id')
-        .eq('practice_id', practice.id)
-        .not('expires_at', 'is', null)
-        .lte('expires_at', horizon)
-        .gt('quantity', 0)
+      const expiring = must(
+        await supabase
+          .from('lots')
+          .select('id, lot_number, expires_at, quantity, inventory_item_id')
+          .eq('practice_id', practice.id)
+          .not('expires_at', 'is', null)
+          .lte('expires_at', horizon)
+          .gt('quantity', 0),
+        'expiring lots query',
+      )
 
       // --- equipment service due inside 14 days ---
       const serviceHorizon = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
-      const { data: service } = await supabase
-        .from('assets')
-        .select('id, name, next_service_at')
-        .eq('practice_id', practice.id)
-        .not('next_service_at', 'is', null)
-        .lte('next_service_at', serviceHorizon)
-        .neq('status', 'retired')
+      const service = must(
+        await supabase
+          .from('assets')
+          .select('id, name, next_service_at')
+          .eq('practice_id', practice.id)
+          .not('next_service_at', 'is', null)
+          .lte('next_service_at', serviceHorizon)
+          .neq('status', 'retired'),
+        'assets service query',
+      )
 
       const out = (short ?? []).filter((s) => s.stock_status === 'out')
       const low = (short ?? []).filter((s) => s.stock_status === 'low')
@@ -104,11 +117,14 @@ export default async function handler(req, res) {
       ]
 
       if (rows.length) {
-        const { data: existing } = await supabase
-          .from('alerts')
-          .select('type, inventory_item_id, asset_id')
-          .eq('practice_id', practice.id)
-          .is('resolved_at', null)
+        const existing = must(
+          await supabase
+            .from('alerts')
+            .select('type, inventory_item_id, asset_id')
+            .eq('practice_id', practice.id)
+            .is('resolved_at', null),
+          'open alerts query',
+        )
 
         const seen = new Set(
           (existing ?? []).map((e) => `${e.type}:${e.inventory_item_id ?? e.asset_id}`),
@@ -116,16 +132,21 @@ export default async function handler(req, res) {
         const fresh = rows.filter(
           (r) => !seen.has(`${r.type}:${r.inventory_item_id ?? r.asset_id}`),
         )
-        if (fresh.length) await supabase.from('alerts').insert(fresh)
+        if (fresh.length) {
+          must(await supabase.from('alerts').insert(fresh), 'alerts insert')
+        }
       }
 
       // --- one digest push per device ---
       let delivered = 0
       if (pushReady && (out.length || low.length || service?.length)) {
-        const { data: subs } = await supabase
-          .from('push_subscriptions')
-          .select('id, endpoint, p256dh, auth')
-          .eq('practice_id', practice.id)
+        const subs = must(
+          await supabase
+            .from('push_subscriptions')
+            .select('id, endpoint, p256dh, auth')
+            .eq('practice_id', practice.id),
+          'push subscriptions query',
+        )
 
         const parts = []
         if (out.length) parts.push(`${out.length} out of stock`)

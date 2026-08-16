@@ -43,24 +43,38 @@ export default async function handler(req, res) {
     const practiceId = profile?.practice_id
     if (!practiceId) return json(res, 400, { error: 'Finish practice setup first' })
 
-    const { count: locationCount } = await supabase
+    const { count: locationCount, error: locationError } = await supabase
       .from('locations')
       .select('id', { count: 'exact', head: true })
+    // A silent fallback here would bill a multi-location practice for one
+    // location for the life of the subscription — fail loud instead.
+    if (locationError) {
+      return json(res, 500, { error: 'Could not count locations — try again in a moment.' })
+    }
     const quantity = Math.max(1, locationCount ?? 1)
 
     // Reuse the Stripe customer if this practice already has one.
     const admin = adminClient()
-    const { data: existing } = await admin
+    const { data: existing, error: existingError } = await admin
       .from('subscriptions')
       .select('stripe_customer_id, status')
       .eq('practice_id', practiceId)
       .maybeSingle()
-    if (existing && ['active', 'trialing', 'past_due'].includes(existing.status)) {
+    // If this check can't run, don't risk minting a duplicate subscription.
+    if (existingError) {
+      return json(res, 500, { error: 'Could not check the current subscription — try again in a moment.' })
+    }
+    if (existing && ['active', 'trialing', 'past_due', 'unpaid'].includes(existing.status)) {
       return json(res, 409, { error: 'This practice already has a subscription — use Manage billing.' })
     }
 
-    const origin = req.headers.origin ?? `https://${req.headers.host}`
-    const trialDays = Number(process.env.STRIPE_TRIAL_DAYS ?? 7)
+    // The SPA and this API are served from the same deployment, so the Host
+    // header is the app origin. The Origin header is caller-controlled and
+    // must not decide where Stripe redirects after card entry.
+    const origin = `https://${req.headers.host}`
+    // One free trial per practice, ever. A practice that canceled and is
+    // restarting (any prior subscriptions row) pays from day one.
+    const trialDays = existing ? 0 : Number(process.env.STRIPE_TRIAL_DAYS ?? 7)
 
     const stripe = stripeClient()
     const session = await stripe.checkout.sessions.create({

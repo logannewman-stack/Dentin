@@ -23,8 +23,17 @@ export default async function handler(req, res) {
 
     const row = data?.[0] ?? null
 
-    // Best-effort telemetry; a failure here must not fail the lookup.
-    const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+    // Best-effort telemetry; a failure here must not fail the lookup. The
+    // profile query must target the caller's own row — RLS lets a user read
+    // every teammate's profile, and an unscoped .single() errors on >1 row.
+    const { data: auth } = await supabase.auth.getUser()
+    const { data: profile } = auth?.user
+      ? await supabase
+          .from('profiles')
+          .select('practice_id')
+          .eq('id', auth.user.id)
+          .maybeSingle()
+      : { data: null }
     if (profile?.practice_id) {
       await supabase.from('scan_events').insert({
         practice_id: profile.practice_id,

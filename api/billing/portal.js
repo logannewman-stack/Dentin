@@ -31,7 +31,8 @@ export default async function handler(req, res) {
       return json(res, 404, { error: 'No subscription yet — start one first.' })
     }
 
-    const origin = req.headers.origin ?? `https://${req.headers.host}`
+    // Host, not Origin: the caller must not choose where Stripe returns to.
+    const origin = `https://${req.headers.host}`
     const stripe = stripeClient()
     const session = await stripe.billingPortal.sessions.create({
       customer: sub.stripe_customer_id,
