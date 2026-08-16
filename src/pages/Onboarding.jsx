@@ -4,9 +4,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
   ArrowRight,
+  BadgeCheck,
   Boxes,
   Building2,
   Check,
+  CreditCard,
   FileSpreadsheet,
   Loader2,
   MapPin,
@@ -14,10 +16,20 @@ import {
   Store,
 } from 'lucide-react'
 import { SUPPLIERS, VENDOR_DIRECTORY, VENDOR_KINDS } from '@/lib/demoData'
-import { SearchField } from '@/components/ui/Controls'
-import { completePracticeSetup } from '@/lib/repository'
+import { SearchField, SegmentedControl } from '@/components/ui/Controls'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import {
+  claimPracticeShell,
+  completePracticeSetup,
+  getSubscription,
+  startSubscriptionCheckout,
+} from '@/lib/repository'
+import { useData } from '@/hooks/useData'
 import { useAuth } from '@/lib/AuthContext'
 import { cn, haptic } from '@/lib/utils'
+
+// Wizard progress survives the round-trip to Stripe's checkout page.
+const DRAFT_KEY = 'dentin:onboarding-draft'
 
 const KIND_LABEL = Object.fromEntries(VENDOR_KINDS.map((k) => [k.id, k.label]))
 
@@ -129,6 +141,73 @@ export default function Onboarding() {
   const [busy, setBusy] = useState(false)
   const [finishError, setFinishError] = useState(null)
 
+  // The free trial gates the rest of setup: card at Stripe, $0 today,
+  // cancel anytime inside the 7 days.
+  const { data: sub } = useData(() => getSubscription(), [])
+  const [plan, setPlan] = useState('annual')
+  const [trialBusy, setTrialBusy] = useState(false)
+  const [trialError, setTrialError] = useState(null)
+  const [checkoutReturn, setCheckoutReturn] = useState(null)
+  const subActive =
+    ['active', 'trialing', 'past_due'].includes(sub?.status) || checkoutReturn === 'success'
+
+  // Hydrate the draft when returning from Stripe (or a reload mid-wizard).
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    const back = new URLSearchParams(window.location.search).get('checkout')
+    if (back) setCheckoutReturn(back)
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const d = JSON.parse(raw)
+      if (d.practice) setPractice(d.practice)
+      if (d.address) setAddress(d.address)
+      if (d.multiLoc) setMultiLoc(d.multiLoc)
+      if (Array.isArray(d.locations) && d.locations.length) setLocations(d.locations)
+      if (Array.isArray(d.suppliers)) setSuppliers(new Set(d.suppliers))
+      if (d.stock) setStock(d.stock)
+      // practice(0) → trial(1) → address(2): success moves on, cancel returns
+      // to the trial step, anything else resumes where they left off.
+      if (back === 'success') setStep(2)
+      else if (back === 'cancelled') setStep(1)
+      else if (typeof d.step === 'number') setStep(d.step)
+    } catch {
+      // A malformed draft is not worth blocking setup over.
+    }
+     
+  }, [])
+
+  // Keep the draft current while they work (live only — the demo resets).
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({
+        practice,
+        address,
+        multiLoc,
+        locations,
+        suppliers: [...suppliers],
+        stock,
+        step,
+      }),
+    )
+  }, [practice, address, multiLoc, locations, suppliers, stock, step])
+
+  const startTrial = async () => {
+    setTrialBusy(true)
+    setTrialError(null)
+    try {
+      // The checkout API needs a claimed practice; create the shell now and
+      // the rest of the wizard completes it after Stripe bounces back.
+      await claimPracticeShell(practice)
+      await startSubscriptionCheckout(plan, '/onboarding')
+    } catch (e) {
+      setTrialError(e.message ?? 'Could not open checkout.')
+      setTrialBusy(false)
+    }
+  }
+
   const STEPS = useMemo(
     () => [
       {
@@ -137,6 +216,13 @@ export default function Onboarding() {
         title: 'Your practice',
         blurb: 'This is what appears on purchase orders.',
         valid: practice.name.trim().length > 1,
+      },
+      {
+        key: 'trial',
+        Icon: CreditCard,
+        title: 'Start your free trial',
+        blurb: '7 days free — cancel anytime before day 7 and pay nothing.',
+        valid: subActive,
       },
       {
         key: 'address',
@@ -176,7 +262,7 @@ export default function Onboarding() {
         valid: true,
       },
     ],
-    [practice, address, locations, suppliers, multiLoc],
+    [practice, address, locations, suppliers, multiLoc, subActive],
   )
 
   const current = STEPS[step]
@@ -223,6 +309,7 @@ export default function Onboarding() {
         starterItems: null,
       })
       completeOnboarding()
+      localStorage.removeItem(DRAFT_KEY)
       navigate(stock === 'import' ? '/inventory/import' : '/', { replace: true })
     } catch (e) {
       setFinishError(e.message ?? 'Something went wrong — tap Finish again to pick up where it left off.')
@@ -367,6 +454,108 @@ export default function Onboarding() {
                     />
                   ) : null}
                 </>
+              ) : null}
+
+              {current.key === 'trial' ? (
+                subActive ? (
+                  <div className="rounded-card border border-line bg-surface p-4">
+                    <span className="flex items-center gap-2 text-callout font-semibold text-ios-green">
+                      <BadgeCheck size={18} strokeWidth={2.2} aria-hidden="true" />
+                      Trial active
+                    </span>
+                    <p className="mt-1.5 text-subhead text-label-2">
+                      Your 7-day free trial is running. Stripe holds the card; cancel anytime
+                      under Settings → Billing and pay nothing before day 7.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <SegmentedControl
+                      value={plan}
+                      onChange={setPlan}
+                      options={[
+                        { value: 'annual', label: 'Annual · save 10%' },
+                        { value: 'monthly', label: 'Monthly' },
+                      ]}
+                    />
+                    <div className="rounded-card border border-line bg-surface p-4">
+                      {plan === 'annual' ? (
+                        <>
+                          <p className="text-title2 font-bold leading-tight">
+                            $180
+                            <span className="text-callout font-semibold text-label-3">
+                              {' '}
+                              / location / month
+                            </span>
+                          </p>
+                          <p className="mt-1 text-footnote text-label-3">
+                            Billed annually — $2,160 per location per year, 10% under monthly
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-title2 font-bold leading-tight">
+                            $200
+                            <span className="text-callout font-semibold text-label-3">
+                              {' '}
+                              / location / month
+                            </span>
+                          </p>
+                          <p className="mt-1 text-footnote text-label-3">Billed month to month</p>
+                        </>
+                      )}
+                      <ul className="mt-3 border-t border-line pt-3">
+                        {[
+                          'First 7 days free — cancel anytime, pay nothing',
+                          'Card charged only after the trial ends',
+                          'Every feature unlocked from minute one',
+                        ].map((point) => (
+                          <li
+                            key={point}
+                            className="flex items-start gap-2 py-0.5 text-subhead text-label-2"
+                          >
+                            <Check
+                              size={15}
+                              strokeWidth={2.6}
+                              className="mt-0.5 shrink-0 text-ios-green"
+                              aria-hidden="true"
+                            />
+                            {point}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={trialBusy}
+                      onClick={startTrial}
+                      className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[4px] bg-brand-600 text-body font-semibold text-white transition-opacity active:opacity-85 disabled:opacity-60"
+                    >
+                      {trialBusy ? (
+                        <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+                      ) : (
+                        <>
+                          <CreditCard size={17} strokeWidth={2.2} aria-hidden="true" />
+                          Start the free 7-day trial
+                        </>
+                      )}
+                    </button>
+                    {checkoutReturn === 'cancelled' ? (
+                      <p className="text-center text-footnote text-label-3">
+                        Checkout closed — no charge was made. Start the trial to continue.
+                      </p>
+                    ) : null}
+                    {trialError ? (
+                      <p role="alert" className="text-center text-footnote text-ios-red">
+                        {trialError}
+                      </p>
+                    ) : null}
+                    <p className="px-1 text-footnote text-label-3">
+                      Checkout and card details are handled by Stripe — Dentin never sees the
+                      number. Have a promo code? Enter it on the checkout page.
+                    </p>
+                  </>
+                )
               ) : null}
 
               {current.key === 'address' ? (

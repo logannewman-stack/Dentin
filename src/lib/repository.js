@@ -1726,7 +1726,23 @@ export async function completePracticeSetup({ practice, locations, supplierSlugs
       .from('locations')
       .select('id', { count: 'exact', head: true })
     if ((locationCount ?? 0) > 0) return { ok: true, practiceId, resumed: true }
-    // Claimed but half-finished — fall through and complete steps 3-5.
+    // Claimed but half-finished (e.g. the trial step created the shell) —
+    // refresh the practice details typed since, then complete steps 3-5.
+    const { error: refreshError } = await supabase
+      .from('practices')
+      .update({
+        name: practice.name,
+        legal_name: practice.legalName || null,
+        phone: practice.phone || null,
+        email: practice.email || null,
+        address_1: practice.address1 || null,
+        address_2: practice.address2 || null,
+        city: practice.city || null,
+        region: practice.region || null,
+        postal_code: practice.postalCode || null,
+      })
+      .eq('id', practiceId)
+    if (refreshError) throw refreshError
   } else {
     // 1. The practice itself — open insert, id minted here.
     practiceId = crypto.randomUUID()
@@ -2140,9 +2156,56 @@ async function billingRedirect(path, payload) {
 }
 
 /** Redirects to Stripe Checkout (subscription with trial). */
-export async function startSubscriptionCheckout(plan = 'annual') {
+export async function startSubscriptionCheckout(plan = 'annual', returnTo) {
   if (isDemo) throw new Error('Billing activates once the app runs on Supabase with Stripe keys.')
-  return billingRedirect('/api/billing/checkout', { plan })
+  return billingRedirect('/api/billing/checkout', { plan, ...(returnTo ? { returnTo } : {}) })
+}
+
+/**
+ * The minimum footing checkout needs: a practice row claimed by this user.
+ * Called from onboarding's trial step, which runs BEFORE locations and the
+ * rest of setup exist; completePracticeSetup later resumes on the same
+ * practice instead of minting a second one. Idempotent — an already-claimed
+ * practice just gets its step-1 details refreshed.
+ */
+export async function claimPracticeShell(practice) {
+  if (isDemo) return { ok: true, practiceId: 'demo' }
+
+  const { data: auth } = await supabase.auth.getUser()
+  const userId = auth?.user?.id
+  if (!userId) throw new Error('Not signed in')
+
+  const fields = {
+    name: practice.name,
+    legal_name: practice.legalName || null,
+    phone: practice.phone || null,
+    email: practice.email || null,
+  }
+
+  const { data: prof, error: profError } = await supabase
+    .from('profiles')
+    .select('practice_id')
+    .eq('id', userId)
+    .maybeSingle()
+  if (profError) throw profError
+
+  if (prof?.practice_id) {
+    const { error } = await supabase.from('practices').update(fields).eq('id', prof.practice_id)
+    if (error) throw error
+    return { ok: true, practiceId: prof.practice_id }
+  }
+
+  const practiceId = crypto.randomUUID()
+  const { error: insertError } = await supabase
+    .from('practices')
+    .insert({ id: practiceId, ...fields })
+  if (insertError) throw insertError
+  const { error: claimError } = await supabase
+    .from('profiles')
+    .update({ practice_id: practiceId })
+    .eq('id', userId)
+  if (claimError) throw claimError
+  return { ok: true, practiceId }
 }
 
 /** Redirects to the Stripe customer portal (card, invoices, cancel). */

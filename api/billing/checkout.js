@@ -72,6 +72,12 @@ export default async function handler(req, res) {
     // header is the app origin. The Origin header is caller-controlled and
     // must not decide where Stripe redirects after card entry.
     const origin = `https://${req.headers.host}`
+    // Where to land back in the app — a same-site path only (onboarding's
+    // trial step passes /onboarding; default is the billing screen).
+    const rawReturn = typeof req.body?.returnTo === 'string' ? req.body.returnTo : ''
+    const returnTo =
+      rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : '/settings/billing'
+    const join = returnTo.includes('?') ? '&' : '?'
     // One free trial per practice, ever. A practice that canceled and is
     // restarting (any prior subscriptions row) pays from day one.
     const trialDays = existing ? 0 : Number(process.env.STRIPE_TRIAL_DAYS ?? 7)
@@ -89,8 +95,8 @@ export default async function handler(req, res) {
         ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
       },
       metadata: { practice_id: practiceId },
-      success_url: `${origin}/settings/billing?checkout=success`,
-      cancel_url: `${origin}/settings/billing?checkout=cancelled`,
+      success_url: `${origin}${returnTo}${join}checkout=success`,
+      cancel_url: `${origin}${returnTo}${join}checkout=cancelled`,
     })
 
     return json(res, 200, { url: session.url })
