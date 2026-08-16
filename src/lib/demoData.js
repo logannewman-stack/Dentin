@@ -1178,6 +1178,127 @@ export const TEAM = [
   { id: 'user-5', name: 'Tasha Brooks', role: 'assistant', initials: 'TB' },
 ]
 
+/**
+ * Certifications and registrations the practice must keep current.
+ *
+ * Renewal cadences here are the common industry defaults (annual HIPAA and
+ * OSHA refreshers, 2-year BLS, 3-year DEA) — actual requirements vary by
+ * state, which the UI says out loud rather than pretending otherwise. Links
+ * point at the issuing authority, not resellers.
+ */
+export const CREDENTIALS = [
+  {
+    id: 'cred-hipaa',
+    name: 'HIPAA privacy & security training',
+    holder: 'All staff',
+    authority: 'HHS workforce training',
+    cadenceMonths: 12,
+    completedAt: daysFromNow(-345),
+    expiresAt: daysFromNow(20),
+    renewals: [
+      {
+        label: 'HHS HIPAA training materials',
+        url: 'https://www.hhs.gov/hipaa/for-professionals/training/index.html',
+      },
+    ],
+    notes: 'Annual workforce refresher under the practice HIPAA policy.',
+  },
+  {
+    id: 'cred-osha-bbp',
+    name: 'OSHA bloodborne pathogens',
+    holder: 'All clinical staff',
+    authority: 'OSHA 29 CFR 1910.1030',
+    cadenceMonths: 12,
+    completedAt: daysFromNow(-157),
+    expiresAt: daysFromNow(208),
+    renewals: [
+      { label: 'OSHA bloodborne pathogens standard', url: 'https://www.osha.gov/bloodborne-pathogens' },
+    ],
+    notes: 'Annual retraining is required by the standard itself.',
+  },
+  {
+    id: 'cred-infection',
+    name: 'Infection control refresher',
+    holder: 'Clinical team',
+    authority: 'CDC guidelines · OSAP',
+    cadenceMonths: 12,
+    completedAt: daysFromNow(-208),
+    expiresAt: daysFromNow(157),
+    renewals: [
+      {
+        label: 'CDC dental infection prevention',
+        url: 'https://www.cdc.gov/dental-infection-control/hcp/summary/index.html',
+      },
+      { label: 'OSAP courses', url: 'https://www.osap.org' },
+    ],
+    notes: 'Several states tie license renewal to a current infection-control CE.',
+  },
+  {
+    id: 'cred-bls-sokolov',
+    name: 'CPR / BLS certification',
+    holder: 'Dr. Elena Sokolov',
+    authority: 'American Heart Association',
+    cadenceMonths: 24,
+    completedAt: daysFromNow(-742),
+    expiresAt: daysFromNow(-12),
+    renewals: [
+      { label: 'AHA BLS courses', url: 'https://cpr.heart.org' },
+      { label: 'Red Cross BLS', url: 'https://www.redcross.org/take-a-class/bls' },
+    ],
+    notes: 'BLS renews every two years.',
+  },
+  {
+    id: 'cred-bls-newman',
+    name: 'CPR / BLS certification',
+    holder: 'Dr. Logan Newman',
+    authority: 'American Heart Association',
+    cadenceMonths: 24,
+    completedAt: daysFromNow(-440),
+    expiresAt: daysFromNow(290),
+    renewals: [{ label: 'AHA BLS courses', url: 'https://cpr.heart.org' }],
+    notes: 'BLS renews every two years.',
+  },
+  {
+    id: 'cred-dea',
+    name: 'DEA registration',
+    holder: 'Dr. Logan Newman',
+    authority: 'DEA Diversion Control',
+    cadenceMonths: 36,
+    completedAt: daysFromNow(-465),
+    expiresAt: daysFromNow(630),
+    renewals: [
+      { label: 'DEA registration renewal', url: 'https://www.deadiversion.usdoj.gov' },
+    ],
+    notes: 'Registration runs three years; renewal opens ~60 days out.',
+  },
+  {
+    id: 'cred-license',
+    name: 'State dental license',
+    holder: 'Dr. Logan Newman',
+    authority: 'State board of dentistry',
+    cadenceMonths: 24,
+    completedAt: daysFromNow(-410),
+    expiresAt: daysFromNow(320),
+    renewals: [
+      { label: 'Find your state board (AADB)', url: 'https://www.dentalboards.org' },
+    ],
+    notes: 'Most boards renew biennially with a CE requirement.',
+  },
+  {
+    id: 'cred-xray',
+    name: 'Radiology / X-ray operator',
+    holder: 'Marcus Webb',
+    authority: 'State radiation control',
+    cadenceMonths: 24,
+    completedAt: daysFromNow(-320),
+    expiresAt: daysFromNow(410),
+    renewals: [
+      { label: 'DANB radiology resources', url: 'https://www.danb.org' },
+    ],
+    notes: 'Operator certification rules are state-specific.',
+  },
+]
+
 const MOVEMENT_REASONS = {
   consumed: ['Chairside use', 'Op 3 restock', 'Hygiene bay', 'Surgical tray setup', 'Op 5 restock'],
   received: ['Delivery check-in', 'Received on PO', 'Rep drop-off'],

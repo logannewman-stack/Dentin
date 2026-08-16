@@ -30,6 +30,7 @@ const MarketScan = lazy(() => import('@/pages/MarketScan'))
 const Search = lazy(() => import('@/pages/Search'))
 const Settings = lazy(() => import('@/pages/Settings'))
 const PaymentMethods = lazy(() => import('@/pages/PaymentMethods'))
+const Compliance = lazy(() => import('@/pages/Compliance'))
 const Welcome = lazy(() => import('@/pages/Welcome'))
 const Onboarding = lazy(() => import('@/pages/Onboarding'))
 
@@ -125,6 +126,7 @@ function AppRoutes() {
             <Route path="/insights" element={<Insights />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/payments" element={<PaymentMethods />} />
+            <Route path="/settings/compliance" element={<Compliance />} />
             {/* Still routable when the gate is bypassed, so both flows can be
                 demoed without turning sign-in back on. */}
             <Route path="/onboarding" element={<Onboarding />} />

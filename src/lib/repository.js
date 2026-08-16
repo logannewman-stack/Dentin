@@ -13,6 +13,7 @@ import {
   ASSETS,
   CATEGORIES,
   CATEGORY_SPEND,
+  CREDENTIALS,
   LOCATIONS,
   ORDERS,
   ORDER_ITEMS,
@@ -1391,6 +1392,115 @@ export async function removeOrderLine(orderId, productId) {
     .delete()
     .eq('order_id', orderId)
     .eq('product_id', productId)
+  if (error) throw error
+  return { ok: true }
+}
+
+// --- compliance & training ----------------------------------------------------
+
+let demoCredentials = null
+function credentialRows() {
+  if (!demoCredentials) demoCredentials = CREDENTIALS.map((c) => ({ ...c }))
+  return demoCredentials
+}
+
+const addMonthsIso = (iso, months) => {
+  const d = new Date(iso)
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString()
+}
+
+/** Certifications and registrations, soonest-expiring first. */
+export async function listCredentials() {
+  if (isDemo) {
+    return credentialRows()
+      .slice()
+      .sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt))
+  }
+  const { data, error } = await supabase
+    .from('credentials')
+    .select('*')
+    .order('expires_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    holder: c.holder,
+    authority: c.authority,
+    cadenceMonths: c.cadence_months,
+    completedAt: c.completed_at,
+    expiresAt: c.expires_at,
+    renewals: c.renew_url ? [{ label: 'Renew', url: c.renew_url }] : [],
+    notes: c.notes,
+  }))
+}
+
+/** Record a completed renewal: today (or a given date) plus the cadence. */
+export async function renewCredential(id, { completedAt } = {}) {
+  const done = completedAt ?? new Date().toISOString()
+  if (isDemo) {
+    const cred = credentialRows().find((c) => c.id === id)
+    if (!cred) throw new Error('Certification not found')
+    cred.completedAt = done
+    cred.expiresAt = addMonthsIso(done, cred.cadenceMonths)
+    emit()
+    return { ok: true, expiresAt: cred.expiresAt }
+  }
+  const { data, error } = await supabase
+    .from('credentials')
+    .select('cadence_months')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  const { error: updateError } = await supabase
+    .from('credentials')
+    .update({ completed_at: done, expires_at: addMonthsIso(done, data.cadence_months) })
+    .eq('id', id)
+  if (updateError) throw updateError
+  return { ok: true }
+}
+
+export async function saveCredential({ name, holder, authority, cadenceMonths, completedAt, renewUrl, notes }) {
+  const done = completedAt ?? new Date().toISOString()
+  const expires = addMonthsIso(done, cadenceMonths)
+  if (isDemo) {
+    credentialRows().push({
+      id: `cred-${Date.now().toString(36)}`,
+      name,
+      holder,
+      authority: authority || 'Practice policy',
+      cadenceMonths,
+      completedAt: done,
+      expiresAt: expires,
+      renewals: renewUrl ? [{ label: 'Renewal link', url: renewUrl }] : [],
+      notes: notes ?? '',
+    })
+    emit()
+    return { ok: true }
+  }
+  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const { error } = await supabase.from('credentials').insert({
+    practice_id: profile.practice_id,
+    name,
+    holder,
+    authority: authority || null,
+    cadence_months: cadenceMonths,
+    completed_at: done,
+    expires_at: expires,
+    renew_url: renewUrl || null,
+    notes: notes || null,
+  })
+  if (error) throw error
+  return { ok: true }
+}
+
+export async function removeCredential(id) {
+  if (isDemo) {
+    demoCredentials = credentialRows().filter((c) => c.id !== id)
+    emit()
+    return { ok: true }
+  }
+  const { error } = await supabase.from('credentials').delete().eq('id', id)
   if (error) throw error
   return { ok: true }
 }

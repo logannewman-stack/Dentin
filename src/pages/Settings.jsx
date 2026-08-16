@@ -11,6 +11,7 @@ import {
   MapPin,
   Moon,
   Share,
+  ShieldCheck,
   Sparkles,
   Sun,
   SunMoon,
@@ -25,7 +26,7 @@ import Sheet from '@/components/ui/Sheet'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
-import { getCurrentUser, getPractice, isDemo, listLocations } from '@/lib/repository'
+import { getCurrentUser, getPractice, isDemo, listCredentials, listLocations } from '@/lib/repository'
 import { permission, pushSupport, sendTestNotification, subscribeToPush } from '@/lib/push'
 
 const FIELDS = [
@@ -62,6 +63,26 @@ export default function Settings() {
   const { data: practice } = useData(() => getPractice(), [])
   const { data: locations } = useData(() => listLocations(), [])
   const { data: me } = useData(() => getCurrentUser(), [])
+  const { data: credentials } = useData(() => listCredentials(), [])
+
+  // One-line status for the compliance row: worst state wins.
+  const credLine = (() => {
+    const rows = credentials ?? []
+    if (!rows.length) return 'HIPAA, OSHA and team certifications'
+    const now = Date.now()
+    const overdue = rows.filter((c) => new Date(c.expiresAt).getTime() < now)
+    const dueSoon = rows.filter((c) => {
+      const days = (new Date(c.expiresAt).getTime() - now) / 86400000
+      return days >= 0 && days <= 60
+    })
+    if (overdue.length) return `${overdue.length} overdue — action needed`
+    if (dueSoon.length === 1) return `${dueSoon[0].name} due soon`
+    if (dueSoon.length) return `${dueSoon.length} renewals due soon`
+    return 'HIPAA, OSHA and CPR all current'
+  })()
+  const credAttention = (credentials ?? []).some(
+    (c) => (new Date(c.expiresAt).getTime() - Date.now()) / 86400000 <= 60,
+  )
 
   const [theme, setTheme] = useTheme()
   const [addressOpen, setAddressOpen] = useState(false)
@@ -194,6 +215,19 @@ export default function Settings() {
           title="Team & roles"
           subtitle="Who can order, and who moved the stock"
           to="/team"
+        />
+        <Row
+          leading={
+            <ShieldCheck
+              size={16}
+              strokeWidth={1.9}
+              className={credAttention ? 'text-ios-orange' : 'text-label-2'}
+              aria-hidden="true"
+            />
+          }
+          title="Compliance & training"
+          subtitle={credLine}
+          to="/settings/compliance"
         />
         <Row
           leading={<Activity size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
