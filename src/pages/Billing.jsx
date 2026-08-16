@@ -169,7 +169,7 @@ export default function Billing() {
               Dentin
             </p>
             <p className="mt-1.5 text-title1 font-bold leading-tight">
-              $129<span className="text-title3 font-semibold text-label-3"> / location / month</span>
+              $200<span className="text-title3 font-semibold text-label-3"> / location / month</span>
             </p>
             <p className="mt-1 text-subhead text-label-2">
               First 90 days free · month to month · no setup fee · cancel anytime
@@ -197,6 +197,7 @@ export default function Billing() {
             </Button>
             <p className="mt-2 text-center text-caption text-label-3">
               Checkout and card details are handled by Stripe — Dentin never sees the number.
+              Have a promo code? Enter it on the checkout page.
             </p>
           </div>
         </div>
