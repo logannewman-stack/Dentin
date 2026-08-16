@@ -1132,52 +1132,68 @@ function daysFromNow(n) {
   return d.toISOString()
 }
 
+/** One inventory row, fully furnished — shared by seed data and runtime adds. */
+export function buildInventoryRow(
+  sku,
+  { onHand = 0, par = 0, reorderPoint = 0, reorderQty = 1, dailyBurn = 0, bin = null, locationId = 'loc-main', lastCountedAt = null } = {},
+) {
+  const product = PRODUCT_BY_ID.get(sku)
+  if (!product) return null
+  const best = offersFor(sku).find((o) => o.inStock) ?? null
+  const inStockOffers = offersFor(sku).filter((o) => o.inStock)
+  const worst = inStockOffers.length ? inStockOffers[inStockOffers.length - 1] : null
+
+  const stockStatus =
+    onHand <= 0 ? 'out' : onHand <= reorderPoint ? 'low' : onHand < par ? 'below_par' : 'ok'
+
+  return {
+    id: `inv-${locationId}-${sku}`,
+    productId: sku,
+    locationId,
+    locationName: LOCATIONS.find((l) => l.id === locationId)?.name ?? '',
+    productName: product.name,
+    brand: product.brand,
+    unit: product.unit,
+    gtin: product.gtin,
+    categorySlug: product.category,
+    categoryName: CATEGORIES.find((c) => c.slug === product.category)?.name ?? '',
+    isEquipment: product.isEquipment,
+    onHand,
+    parLevel: par,
+    reorderPoint,
+    reorderQty,
+    bin,
+    dailyBurn,
+    stockStatus,
+    pctOfPar: par > 0 ? Math.round((onHand / par) * 100) : null,
+    daysOfCover: dailyBurn > 0 ? Math.round(onHand / dailyBurn) : null,
+    bestUnitPrice: best?.unitPrice ?? null,
+    bestPrice: best?.price ?? null,
+    bestSupplierId: best?.supplierId ?? null,
+    bestSupplierName: best?.supplierName ?? null,
+    bestLeadDays: best?.leadDays ?? null,
+    maxUnitPrice: worst?.unitPrice ?? null,
+    offerCount: inStockOffers.length,
+    // Derived from the item's lots once they are built — never generated
+    // separately, or the summary and the lot list disagree.
+    expiresAt: null,
+    lastCountedAt,
+  }
+}
+
 export function buildInventory() {
-  return STOCK.map(([sku, onHand, par, reorderPoint, reorderQty, dailyBurn, bin, locationId], i) => {
-    const product = PRODUCT_BY_ID.get(sku)
-    const best = offersFor(sku).find((o) => o.inStock) ?? null
-    const inStockOffers = offersFor(sku).filter((o) => o.inStock)
-    const worst = inStockOffers.length
-      ? inStockOffers[inStockOffers.length - 1]
-      : null
-
-    const stockStatus =
-      onHand <= 0 ? 'out' : onHand <= reorderPoint ? 'low' : onHand < par ? 'below_par' : 'ok'
-
-    return {
-      id: `inv-${locationId}-${sku}`,
-      productId: sku,
-      locationId,
-      locationName: LOCATIONS.find((l) => l.id === locationId)?.name ?? '',
-      productName: product.name,
-      brand: product.brand,
-      unit: product.unit,
-      gtin: product.gtin,
-      categorySlug: product.category,
-      categoryName: CATEGORIES.find((c) => c.slug === product.category)?.name ?? '',
-      isEquipment: product.isEquipment,
+  return STOCK.map(([sku, onHand, par, reorderPoint, reorderQty, dailyBurn, bin, locationId], i) =>
+    buildInventoryRow(sku, {
       onHand,
-      parLevel: par,
+      par,
       reorderPoint,
       reorderQty,
-      bin,
       dailyBurn,
-      stockStatus,
-      pctOfPar: par > 0 ? Math.round((onHand / par) * 100) : null,
-      daysOfCover: dailyBurn > 0 ? Math.round(onHand / dailyBurn) : null,
-      bestUnitPrice: best?.unitPrice ?? null,
-      bestPrice: best?.price ?? null,
-      bestSupplierId: best?.supplierId ?? null,
-      bestSupplierName: best?.supplierName ?? null,
-      bestLeadDays: best?.leadDays ?? null,
-      maxUnitPrice: worst?.unitPrice ?? null,
-      offerCount: inStockOffers.length,
-      // Derived from the item's lots once they are built — never generated
-      // separately, or the summary and the lot list disagree.
-      expiresAt: null,
+      bin,
+      locationId,
       lastCountedAt: daysFromNow(-(3 + (i % 21))),
-    }
-  })
+    }),
+  )
 }
 
 /** Who touches stock. Movements are attributed so the ledger names a person. */
@@ -1187,6 +1203,47 @@ export const TEAM = [
   { id: 'user-3', name: 'Marcus Webb', role: 'assistant', initials: 'MW' },
   { id: 'user-4', name: 'Dr. Elena Sokolov', role: 'clinician', initials: 'ES' },
   { id: 'user-5', name: 'Tasha Brooks', role: 'assistant', initials: 'TB' },
+]
+
+/**
+ * The starter shelf: what a general practice stocks on day one. Par targets
+ * and reorder quantities are sensible openers the formula advisor refines
+ * once real burn data exists; reorder points start at zero so a fresh
+ * practice sees suggestions, not a wall of false "out of stock" alarms,
+ * until they actually count the shelves.
+ */
+export const STARTER_PACK = [
+  { productId: 'MT-N-M', par: 16, reorderQty: 8 },
+  { productId: 'MT-N-L', par: 8, reorderQty: 4 },
+  { productId: 'CTX-L3-EL', par: 10, reorderQty: 6 },
+  { productId: 'MTX-CW-160', par: 8, reorderQty: 4 },
+  { productId: 'HAL-SP-35', par: 6, reorderQty: 3 },
+  { productId: '3M-AT-1262', par: 3, reorderQty: 2 },
+  { productId: '3M-FSU-A2B', par: 6, reorderQty: 3 },
+  { productId: '3M-FSU-A3B', par: 6, reorderQty: 3 },
+  { productId: '3M-SBU-5', par: 2, reorderQty: 1 },
+  { productId: 'ULT-UE-KIT', par: 3, reorderQty: 2 },
+  { productId: 'DEN-PV3-RF', par: 2, reorderQty: 1 },
+  { productId: '3M-VAN-100', par: 4, reorderQty: 2 },
+  { productId: 'DEN-NP-MM', par: 4, reorderQty: 2 },
+  { productId: 'YNG-PA-SC', par: 6, reorderQty: 3 },
+  { productId: 'DEN-PTG-25', par: 4, reorderQty: 2 },
+  { productId: 'COL-GP-F2', par: 2, reorderQty: 1 },
+  { productId: 'VST-CX-16', par: 3, reorderQty: 2 },
+  { productId: 'ETH-CG-40', par: 2, reorderQty: 1 },
+  { productId: 'ASP-BP-15', par: 2, reorderQty: 1 },
+  { productId: 'DEN-AQ-HB', par: 4, reorderQty: 2 },
+  { productId: 'DEN-JP-FS', par: 3, reorderQty: 2 },
+  { productId: 'SEP-ART-100', par: 8, reorderQty: 4 },
+  { productId: 'SEP-LID-100', par: 6, reorderQty: 3 },
+  { productId: 'CAR-MN-27L', par: 6, reorderQty: 3 },
+  { productId: 'MC-ND-856', par: 4, reorderQty: 2 },
+  { productId: 'SSW-245', par: 5, reorderQty: 3 },
+  { productId: 'CTX-SB-2', par: 3, reorderQty: 2 },
+  { productId: 'CTX-BIB-BL', par: 2, reorderQty: 1 },
+  { productId: 'CAR-SE-CL', par: 6, reorderQty: 3 },
+  { productId: 'RIC-CR-2', par: 3, reorderQty: 2 },
+  { productId: 'DUK-GZ-22', par: 2, reorderQty: 1 },
 ]
 
 /**

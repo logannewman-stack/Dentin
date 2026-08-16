@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  FileSpreadsheet,
   Minus,
   PackagePlus,
   PackageSearch,
@@ -102,6 +103,13 @@ export default function Inventory() {
       subtitle={`${counts.all} tracked items`}
       trailing={
         <>
+          <Link
+            to="/inventory/import"
+            aria-label="Import inventory from a file"
+            className="press flex h-9 w-9 items-center justify-center text-brand-600 dark:text-brand-400"
+          >
+            <FileSpreadsheet size={20} strokeWidth={2} />
+          </Link>
           <Link
             to="/search"
             aria-label="Search everything"

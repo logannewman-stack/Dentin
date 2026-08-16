@@ -106,6 +106,15 @@ const PATTERNS = {
     /^cost$/i,
   ],
   packSize: [/pack[\s_-]*(size|qty|quantity)/i, /^uom[\s_-]*qty/i, /units?[\s_-]*per/i, /^qty$/i],
+  // Inventory imports (stocktake / order-history exports)
+  onHand: [
+    /on[\s_-]*hand/i,
+    /in[\s_-]*stock/i,
+    /current[\s_-]*(qty|stock|count)/i,
+    /^(stock|count)$/i,
+    /qty[\s_-]*(in[\s_-]*stock|available)/i,
+  ],
+  parLevel: [/^par([\s_-]*level)?$/i, /target[\s_-]*stock/i, /^max([\s_-]*level)?$/i],
 }
 
 export function guessMapping(headers) {

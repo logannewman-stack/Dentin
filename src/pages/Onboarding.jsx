@@ -1,8 +1,20 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Building2, Check, MapPin, Store, Tags } from 'lucide-react'
-import { CATEGORIES, SUPPLIERS } from '@/lib/demoData'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Boxes,
+  Building2,
+  Check,
+  FileSpreadsheet,
+  Loader2,
+  MapPin,
+  ScanLine,
+  Store,
+} from 'lucide-react'
+import { SUPPLIERS } from '@/lib/demoData'
+import { STARTER_PACK, completePracticeSetup } from '@/lib/repository'
 import { useAuth } from '@/lib/AuthContext'
 import { cn, haptic } from '@/lib/utils'
 
@@ -85,7 +97,9 @@ export default function Onboarding() {
     // Pre-select the ones nearly every practice already buys from.
     new Set(['henry-schein', 'patterson', 'benco', 'darby', 'net32']),
   )
-  const [categories, setCategories] = useState(() => new Set(CATEGORIES.map((c) => c.slug)))
+  const [stock, setStock] = useState('starter')
+  const [busy, setBusy] = useState(false)
+  const [finishError, setFinishError] = useState(null)
 
   const STEPS = useMemo(
     () => [
@@ -121,24 +135,42 @@ export default function Onboarding() {
         valid: suppliers.size > 0,
       },
       {
-        key: 'categories',
-        Icon: Tags,
-        title: 'What to track',
-        blurb: 'Start with everything, or narrow it to what you actually stock.',
-        valid: categories.size > 0,
+        key: 'stock',
+        Icon: Boxes,
+        title: 'Stock the shelves',
+        blurb: 'How should your inventory start? Everything is editable later.',
+        valid: true,
       },
     ],
-    [practice, address, locations, suppliers, categories],
+    [practice, address, locations, suppliers],
   )
 
   const current = STEPS[step]
   const isLast = step === STEPS.length - 1
 
+  const finish = async () => {
+    setBusy(true)
+    setFinishError(null)
+    try {
+      await completePracticeSetup({
+        practice: { ...practice, ...address },
+        locations,
+        supplierSlugs: [...suppliers],
+        starter: stock,
+      })
+      completeOnboarding()
+      navigate(stock === 'import' ? '/inventory/import' : '/', { replace: true })
+    } catch (e) {
+      setFinishError(e.message ?? 'Something went wrong — nothing was saved.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const go = (delta) => {
     haptic(8)
     if (delta > 0 && isLast) {
-      completeOnboarding()
-      navigate('/', { replace: true })
+      finish()
       return
     }
     if (delta < 0 && step === 0) {
@@ -362,32 +394,86 @@ export default function Onboarding() {
                   ))
                 : null}
 
-              {current.key === 'categories' ? (
+              {current.key === 'stock' ? (
                 <>
-                  <div className="flex gap-2 pb-1">
+                  {[
+                    {
+                      key: 'starter',
+                      Icon: Boxes,
+                      title: `Start with the essentials (${STARTER_PACK.length} items)`,
+                      subtitle:
+                        'Gloves, anesthetics, composites, burs — par targets set, counts at zero until you scan the shelves.',
+                    },
+                    {
+                      key: 'import',
+                      Icon: FileSpreadsheet,
+                      title: 'Import a file',
+                      subtitle:
+                        'A stocktake sheet or a distributor order-history export — CSV in, inventory out.',
+                    },
+                    {
+                      key: 'blank',
+                      Icon: ScanLine,
+                      title: 'Start empty',
+                      subtitle: 'Add items one by one from the catalog or by scanning barcodes.',
+                    },
+                  ].map((opt) => (
                     <button
+                      key={opt.key}
                       type="button"
-                      onClick={() => setCategories(new Set(CATEGORIES.map((c) => c.slug)))}
-                      className="press flex-1 rounded-ios bg-surface py-2 text-subhead font-medium text-brand-600 dark:text-brand-400"
+                      onClick={() => {
+                        haptic(6)
+                        setStock(opt.key)
+                      }}
+                      aria-pressed={stock === opt.key}
+                      className={cn(
+                        'flex w-full items-start gap-3 rounded-card border-2 p-3.5 text-left transition-colors duration-150',
+                        stock === opt.key
+                          ? 'border-brand-600 bg-brand-600/8'
+                          : 'border-line bg-surface active:bg-surface-2',
+                      )}
                     >
-                      Select all
+                      <span
+                        className={cn(
+                          'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px]',
+                          stock === opt.key
+                            ? 'bg-brand-600 text-white'
+                            : 'border border-line text-label-2',
+                        )}
+                        aria-hidden="true"
+                      >
+                        <opt.Icon size={17} strokeWidth={2} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-callout font-semibold text-label">
+                          {opt.title}
+                        </span>
+                        <span className="mt-0.5 block text-footnote text-label-3">
+                          {opt.subtitle}
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          'mt-1 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
+                          stock === opt.key
+                            ? 'border-brand-600 bg-brand-600 text-white'
+                            : 'border-separator',
+                        )}
+                        aria-hidden="true"
+                      >
+                        {stock === opt.key ? <Check size={13} strokeWidth={3} /> : null}
+                      </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setCategories(new Set())}
-                      className="press flex-1 rounded-ios bg-surface py-2 text-subhead font-medium text-label-2"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  {CATEGORIES.map((c) => (
-                    <SelectCard
-                      key={c.slug}
-                      selected={categories.has(c.slug)}
-                      title={c.name}
-                      onClick={() => toggle(categories, setCategories)(c.slug)}
-                    />
                   ))}
+
+                  {stock === 'starter' ? (
+                    <p className="px-1 text-footnote text-label-3">
+                      The essentials cover infection control, restorative, preventive, endo,
+                      surgery, impressions, anesthetics, burs and disposables. Walk the stockroom
+                      with Scan afterwards to count what's on hand — reorder alerts switch on from
+                      real counts, never guesses.
+                    </p>
+                  ) : null}
                 </>
               ) : null}
             </div>
@@ -402,14 +488,28 @@ export default function Onboarding() {
       >
         <button
           type="button"
-          disabled={!current.valid}
+          disabled={!current.valid || busy}
           onClick={() => go(1)}
           className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[4px] bg-brand-600 text-body font-semibold text-white transition-opacity active:opacity-85 disabled:opacity-40"
         >
-          {isLast ? 'Finish setup' : 'Continue'}
-          <ArrowRight size={17} strokeWidth={2.4} aria-hidden="true" />
+          {busy ? (
+            <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <>
+              {isLast
+                ? stock === 'import'
+                  ? 'Finish & import inventory'
+                  : 'Finish setup'
+                : 'Continue'}
+              <ArrowRight size={17} strokeWidth={2.4} aria-hidden="true" />
+            </>
+          )}
         </button>
-        {!current.valid ? (
+        {finishError ? (
+          <p role="alert" className="mt-2 text-center text-caption text-ios-red">
+            {finishError}
+          </p>
+        ) : !current.valid ? (
           <p className="mt-2 text-center text-caption text-label-3">
             {current.key === 'address'
               ? 'Street, city and ZIP are needed to ship'

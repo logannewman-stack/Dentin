@@ -47,16 +47,35 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (AUTO_ENTER || !isSupabaseConfigured) return undefined
 
+    let active = true
+
+    // Live truth for "onboarded" is the database, not a browser flag: a
+    // profile with a practice attached has finished setup, on any device.
+    const syncOnboarded = async (session) => {
+      if (!session?.user) return
+      const { data } = await supabase
+        .from('profiles')
+        .select('practice_id')
+        .eq('id', session.user.id)
+        .maybeSingle()
+      if (active) setOnboarded(Boolean(data?.practice_id))
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setLoading(false)
+      syncOnboarded(data.session)
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next)
+      syncOnboarded(next)
     })
 
-    return () => sub.subscription.unsubscribe()
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
+    }
   }, [])
 
   const signIn = useCallback(async ({ email, password }) => {

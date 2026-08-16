@@ -31,6 +31,7 @@ const Search = lazy(() => import('@/pages/Search'))
 const Settings = lazy(() => import('@/pages/Settings'))
 const PaymentMethods = lazy(() => import('@/pages/PaymentMethods'))
 const Compliance = lazy(() => import('@/pages/Compliance'))
+const InventoryImport = lazy(() => import('@/pages/InventoryImport'))
 const Welcome = lazy(() => import('@/pages/Welcome'))
 const Onboarding = lazy(() => import('@/pages/Onboarding'))
 
@@ -106,6 +107,7 @@ function AppRoutes() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/inventory" element={<Inventory />} />
+            <Route path="/inventory/import" element={<InventoryImport />} />
             <Route path="/inventory/:id" element={<ItemDetail />} />
             <Route path="/catalog" element={<Catalog />} />
             <Route path="/price-check/:productId" element={<PriceCheck />} />

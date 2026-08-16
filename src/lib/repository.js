@@ -28,7 +28,9 @@ import {
   SUPPLIER_SPEND,
   TEAM,
   TOP_ITEMS,
+  STARTER_PACK,
   VENDOR_DIRECTORY,
+  buildInventoryRow,
   bulkTiersFor,
   shelfLifeDaysFor,
   buildInventory,
@@ -1526,6 +1528,256 @@ export async function assessOrderQuantity(productId, quantity, unitPrice) {
     shelfLifeDays,
     onHand: item?.onHand ?? 0,
   }
+}
+
+// --- onboarding ---------------------------------------------------------------
+
+export { STARTER_PACK } from './demoData'
+
+/**
+ * Turn a finished onboarding wizard into a real practice.
+ *
+ * Live sequencing matters for row-level security: the practice INSERT is open
+ * to any authenticated user, but every other table requires membership — so
+ * the profile must claim the practice *before* locations, accounts, or
+ * starter inventory can be written. IDs are generated client-side because
+ * INSERT..RETURNING would need a SELECT policy the caller does not have until
+ * the claim lands.
+ */
+export async function completePracticeSetup({ practice, locations, supplierSlugs, starter }) {
+  if (isDemo) {
+    Object.assign(store().practice, {
+      name: practice.name,
+      legalName: practice.legalName || store().practice.legalName,
+      phone: practice.phone || store().practice.phone,
+      email: practice.email || store().practice.email,
+      address1: practice.address1 || store().practice.address1,
+      address2: practice.address2 ?? store().practice.address2,
+      city: practice.city || store().practice.city,
+      region: practice.region || store().practice.region,
+      postalCode: practice.postalCode || store().practice.postalCode,
+    })
+    // Accounts follow the selection; details already on file survive.
+    const chosen = new Set(supplierSlugs)
+    for (const slug of chosen) {
+      if (!accounts().some((a) => a.supplierId === slug)) {
+        accounts().push({ supplierId: slug, terms: 'Net 30', isPreferred: false })
+      }
+    }
+    demoAccounts = accounts().filter((a) => chosen.has(a.supplierId) || String(a.supplierId).startsWith('dir-'))
+
+    if (starter === 'starter') {
+      const s = store()
+      for (const entry of STARTER_PACK) {
+        if (s.inventory.some((r) => r.productId === entry.productId)) continue
+        const row = buildInventoryRow(entry.productId, {
+          onHand: 0,
+          par: entry.par,
+          reorderPoint: 0,
+          reorderQty: entry.reorderQty,
+        })
+        if (row) s.inventory.push(row)
+      }
+    }
+    emit()
+    return { ok: true }
+  }
+
+  const { data: auth } = await supabase.auth.getUser()
+  const userId = auth?.user?.id
+  if (!userId) throw new Error('Not signed in')
+
+  // 1. The practice itself — open insert, id minted here.
+  const practiceId = crypto.randomUUID()
+  const { error: practiceError } = await supabase.from('practices').insert({
+    id: practiceId,
+    name: practice.name,
+    legal_name: practice.legalName || null,
+    phone: practice.phone || null,
+    email: practice.email || null,
+    address_1: practice.address1 || null,
+    address_2: practice.address2 || null,
+    city: practice.city || null,
+    region: practice.region || null,
+    postal_code: practice.postalCode || null,
+  })
+  if (practiceError) throw practiceError
+
+  // 2. Claim it — from here on, tenant policies resolve.
+  const { error: claimError } = await supabase
+    .from('profiles')
+    .update({ practice_id: practiceId })
+    .eq('id', userId)
+  if (claimError) throw claimError
+
+  // 3. Locations, first one primary.
+  const locationRows = locations
+    .filter((l) => l.name.trim())
+    .map((l, i) => ({
+      id: crypto.randomUUID(),
+      practice_id: practiceId,
+      name: l.name.trim(),
+      operatories: Number(l.operatories) || 0,
+      is_primary: i === 0,
+    }))
+  if (locationRows.length) {
+    const { error } = await supabase.from('locations').insert(locationRows)
+    if (error) throw error
+  }
+
+  // 4. Vendor accounts, resolved slug → catalog id.
+  if (supplierSlugs.length) {
+    const { data: supplierRows, error: supplierError } = await supabase
+      .from('suppliers')
+      .select('id, slug')
+      .in('slug', supplierSlugs)
+    if (supplierError) throw supplierError
+    if (supplierRows?.length) {
+      const { error } = await supabase.from('supplier_accounts').insert(
+        supplierRows.map((s) => ({ practice_id: practiceId, supplier_id: s.id })),
+      )
+      if (error) throw error
+    }
+  }
+
+  // 5. Starter shelf — matched by GTIN, the key stable across catalogs.
+  if (starter === 'starter' && locationRows[0]) {
+    const gtinByDemo = new Map(
+      STARTER_PACK.map((e) => [e.productId, productById(e.productId)?.gtin]).filter(([, g]) => g),
+    )
+    const { data: productRows, error: productError } = await supabase
+      .from('products')
+      .select('id, gtin')
+      .in('gtin', [...gtinByDemo.values()])
+    if (productError) throw productError
+    const idByGtin = new Map((productRows ?? []).map((p) => [p.gtin, p.id]))
+
+    const items = STARTER_PACK.flatMap((e) => {
+      const productId = idByGtin.get(gtinByDemo.get(e.productId))
+      if (!productId) return []
+      return [
+        {
+          id: crypto.randomUUID(),
+          practice_id: practiceId,
+          location_id: locationRows[0].id,
+          product_id: productId,
+          on_hand: 0,
+          par_level: e.par,
+          reorder_point: 0,
+          reorder_qty: e.reorderQty,
+        },
+      ]
+    })
+    if (items.length) {
+      const { error } = await supabase.from('inventory_items').insert(items)
+      if (error) throw error
+    }
+  }
+
+  return { ok: true, practiceId }
+}
+
+/**
+ * Match a stocktake / order-history CSV against the catalog: GTIN first,
+ * manufacturer part number next, exact-ish name last — same honesty ladder
+ * as contract imports, plus on-hand and par columns.
+ */
+export async function matchInventoryRows(rows, mapping) {
+  const contractMatched = await matchContractRows(rows, mapping)
+  return contractMatched.map((m, i) => {
+    const row = rows[i]
+    const onHand = parseInteger(mapping.onHand ? row[mapping.onHand] : null, 0)
+    const parLevel = parseInteger(mapping.parLevel ? row[mapping.parLevel] : null, 0)
+    return {
+      ...m,
+      onHand: Math.max(0, onHand),
+      parLevel: Math.max(0, parLevel),
+      // Contract rows need a price to be applicable; a stocktake row only
+      // needs to know which product it is.
+      usable: Boolean(m.product),
+    }
+  })
+}
+
+/** Create inventory items from matched import rows; existing items update counts. */
+export async function importInventoryRows(matched) {
+  const usable = matched.filter((m) => m.usable && m.product)
+
+  if (isDemo) {
+    const s = store()
+    let created = 0
+    let updated = 0
+    for (const m of usable) {
+      const existing = s.inventory.find((r) => r.productId === m.product.id)
+      if (existing) {
+        existing.onHand = m.onHand
+        if (m.parLevel > 0) existing.parLevel = m.parLevel
+        existing.lastCountedAt = new Date().toISOString()
+        recomputeRow(existing)
+        updated += 1
+      } else {
+        const row = buildInventoryRow(m.product.id, {
+          onHand: m.onHand,
+          par: m.parLevel,
+          reorderPoint: 0,
+          reorderQty: Math.max(1, Math.ceil(m.parLevel / 2)),
+          lastCountedAt: new Date().toISOString(),
+        })
+        if (row) {
+          s.inventory.push(row)
+          created += 1
+        }
+      }
+    }
+    emit()
+    return { created, updated, skipped: matched.length - usable.length }
+  }
+
+  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const { data: primary } = await supabase
+    .from('locations')
+    .select('id')
+    .order('is_primary', { ascending: false })
+    .limit(1)
+    .single()
+  if (!primary) throw new Error('Create a location first')
+
+  let created = 0
+  let updated = 0
+  for (const m of usable) {
+    const { data: existing } = await supabase
+      .from('inventory_items')
+      .select('id')
+      .eq('product_id', m.product.id)
+      .eq('location_id', primary.id)
+      .maybeSingle()
+    if (existing) {
+      const { error } = await supabase
+        .from('inventory_items')
+        .update({
+          on_hand: m.onHand,
+          ...(m.parLevel > 0 ? { par_level: m.parLevel } : {}),
+          last_counted_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+      if (error) throw error
+      updated += 1
+    } else {
+      const { error } = await supabase.from('inventory_items').insert({
+        practice_id: profile.practice_id,
+        location_id: primary.id,
+        product_id: m.product.id,
+        on_hand: m.onHand,
+        par_level: m.parLevel,
+        reorder_point: 0,
+        reorder_qty: Math.max(1, Math.ceil(m.parLevel / 2)),
+        last_counted_at: new Date().toISOString(),
+      })
+      if (error) throw error
+      created += 1
+    }
+  }
+  return { created, updated, skipped: matched.length - usable.length }
 }
 
 // --- landed cost --------------------------------------------------------------
