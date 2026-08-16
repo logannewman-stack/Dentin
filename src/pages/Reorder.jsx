@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   PackageCheck,
+  Scale,
   Sparkles,
   TrendingDown,
 } from 'lucide-react'
@@ -15,7 +16,12 @@ import Button from '@/components/ui/Button'
 import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
 import { useData } from '@/hooks/useData'
-import { compareOffers, createOrder, reorderSuggestions } from '@/lib/repository'
+import {
+  compareOffers,
+  createOrder,
+  getBasketLandedAnalysis,
+  reorderSuggestions,
+} from '@/lib/repository'
 import { money, qty, unitMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -140,6 +146,32 @@ export default function Reorder() {
     () => (lines.length ? priceBasket(lines, offersByProduct) : null),
     [lines, offersByProduct],
   )
+
+  // The deeper truth: landed totals (shipping thresholds, minimums,
+  // surcharges, tax) per vendor, plus the free-shipping verdict and flags.
+  const [landed, setLanded] = useState(null)
+  useEffect(() => {
+    if (!lines.length) {
+      setLanded(null)
+      return undefined
+    }
+    let cancelled = false
+    getBasketLandedAnalysis(
+      lines.map((l) => ({
+        id: l.id,
+        productId: l.productId,
+        name: l.productName,
+        quantity: l.quantity,
+        onHand: l.onHand,
+        dailyBurn: l.dailyBurn,
+      })),
+    ).then((r) => {
+      if (!cancelled) setLanded(r)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [lines])
 
   const active =
     strategy === 'split'
@@ -340,6 +372,95 @@ export default function Reorder() {
               : 'Place order'}
           </Button>
         </div>
+      ) : null}
+
+      {/* Landed cost: the whole basket priced all-in per vendor, so "free
+          shipping" only wins when the landed math says it does */}
+      {landed?.winner ? (
+        <Section
+          title="Landed cost, vendor by vendor"
+          footer={`Landed = goods + shipping + surcharges ${
+            landed.tax?.exempt
+              ? '(practice is tax-exempt)'
+              : `+ ${(100 * (landed.tax?.rate ?? 0)).toFixed(2).replace(/\.?0+$/, '')}% tax${
+                  landed.tax?.taxShipping ? ' incl. shipping' : ''
+                }`
+          }, from your accounts only. Each row prices the whole basket at one vendor.`}
+        >
+          {landed.vendors.map((v) => (
+            <Row
+              key={v.vendorId}
+              chevron={false}
+              className={cn(!v.eligible && 'opacity-45')}
+              title={v.vendorName}
+              subtitle={
+                v.eligible
+                  ? `${money(v.subtotal)} goods · ${
+                      v.shipping === 0 ? 'free ship' : `${money(v.shipping)} ship`
+                    } · ${money(v.tax)} tax · ${v.leadDays}d`
+                  : v.ineligibleReason
+              }
+              trailing={
+                v.eligible ? (
+                  <div className="text-right">
+                    <p className="tnum text-callout font-semibold">{money(v.landedTotal)}</p>
+                    {v.vendorId === landed.winner.vendorId ? (
+                      <Pill tone="good">Lowest landed</Pill>
+                    ) : v.shipsFree ? (
+                      <Pill tone="quiet">Ships free</Pill>
+                    ) : null}
+                  </div>
+                ) : (
+                  <Pill tone="quiet">Ineligible</Pill>
+                )
+              }
+            />
+          ))}
+
+          <div className="row block py-2.5">
+            <p className="text-footnote text-label-2">
+              <Scale size={13} className="mr-1 inline-block align-[-2px]" aria-hidden="true" />
+              {landed.trueSavings != null ? (
+                <>
+                  <b>{landed.winner.vendorName}</b> wins by{' '}
+                  <b className="tnum">{money(landed.trueSavings)}</b> (
+                  {landed.trueSavingsPct}%) over {landed.runnerUp.vendorName}, landed to landed.
+                </>
+              ) : (
+                <>
+                  <b>{landed.winner.vendorName}</b> is the only vendor that can take this whole
+                  basket.
+                </>
+              )}{' '}
+              {landed.freeShipDelta != null ? (
+                <>
+                  {landed.freeShipVendor.vendorName} ships free but lands{' '}
+                  <b className="tnum">{money(landed.freeShipDelta)}</b> higher — the freight is
+                  hiding in the prices, not the shipping line.
+                </>
+              ) : landed.winner.shipsFree ? (
+                <>Free shipping confirmed as the real winner, all-in.</>
+              ) : null}
+            </p>
+          </div>
+
+          {landed.flags.map((f) => (
+            <div key={f.kind + (f.vendorId ?? '')} className="row block py-2.5">
+              <p
+                className={cn(
+                  'text-footnote',
+                  f.kind === 'lead-time' || (f.kind === 'padding' && !f.worthIt)
+                    ? 'text-ios-orange'
+                    : f.kind === 'split' || (f.kind === 'padding' && f.worthIt)
+                      ? 'text-brand-700 dark:text-brand-400'
+                      : 'text-label-2',
+                )}
+              >
+                {f.message}
+              </p>
+            </div>
+          ))}
+        </Section>
       ) : null}
 
       {/* Priced from your accounts only — say so, and price the alternative */}

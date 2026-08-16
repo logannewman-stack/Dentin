@@ -10,6 +10,7 @@ import { parseInteger, parseMoney } from './csv'
 import { PROCEDURE_TEMPLATES, TEMPLATE_BY_CODE, expandProcedure, unitsPerPack } from './cdt'
 import { SPEND_WINDOW_MONTHS, assessSpend } from './benchmarks'
 import { analyzeBulkTier, analyzeBulkTiers } from './spoilage'
+import { computeLandedTotals } from './landed'
 import {
   ASSETS,
   CATEGORIES,
@@ -1525,6 +1526,65 @@ export async function assessOrderQuantity(productId, quantity, unitPrice) {
     shelfLifeDays,
     onHand: item?.onHand ?? 0,
   }
+}
+
+// --- landed cost --------------------------------------------------------------
+
+/**
+ * True landed cost of a basket across every vendor the practice can order
+ * from: goods + shipping (thresholds, flat fees, surcharges) + the ship-to
+ * state's tax rule, ranked so "free shipping" only wins when its landed
+ * total is actually lowest. Contract prices are already inside the offer
+ * prices, so rebates arrive pre-applied rather than double-counted.
+ *
+ * `lines`: [{ id, productId, name, quantity, onHand?, dailyBurn? }]
+ */
+export async function getBasketLandedAnalysis(lines) {
+  if (!lines.length) return null
+
+  const offerRows = await Promise.all(
+    lines.map(async (l) => [l.productId, await compareOffers(l.productId)]),
+  )
+  const offersByProduct = Object.fromEntries(offerRows)
+
+  const engineLines = lines.map((l) => ({
+    id: l.id ?? l.productId,
+    productId: l.productId,
+    name: l.name ?? l.productName ?? l.productId,
+    quantity: l.quantity,
+    urgentDays:
+      l.dailyBurn > 0 && l.onHand != null ? Math.floor(l.onHand / l.dailyBurn) : null,
+    offers: Object.fromEntries(
+      (offersByProduct[l.productId] ?? [])
+        .filter((o) => o.inStock && o.hasAccount)
+        .map((o) => [
+          o.supplierId,
+          { price: o.price, unitPrice: o.unitPrice, packSize: o.packSize ?? 1, inStock: true },
+        ]),
+    ),
+  }))
+
+  // Vendors that appear in at least one line's placeable offers.
+  const vendorIds = new Set(engineLines.flatMap((l) => Object.keys(l.offers)))
+  const vendors = SUPPLIERS.filter((s) => vendorIds.has(s.id)).map((s) => ({
+    id: s.id,
+    name: s.name,
+    shipFee: s.shipFee ?? 0,
+    freeShipOver: s.freeShipOver ?? 0,
+    surcharge: s.surcharge ?? 0,
+    orderMinimum: s.orderMinimum ?? 0,
+    leadDays: s.leadDays ?? null,
+  }))
+  if (!vendors.length) return null
+
+  const practice = isDemo ? store().practice : await getPractice()
+  const tax = {
+    rate: practice?.taxRate ?? 0,
+    taxShipping: practice?.taxShipping ?? false,
+    exempt: practice?.taxExempt ?? false,
+  }
+
+  return { ...computeLandedTotals({ lines: engineLines, vendors, tax }), tax }
 }
 
 // --- compliance & training ----------------------------------------------------

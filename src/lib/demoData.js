@@ -18,6 +18,7 @@ export const SUPPLIERS = [
     leadDays: 2,
     freeShipOver: 250,
     shipFee: 12.95,
+    orderMinimum: 50,
     website: 'henryschein.com',
     blurb: 'Full-service. Deepest equipment and service bench.',
     strengths: ['Equipment & service', 'Same-week delivery', 'Single rep for everything'],
@@ -29,6 +30,7 @@ export const SUPPLIERS = [
     leadDays: 3,
     freeShipOver: 300,
     shipFee: 14.5,
+    orderMinimum: 75,
     website: 'pattersondental.com',
     blurb: 'Strong CAD/CAM and technology service network.',
     strengths: ['CAD/CAM support', 'Technology service', 'Financing programs'],
@@ -74,6 +76,8 @@ export const SUPPLIERS = [
     leadDays: 4,
     freeShipOver: 199,
     shipFee: 8.95,
+    orderMinimum: 25,
+    surcharge: 2.5, // fuel surcharge on sub-threshold orders
     website: 'dentalcity.com',
     blurb: 'Solid mid-market pricing across most categories.',
     strengths: ['Mid-market pricing', 'Broad catalog', 'Simple account setup'],
@@ -1005,6 +1009,13 @@ export const PRACTICE = {
   lastOrderedAt: null,
   pmsName: 'Open Dental',
   pmsConnected: false,
+  // Sales-tax posture for the ship-to state. Texas taxes dental consumables
+  // sold to dentists, and shipping is taxable when the sale is — matches the
+  // 8.25% the order ledger already applies. Practices flip these to their
+  // own state's rule.
+  taxRate: 0.0825,
+  taxShipping: true,
+  taxExempt: false,
 }
 
 /**
