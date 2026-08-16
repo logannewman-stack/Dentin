@@ -1,6 +1,6 @@
 # Dentin
 
-**The price beneath the rest.**
+**The price beneath the top layer.**
 
 Inventory, par-level intelligence and best-price procurement for modern dental
 practices. Built as an installable iOS-native PWA on React + Vite, backed by

@@ -410,7 +410,7 @@ export default function Settings() {
       </Section>
 
       <p className="px-1 pb-2 pt-6 text-center text-footnote text-label-3">
-        Dentin — the price beneath the rest.
+        Dentin — the price beneath the top layer.
       </p>
 
       {/* Address editor */}

@@ -87,7 +87,7 @@ export default function Welcome() {
           <h1 className="mt-4 text-[40px] font-bold leading-none tracking-tight text-white">
             Dentin
           </h1>
-          <p className="mt-2 text-callout text-white/70">The price beneath the rest.</p>
+          <p className="mt-2 text-callout text-white/70">The price beneath the top layer.</p>
         </motion.div>
 
         {/* Form */}

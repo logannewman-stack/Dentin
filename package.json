@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Dentin — the price beneath the rest. Inventory and procurement for modern dental practices.",
+  "description": "Dentin — the price beneath the top layer. Inventory and procurement for modern dental practices.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

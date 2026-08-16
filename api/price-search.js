@@ -5,7 +5,7 @@ import { json, userClient } from './_lib/supabase.js'
  *
  * Searches the catalog and returns each match with the cheapest in-stock
  * offer plus the spread across every supplier — the data behind "the price
- * beneath the rest".
+ * beneath the top layer".
  *
  * Runs as the caller so RLS keeps a practice's private catalog private.
  */

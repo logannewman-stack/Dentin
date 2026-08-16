@@ -137,7 +137,7 @@ create unique index products_gtin_global_idx on products (gtin) where practice_i
 create index products_name_trgm_idx on products using gin (name gin_trgm_ops);
 create index products_brand_trgm_idx on products using gin (brand gin_trgm_ops);
 
--- The price-comparison table. "The price beneath the rest" lives here.
+-- The price-comparison table. "The price beneath the top layer" lives here.
 create table supplier_offers (
   id            uuid primary key default gen_random_uuid(),
   product_id    uuid not null references products(id) on delete cascade,
