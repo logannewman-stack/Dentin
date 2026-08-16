@@ -22,16 +22,25 @@ export default function Welcome() {
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [notice, setNotice] = useState(null)
 
   const submit = async (e) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
       const fn = mode === 'signin' ? signIn : signUp
-      const { error: err } = await fn({ email, password, fullName })
+      const { error: err, needsConfirmation } = await fn({ email, password, fullName })
       if (err) {
         setError(err.message)
+        return
+      }
+      // Email confirmation on: there is no session yet, so navigating would
+      // just bounce back here looking broken — say what happens next instead.
+      if (mode === 'signup' && needsConfirmation) {
+        setNotice(`Almost there — we emailed a confirmation link to ${email}. Open it, then sign in here.`)
+        setMode('signin')
         return
       }
       navigate(mode === 'signup' ? '/onboarding' : '/', { replace: true })
@@ -172,6 +181,11 @@ export default function Welcome() {
             {error ? (
               <p role="alert" className="mt-3 text-footnote text-[#FFC7C2]">
                 {error}
+              </p>
+            ) : null}
+            {notice ? (
+              <p role="status" className="mt-3 text-footnote text-[#C8F5D0]">
+                {notice}
               </p>
             ) : null}
 

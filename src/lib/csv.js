@@ -147,6 +147,10 @@ export function parseMoney(value) {
   // "1.234,56" — European grouping. Comma is the decimal separator.
   if (/,\d{2}$/.test(cleaned) && /\./.test(cleaned)) {
     cleaned = cleaned.replace(/\./g, '').replace(',', '.')
+  } else if (!/\./.test(cleaned) && /,\d{1,2}$/.test(cleaned)) {
+    // "12,34" — no dot anywhere and one or two digits after the final comma:
+    // a decimal comma. "1,234" (three digits) stays a thousands separator.
+    cleaned = cleaned.replace(/,(\d{1,2})$/, '.$1').replace(/,/g, '')
   } else {
     cleaned = cleaned.replace(/,/g, '')
   }

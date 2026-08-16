@@ -43,6 +43,14 @@ export async function subscribeToPush() {
   const result = await Notification.requestPermission()
   if (result !== 'granted') throw new Error('permission-denied')
 
+  // `ready` never settles when no service worker is registered (dev builds,
+  // failed registration) — probe first so the caller's catch path gets an
+  // error instead of a spinner that hangs forever.
+  const registered = await navigator.serviceWorker.getRegistration()
+  if (!registered) {
+    throw new Error('Push needs the installed app — the service worker is not registered on this build.')
+  }
+
   const registration = await navigator.serviceWorker.ready
   const existing = await registration.pushManager.getSubscription()
   const subscription =

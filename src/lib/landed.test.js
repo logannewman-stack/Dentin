@@ -71,6 +71,23 @@ test('free-shipping vendor with inflated goods gets flagged', () => {
   assert.equal(flag.premium, 60)
 })
 
+test('inflated-pricing premium counts only comparable lines', () => {
+  const r = computeLandedTotals({
+    lines: [
+      line('x', 5, { fs: 40, c: 30 }),
+      line('y', 2, { fs: 50 }), // ONLY the free-ship vendor carries this line
+    ],
+    vendors: [vendor('fs', { shipFee: 0 }), vendor('c', { shipFee: 8 })],
+    tax: TAX,
+  })
+  const flag = r.flags.find((f) => f.kind === 'inflated-pricing')
+  assert.ok(flag, 'expected inflated-pricing flag')
+  // Comparable line x only: fs 200 vs mean-of-others 150 → premium 50.
+  // The exclusive line y ($100 of goods) has no market mean and must not
+  // inflate the premium to 150.
+  assert.equal(flag.premium, 50)
+})
+
 test('order minimum makes a vendor ineligible', () => {
   const r = computeLandedTotals({
     lines: [line('x', 1, { a: 40, b: 45 })],
@@ -129,6 +146,23 @@ test('padding: flagged as a trap when the gap exceeds the shipping', () => {
   const flag = r.flags.find((f) => f.kind === 'padding')
   assert.ok(flag)
   assert.equal(flag.worthIt, false) // $100 of padding to dodge $12 → no
+})
+
+test('padding: not worth it when the padded total still loses to the winner', () => {
+  const r = computeLandedTotals({
+    lines: [line('x', 8, { a: 30, b: 26 })],
+    vendors: [
+      vendor('a', { freeShipOver: 250, shipFee: 14 }), // 240 goods → $10 gap < $14 freight
+      vendor('b', { shipFee: 5 }), // (208 + 5) × 1.08 = 230.04 — the winner
+    ],
+    tax: TAX,
+  })
+  assert.equal(r.winner.vendorId, 'b')
+  const flag = r.flags.find((f) => f.kind === 'padding')
+  assert.ok(flag)
+  assert.equal(flag.gap, 10)
+  assert.equal(flag.paddedLanded, 270) // padded a: 250 × 1.08
+  assert.equal(flag.worthIt, false) // beats a's own freight, still $39.96 over b
 })
 
 test('split across two vendors can beat every single-vendor plan', () => {

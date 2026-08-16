@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -166,8 +166,13 @@ export default function Onboarding() {
 
   const current = STEPS[step]
   const isLast = step === STEPS.length - 1
+  // Ref, not state: two taps in the same frame both see busy=false, and a
+  // doubled run would race the practice-setup writes.
+  const finishing = useRef(false)
 
   const finish = async () => {
+    if (finishing.current) return
+    finishing.current = true
     setBusy(true)
     setFinishError(null)
     try {
@@ -183,8 +188,9 @@ export default function Onboarding() {
       completeOnboarding()
       navigate(stock === 'import' ? '/inventory/import' : '/', { replace: true })
     } catch (e) {
-      setFinishError(e.message ?? 'Something went wrong — nothing was saved.')
+      setFinishError(e.message ?? 'Something went wrong — tap Finish again to pick up where it left off.')
     } finally {
+      finishing.current = false
       setBusy(false)
     }
   }

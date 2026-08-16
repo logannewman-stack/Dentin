@@ -15,6 +15,7 @@ import { EmptyState, Pill, SegmentedControl, Stepper } from '@/components/ui/Con
 import Button from '@/components/ui/Button'
 import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
+import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import {
   compareOffers,
@@ -100,6 +101,7 @@ function priceBasket(lines, offersByProduct) {
 
 export default function Reorder() {
   const navigate = useNavigate()
+  const toast = useToast()
   const { data: suggestions, loading } = useData(() => reorderSuggestions(), [])
 
   const [selected, setSelected] = useState({})
@@ -236,6 +238,10 @@ export default function Reorder() {
         orders.push(order)
       }
       setPlaced({ count: orders.length, total: active.total, savings })
+    } catch (e) {
+      // Without this, a failed insert just stops the spinner and the buyer
+      // has no idea whether the order went through.
+      toast({ title: 'Order failed', body: e.message, tone: 'error' })
     } finally {
       setPlacing(false)
     }

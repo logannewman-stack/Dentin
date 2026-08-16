@@ -107,10 +107,13 @@ export default function PriceCheck() {
 
   const { product, nonCarriers, accountBest, marketBest } = data
   const checked = offers.length + nonCarriers.length
-  const spread =
-    offers.length > 1
-      ? offers[offers.length - 1].unitPrice - offers[0].unitPrice
-      : 0
+  // The spread is a fact about the market, not about the active sort: min/max
+  // unit price over IN-STOCK offers only, so the Fastest/Orderable orderings
+  // (and out-of-stock rows) never distort it.
+  const inStockPrices = offers.filter((o) => o.inStock).map((o) => o.unitPrice)
+  const spreadLow = inStockPrices.length > 1 ? Math.min(...inStockPrices) : null
+  const spreadHigh = inStockPrices.length > 1 ? Math.max(...inStockPrices) : null
+  const spread = spreadLow != null ? spreadHigh - spreadLow : 0
 
   return (
     <Screen
@@ -154,24 +157,24 @@ export default function PriceCheck() {
           <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand-600/25 border-t-brand-600" />
           <p className="text-subhead text-label-2">Checking {checked} vendors for this exact item…</p>
         </div>
-      ) : offers.length > 1 ? (
+      ) : spreadLow != null ? (
         <div className="mt-3 rounded-card border border-line bg-surface p-3">
           <div className="flex items-baseline justify-between gap-3">
             <div>
               <p className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
-                Spread across {offers.length} vendors
+                Spread across {inStockPrices.length} vendors
               </p>
               <p className="tnum mt-1 text-title2 font-bold">
-                {unitMoney(offers[0].unitPrice)}
+                {unitMoney(spreadLow)}
                 <span className="text-title3 font-medium text-label-3"> — </span>
-                {unitMoney(offers[offers.length - 1].unitPrice)}
+                {unitMoney(spreadHigh)}
               </p>
               <p className="mt-0.5 text-footnote text-label-3">per unit</p>
             </div>
             {spread > 0 ? (
               <div className="text-right">
                 <p className="tnum text-title3 font-bold text-ios-green">
-                  {Math.round((spread / offers[offers.length - 1].unitPrice) * 100)}%
+                  {Math.round((spread / spreadHigh) * 100)}%
                 </p>
                 <p className="text-caption text-label-3">cheapest to dearest</p>
               </div>

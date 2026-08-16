@@ -67,18 +67,63 @@ const parseTermDays = (terms) => {
   return m ? Number(m[1]) : 0
 }
 
+/**
+ * The signed-in user's own practice id. Always scoped to the caller's row —
+ * the profiles SELECT policy exposes every teammate, so an unscoped
+ * .single() would error the moment a practice has two users.
+ */
+async function myPracticeId() {
+  const { data: auth } = await supabase.auth.getUser()
+  const uid = auth?.user?.id
+  if (!uid) throw new Error('Sign in first')
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('practice_id')
+    .eq('id', uid)
+    .maybeSingle()
+  if (error) throw error
+  if (!data?.practice_id) throw new Error('Finish practice setup first')
+  return data.practice_id
+}
+
+/** Live drafts and orders: keep the stored money in step with the lines. */
+async function syncOrderTotals(orderId) {
+  const { data: lines, error } = await supabase
+    .from('order_items')
+    .select('quantity, unit_price')
+    .eq('order_id', orderId)
+  if (error) throw error
+  const subtotal = (lines ?? []).reduce(
+    (sum, l) => sum + Number(l.quantity) * Number(l.unit_price),
+    0,
+  )
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({ subtotal: Number(subtotal.toFixed(2)), total: Number(subtotal.toFixed(2)) })
+    .eq('id', orderId)
+  if (updateError) throw updateError
+}
+
 /** Recompute an order's money from its lines, so they can never disagree. */
 function recomputeOrderTotals(order) {
   const lines = demoOrderItems.filter(([orderId]) => orderId === order.id)
   const subtotal = lines.reduce((sum, [, , quantity, unitPrice]) => sum + quantity * unitPrice, 0)
   const supplier = SUPPLIERS.find((s) => s.id === order.supplierId)
+  // Same money model as the landed-cost engine, so the order a buyer places
+  // never disagrees with the analysis that justified it: vendor surcharge
+  // rides with freight, and tax follows the practice's taxable-freight rule.
   const shipping =
     order.status === 'draft' || order.shipping == null
-      ? supplier && supplier.freeShipOver > 0 && subtotal >= supplier.freeShipOver
-        ? 0
-        : (supplier?.shipFee ?? 0)
+      ? (supplier && supplier.freeShipOver > 0 && subtotal >= supplier.freeShipOver
+          ? 0
+          : (supplier?.shipFee ?? 0)) + (supplier?.surcharge ?? 0)
       : order.shipping
-  const tax = subtotal * 0.0825
+  // NOT store().practice — this helper runs during store() initialization,
+  // and re-entering store() there recurses without end. demoPractice is
+  // assigned before the orders block, so it is already set when this runs.
+  const practice = demoPractice ?? PRACTICE
+  const taxRate = practice?.taxExempt ? 0 : (practice?.taxRate ?? 0.0825)
+  const tax = (subtotal + (practice?.taxShipping ? shipping : 0)) * taxRate
   order.subtotal = Number(subtotal.toFixed(2))
   order.shipping = Number(shipping.toFixed(2))
   order.tax = Number(tax.toFixed(2))
@@ -498,9 +543,11 @@ export async function listMovements(inventoryItemId, { limit = 60 } = {}) {
       .filter((m) => m.inventoryItemId === inventoryItemId)
       .slice(0, limit)
   } else {
+    // No profiles() embed: created_by references auth.users, so PostgREST
+    // has no FK path to profiles and rejects the whole query.
     const { data, error } = await supabase
       .from('stock_movements')
-      .select('*, profiles(full_name)')
+      .select('*')
       .eq('inventory_item_id', inventoryItemId)
       .order('created_at', { ascending: false })
       .limit(limit)
@@ -536,9 +583,10 @@ export async function listMovements(inventoryItemId, { limit = 60 } = {}) {
 export async function listRecentActivity(limit = 25) {
   if (isDemo) return ledger().slice(0, limit)
 
+  // Same FK caveat as listMovements: no profiles() embed on stock_movements.
   const { data, error } = await supabase
     .from('stock_movements')
-    .select('*, profiles(full_name), inventory_items(products(name))')
+    .select('*, inventory_items(products(name))')
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) throw error
@@ -618,20 +666,36 @@ export async function discardLot(lotId, reason = 'Expired') {
       createdAt: new Date().toISOString(),
     })
     demoLots = lots().filter((l) => l.id !== lotId)
+    if (row) {
+      // The item's headline expiry follows the lots that remain.
+      const remaining = demoLots
+        .filter((l) => l.inventoryItemId === row.id && l.expiresAt)
+        .sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt))
+      row.expiresAt = remaining[0]?.expiresAt ?? null
+      recomputeRow(row)
+    }
     emit()
     return { ok: true }
   }
 
-  const { data: lot } = await supabase.from('lots').select('*').eq('id', lotId).single()
+  const { data: lot, error: lotError } = await supabase
+    .from('lots')
+    .select('*')
+    .eq('id', lotId)
+    .maybeSingle()
+  if (lotError) throw lotError
   if (!lot) throw new Error('Lot not found')
 
-  await supabase.rpc('record_movement', {
+  const { error: moveError } = await supabase.rpc('record_movement', {
     p_inventory_item_id: lot.inventory_item_id,
     p_type: 'wasted',
     p_quantity: lot.quantity,
     p_reason: `${reason} · lot ${lot.lot_number ?? ''}`.trim(),
   })
-  await supabase.from('lots').update({ quantity: 0 }).eq('id', lotId)
+  if (moveError) throw moveError
+  const { error: zeroError } = await supabase.from('lots').update({ quantity: 0 }).eq('id', lotId)
+  if (zeroError) throw zeroError
+  emit()
   return { ok: true }
 }
 
@@ -802,14 +866,14 @@ export async function postProcedureConsumption({ days = 7, locationId } = {}) {
 /** Supply spend against collections, on the trailing window the industry uses. */
 export async function getSpendBenchmark() {
   const practice = await getPractice()
-  const history = SPEND_HISTORY.slice(-SPEND_WINDOW_MONTHS)
+  const history = await getSpendHistory(SPEND_WINDOW_MONTHS)
   const supplySpend = history.reduce((sum, m) => sum + m.spend, 0)
-  const collections = (practice.collectionsPerMonth ?? 0) * SPEND_WINDOW_MONTHS
+  const collections = (practice?.collectionsPerMonth ?? 0) * SPEND_WINDOW_MONTHS
 
   const assessment = assessSpend({
     supplySpend,
     collections,
-    practiceType: practice.practiceType ?? 'general',
+    practiceType: practice?.practiceType ?? 'general',
   })
 
   const procedures = await getProcedureConsumption({ days: 30 })
@@ -879,7 +943,11 @@ export async function updateCurrentUser(patch) {
 
   const { data: auth } = await supabase.auth.getUser()
   if (patch.name != null) {
-    await supabase.from('profiles').update({ full_name: patch.name }).eq('id', auth.user.id)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: patch.name })
+      .eq('id', auth.user.id)
+    if (error) throw error
   }
   if (patch.email != null && patch.email !== auth.user.email) {
     // Email changes go through Supabase's confirmation flow, not a table write.
@@ -964,18 +1032,22 @@ export async function listAlerts() {
     }
   }
 
-  for (const a of ASSETS) {
-    const days = Math.round((new Date(a.nextServiceAt) - new Date()) / 86400000)
-    if (days <= 30) {
-      alerts.push({
-        id: `svc-${a.id}`,
-        type: 'service_due',
-        severity: days < 0 ? 'critical' : 'warning',
-        title: days < 0 ? `${a.name} service overdue` : `${a.name} service due`,
-        body: days < 0 ? `${Math.abs(days)} days overdue` : `In ${days} days`,
-        asset: a,
-        createdAt: new Date().toISOString(),
-      })
+  // Equipment service alerts come from the demo's asset list — a live
+  // practice must never see fabricated overdue autoclaves.
+  if (isDemo) {
+    for (const a of ASSETS) {
+      const days = Math.round((new Date(a.nextServiceAt) - new Date()) / 86400000)
+      if (days <= 30) {
+        alerts.push({
+          id: `svc-${a.id}`,
+          type: 'service_due',
+          severity: days < 0 ? 'critical' : 'warning',
+          title: days < 0 ? `${a.name} service overdue` : `${a.name} service due`,
+          body: days < 0 ? `${Math.abs(days)} days overdue` : `In ${days} days`,
+          asset: a,
+          createdAt: new Date().toISOString(),
+        })
+      }
     }
   }
 
@@ -1134,12 +1206,15 @@ export async function receiveOrder(orderId, received) {
       if (!row) continue
       row.onHand += qty
       recomputeRow(row)
-      movements.unshift({
-        id: `mv-${movements.length + 1}`,
+      ledger().unshift({
+        id: `mv-${Date.now().toString(36)}-${ledger().length}`,
         inventoryItemId: row.id,
+        productName: row.productName,
         type: 'received',
         quantity: qty,
         reason: `Received on ${order.reference}`,
+        userName: TEAM[0].name,
+        userInitials: TEAM[0].initials,
         createdAt: new Date().toISOString(),
       })
     }
@@ -1154,33 +1229,45 @@ export async function receiveOrder(orderId, received) {
   }
 
   const order = await getOrder(orderId)
+  let allIn = true
   for (const line of order.lines) {
     const qty = received[line.id]
+    if ((line.receivedQty ?? 0) + (qty ?? 0) < line.quantity) allIn = false
     if (!qty) continue
-    const { data: item } = await supabase
-      .from('inventory_items')
-      .select('id')
-      .eq('product_id', line.productId)
-      .eq('location_id', order.locationId)
-      .maybeSingle()
+    // Draft-built orders may carry no location; RLS already scopes the
+    // lookup to the practice, so fall back to wherever the item is tracked.
+    let itemQuery = supabase.from('inventory_items').select('id').eq('product_id', line.productId)
+    if (order.locationId) itemQuery = itemQuery.eq('location_id', order.locationId)
+    const { data: items, error: itemError } = await itemQuery.limit(1)
+    if (itemError) throw itemError
+    const item = items?.[0]
     if (!item) continue
-    await supabase.rpc('record_movement', {
+    const { error: moveError } = await supabase.rpc('record_movement', {
       p_inventory_item_id: item.id,
       p_type: 'received',
       p_quantity: qty,
       p_reason: `Received on ${order.reference ?? orderId}`,
     })
-    await supabase
+    if (moveError) throw moveError
+    const { error: lineError } = await supabase
       .from('order_items')
-      .update({ received_qty: line.receivedQty + qty })
+      .update({ received_qty: (line.receivedQty ?? 0) + qty })
       .eq('id', line.id)
+    if (lineError) throw lineError
   }
 
+  // A short delivery stays open as 'partial' — marking it received would
+  // silently erase the units still owed.
   const { error } = await supabase
     .from('orders')
-    .update({ status: 'received', received_at: new Date().toISOString() })
+    .update(
+      allIn
+        ? { status: 'received', received_at: new Date().toISOString() }
+        : { status: 'partial' },
+    )
     .eq('id', orderId)
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -1217,7 +1304,9 @@ export async function findInboundFor(productId) {
     .from('order_items')
     .select('quantity, received_qty, orders!inner(id, reference, status, expected_at, suppliers(name))')
     .eq('product_id', productId)
-    .in('orders.status', ['submitted', 'confirmed', 'shipped', 'partial'])
+    // NB: 'shipped' is not in the order_status enum — including it makes
+    // Postgres reject the whole filter and kills the duplicate-order guard.
+    .in('orders.status', ['submitted', 'confirmed', 'partial'])
   if (error) throw error
   return (data ?? [])
     .map((l) => ({
@@ -1292,7 +1381,7 @@ export async function addToDraftOrder({ productId, supplierId, supplierName, qua
     }
   }
 
-  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const profile = { practice_id: await myPracticeId() }
   let { data: draft } = await supabase
     .from('orders')
     .select('id, reference')
@@ -1308,27 +1397,33 @@ export async function addToDraftOrder({ productId, supplierId, supplierName, qua
     if (createError) throw createError
     draft = created
   }
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('order_items')
-    .select('id, quantity')
+    .select('id, quantity, unit_price')
     .eq('order_id', draft.id)
     .eq('product_id', productId)
     .maybeSingle()
+  if (existingError) throw existingError
   if (existing) {
+    const newQty = Number(existing.quantity) + quantity
     const { error } = await supabase
       .from('order_items')
-      .update({ quantity: Number(existing.quantity) + quantity })
+      .update({ quantity: newQty, line_total: newQty * Number(existing.unit_price) })
       .eq('id', existing.id)
     if (error) throw error
   } else {
     const { error } = await supabase.from('order_items').insert({
       order_id: draft.id,
       product_id: productId,
+      supplier_id: supplierId,
       quantity,
       unit_price: unitPrice ?? 0,
+      line_total: quantity * (unitPrice ?? 0),
     })
     if (error) throw error
   }
+  await syncOrderTotals(draft.id)
+  emit()
   return { orderId: draft.id, reference: draft.reference, merged: Boolean(existing) }
 }
 
@@ -1366,13 +1461,25 @@ export async function submitDraftOrder(orderId) {
     return { ok: true, reference: order.reference, expectedAt: order.expectedAt }
   }
 
-  const { error } = await supabase
+  const placedAt = new Date().toISOString()
+  const { data: updated, error } = await supabase
     .from('orders')
-    .update({ status: 'submitted', placed_at: new Date().toISOString() })
+    .update({ status: 'submitted', placed_at: placedAt })
     .eq('id', orderId)
     .eq('status', 'draft')
+    .select('reference, suppliers(avg_lead_days)')
+    .maybeSingle()
   if (error) throw error
-  return { ok: true }
+  if (!updated) throw new Error('Draft not found — it may already be submitted')
+  const expectedAt = addDaysIso(placedAt, updated.suppliers?.avg_lead_days ?? 4)
+  const { error: etaError } = await supabase
+    .from('orders')
+    .update({ expected_at: expectedAt })
+    .eq('id', orderId)
+  if (etaError) throw etaError
+  await syncOrderTotals(orderId)
+  emit()
+  return { ok: true, reference: updated.reference, expectedAt }
 }
 
 /** Remove a line from a draft; an emptied draft is removed entirely. */
@@ -1398,7 +1505,24 @@ export async function removeOrderLine(orderId, productId) {
     .eq('order_id', orderId)
     .eq('product_id', productId)
   if (error) throw error
-  return { ok: true }
+  const { count, error: countError } = await supabase
+    .from('order_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('order_id', orderId)
+  if (countError) throw countError
+  const emptied = (count ?? 0) === 0
+  if (emptied) {
+    const { error: dropError } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId)
+      .eq('status', 'draft')
+    if (dropError) throw dropError
+  } else {
+    await syncOrderTotals(orderId)
+  }
+  emit()
+  return { ok: true, emptied }
 }
 
 // --- bulk buying & spoilage ---------------------------------------------------
@@ -1586,28 +1710,47 @@ export async function completePracticeSetup({ practice, locations, supplierSlugs
   const userId = auth?.user?.id
   if (!userId) throw new Error('Not signed in')
 
-  // 1. The practice itself — open insert, id minted here.
-  const practiceId = crypto.randomUUID()
-  const { error: practiceError } = await supabase.from('practices').insert({
-    id: practiceId,
-    name: practice.name,
-    legal_name: practice.legalName || null,
-    phone: practice.phone || null,
-    email: practice.email || null,
-    address_1: practice.address1 || null,
-    address_2: practice.address2 || null,
-    city: practice.city || null,
-    region: practice.region || null,
-    postal_code: practice.postalCode || null,
-  })
-  if (practiceError) throw practiceError
-
-  // 2. Claim it — from here on, tenant policies resolve.
-  const { error: claimError } = await supabase
+  // Re-running setup must never mint a second practice. If this account
+  // already claimed one, either short-circuit (fully set up) or resume the
+  // remaining steps on the existing practice (a previous run died midway).
+  const { data: existingProfile, error: existingError } = await supabase
     .from('profiles')
-    .update({ practice_id: practiceId })
+    .select('practice_id')
     .eq('id', userId)
-  if (claimError) throw claimError
+    .maybeSingle()
+  if (existingError) throw existingError
+  let practiceId = existingProfile?.practice_id ?? null
+
+  if (practiceId) {
+    const { count: locationCount } = await supabase
+      .from('locations')
+      .select('id', { count: 'exact', head: true })
+    if ((locationCount ?? 0) > 0) return { ok: true, practiceId, resumed: true }
+    // Claimed but half-finished — fall through and complete steps 3-5.
+  } else {
+    // 1. The practice itself — open insert, id minted here.
+    practiceId = crypto.randomUUID()
+    const { error: practiceError } = await supabase.from('practices').insert({
+      id: practiceId,
+      name: practice.name,
+      legal_name: practice.legalName || null,
+      phone: practice.phone || null,
+      email: practice.email || null,
+      address_1: practice.address1 || null,
+      address_2: practice.address2 || null,
+      city: practice.city || null,
+      region: practice.region || null,
+      postal_code: practice.postalCode || null,
+    })
+    if (practiceError) throw practiceError
+
+    // 2. Claim it — from here on, tenant policies resolve.
+    const { error: claimError } = await supabase
+      .from('profiles')
+      .update({ practice_id: practiceId })
+      .eq('id', userId)
+    if (claimError) throw claimError
+  }
 
   // 3. Locations, first one primary.
   const locationRows = locations
@@ -1732,7 +1875,7 @@ export async function importInventoryRows(matched) {
     return { created, updated, skipped: matched.length - usable.length }
   }
 
-  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const profile = { practice_id: await myPracticeId() }
   const { data: primary } = await supabase
     .from('locations')
     .select('id')
@@ -1920,7 +2063,7 @@ export async function saveCredential({ name, holder, authority, cadenceMonths, c
     emit()
     return { ok: true }
   }
-  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const profile = { practice_id: await myPracticeId() }
   const { error } = await supabase.from('credentials').insert({
     practice_id: profile.practice_id,
     name,
@@ -1933,6 +2076,7 @@ export async function saveCredential({ name, holder, authority, cadenceMonths, c
     notes: notes || null,
   })
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -1944,6 +2088,7 @@ export async function removeCredential(id) {
   }
   const { error } = await supabase.from('credentials').delete().eq('id', id)
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2041,15 +2186,30 @@ export async function savePaymentMethod({ kind, label, detail, isDefault = false
     emit()
     return { ok: true }
   }
-  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const profile = { practice_id: await myPracticeId() }
+  // Mirror the demo rules: making this the default clears the old default
+  // (the partial unique index allows only one), and the first method ever
+  // added becomes the default automatically.
+  if (isDefault) {
+    const { error: clearError } = await supabase
+      .from('payment_methods')
+      .update({ is_default: false })
+      .eq('practice_id', profile.practice_id)
+      .eq('is_default', true)
+    if (clearError) throw clearError
+  }
+  const { count } = await supabase
+    .from('payment_methods')
+    .select('id', { count: 'exact', head: true })
   const { error } = await supabase.from('payment_methods').insert({
     practice_id: profile.practice_id,
     kind,
     label,
     detail,
-    is_default: isDefault,
+    is_default: isDefault || (count ?? 0) === 0,
   })
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2062,6 +2222,7 @@ export async function removePaymentMethod(id) {
   }
   const { error } = await supabase.from('payment_methods').delete().eq('id', id)
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2100,6 +2261,7 @@ export async function payOrder(orderId, { methodId }) {
     })
     .eq('id', orderId)
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2170,6 +2332,11 @@ export async function listCatalog({ query, category } = {}) {
     }
   }
 
+  // RLS scopes this to the caller's practice; without it "Add" happily
+  // re-adds a tracked product and surfaces a raw duplicate-key error.
+  const { data: trackedRows } = await supabase.from('inventory_items').select('product_id')
+  const trackedSet = new Set((trackedRows ?? []).map((t) => t.product_id))
+
   return data.map((p) => ({
     id: p.id,
     productId: p.id,
@@ -2180,7 +2347,7 @@ export async function listCatalog({ query, category } = {}) {
     categorySlug: p.categories?.slug,
     categoryName: p.categories?.name,
     isEquipment: p.is_equipment,
-    tracked: false,
+    tracked: trackedSet.has(p.id),
     bestPrice: best.get(p.id)?.price ?? null,
     offerCount: best.get(p.id)?.count ?? 0,
   }))
@@ -2234,7 +2401,7 @@ export async function addToInventory({ productId, locationId, parLevel, reorderP
     return { ok: true }
   }
 
-  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const profile = { practice_id: await myPracticeId() }
   const { error } = await supabase.from('inventory_items').insert({
     practice_id: profile.practice_id,
     location_id: locationId,
@@ -2245,6 +2412,7 @@ export async function addToInventory({ productId, locationId, parLevel, reorderP
     reorder_qty: Math.max(1, (parLevel ?? 4) - (onHand ?? 0)),
   })
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2274,20 +2442,23 @@ export async function matchContractRows(rows, mapping) {
         packSize: p.packSize,
         unit: p.unit,
       }))
-    : (
-        await supabase
+    : await (async () => {
+        const { data, error } = await supabase
           .from('products')
           .select('id, name, brand, gtin, mfr_sku, pack_size, unit')
           .limit(5000)
-      ).data?.map((p) => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        gtin: p.gtin,
-        mfrSku: p.mfr_sku,
-        packSize: p.pack_size,
-        unit: p.unit,
-      })) ?? []
+        // A failed catalog read must be an error, not "nothing matched".
+        if (error) throw error
+        return (data ?? []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          brand: p.brand,
+          gtin: p.gtin,
+          mfrSku: p.mfr_sku,
+          packSize: p.pack_size,
+          unit: p.unit,
+        }))
+      })()
 
   const byGtin = new Map(catalog.filter((p) => p.gtin).map((p) => [String(p.gtin), p]))
   const bySku = new Map(catalog.filter((p) => p.mfrSku).map((p) => [p.mfrSku.toUpperCase(), p]))
@@ -2359,8 +2530,20 @@ export async function importContractPrices(supplierId, matched) {
     return { applied: usable.length, skipped: matched.length - usable.length }
   }
 
-  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
-  const { error } = await supabase.from('contract_prices').upsert(
+  const profile = { practice_id: await myPracticeId() }
+  // The identity index is expression-based (coalesce on gtin/mfr_sku), which
+  // upsert's plain column list cannot target — Postgres rejects it with
+  // 42P10. Replace today's sheet for this vendor instead: delete, then
+  // insert fresh rows.
+  const today = new Date().toISOString().slice(0, 10)
+  const { error: clearError } = await supabase
+    .from('contract_prices')
+    .delete()
+    .eq('practice_id', profile.practice_id)
+    .eq('supplier_id', supplierId)
+    .eq('effective_from', today)
+  if (clearError) throw clearError
+  const { error } = await supabase.from('contract_prices').insert(
     usable.map((row) => ({
       practice_id: profile.practice_id,
       supplier_id: supplierId,
@@ -2374,9 +2557,9 @@ export async function importContractPrices(supplierId, matched) {
       matched_by: row.matchedBy,
       source: 'csv',
     })),
-    { onConflict: 'practice_id,supplier_id,gtin,mfr_sku,effective_from' },
   )
   if (error) throw error
+  emit()
   return { applied: usable.length, skipped: matched.length - usable.length }
 }
 
@@ -2409,6 +2592,7 @@ export async function clearContractPrices(supplierId) {
   }
   const { error } = await supabase.from('contract_prices').delete().eq('supplier_id', supplierId)
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2576,7 +2760,7 @@ export async function saveVendorAccount(supplierId, patch) {
     throw new Error('This vendor is not in your live catalog yet — contact support to add it.')
   }
 
-  const { data: profile } = await supabase.from('profiles').select('practice_id').single()
+  const profile = { practice_id: await myPracticeId() }
   const { error } = await supabase.from('supplier_accounts').upsert(
     {
       practice_id: profile.practice_id,
@@ -2592,6 +2776,7 @@ export async function saveVendorAccount(supplierId, patch) {
     { onConflict: 'practice_id,supplier_id' },
   )
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2606,6 +2791,7 @@ export async function removeVendorAccount(supplierId) {
     .delete()
     .eq('supplier_id', supplierId)
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2687,8 +2873,11 @@ export async function getPriceOpportunities() {
 
 export async function getPractice() {
   if (isDemo) return store().practice
-  const { data, error } = await supabase.from('practices').select('*').limit(1).single()
+  // maybeSingle: a signed-in user who has not claimed a practice yet must
+  // get null here, not a thrown PGRST116.
+  const { data, error } = await supabase.from('practices').select('*').limit(1).maybeSingle()
   if (error) throw error
+  if (!data) return null
   return {
     id: data.id,
     name: data.name,
@@ -2706,7 +2895,42 @@ export async function getPractice() {
 }
 
 export async function getSpendHistory(months = 12) {
-  return SPEND_HISTORY.slice(-months)
+  if (isDemo) return SPEND_HISTORY.slice(-months)
+
+  // Real spend by month from placed orders. A young practice sees real
+  // zeros — never the demo's fabricated dollars.
+  const since = new Date()
+  since.setMonth(since.getMonth() - (months - 1), 1)
+  since.setHours(0, 0, 0, 0)
+  const { data, error } = await supabase
+    .from('orders')
+    .select('placed_at, total, savings')
+    .not('placed_at', 'is', null)
+    .neq('status', 'cancelled')
+    .gte('placed_at', since.toISOString())
+  if (error) throw error
+
+  const buckets = new Map()
+  for (let i = 0; i < months; i++) {
+    const d = new Date(since.getFullYear(), since.getMonth() + i, 1)
+    buckets.set(`${d.getFullYear()}-${d.getMonth()}`, {
+      month: d.toLocaleString('en-US', { month: 'short' }),
+      spend: 0,
+      saved: 0,
+    })
+  }
+  for (const o of data ?? []) {
+    const d = new Date(o.placed_at)
+    const bucket = buckets.get(`${d.getFullYear()}-${d.getMonth()}`)
+    if (!bucket) continue
+    bucket.spend += Number(o.total ?? 0)
+    bucket.saved += Number(o.savings ?? 0)
+  }
+  return [...buckets.values()].map((m) => ({
+    ...m,
+    spend: Math.round(m.spend),
+    saved: Math.round(m.saved),
+  }))
 }
 
 /**
@@ -2714,7 +2938,7 @@ export async function getSpendHistory(months = 12) {
  * live mode derives the same shapes from order lines.
  */
 export async function getInsights(months = 12) {
-  const history = SPEND_HISTORY.slice(-months)
+  const history = await getSpendHistory(months)
   const scale = months / 12
 
   const inventory = await listInventory()
@@ -2726,23 +2950,71 @@ export async function getInsights(months = 12) {
     { out: 0, low: 0, below_par: 0, ok: 0 },
   )
 
-  const categories = CATEGORY_SPEND.map((c) => ({
-    label: CATEGORIES.find((x) => x.slug === c.slug)?.name ?? c.slug,
-    value: Math.round(c.spend * scale),
-  })).sort((a, b) => b.value - a.value)
+  let categories
+  let suppliers
+  let items
+  if (isDemo) {
+    categories = CATEGORY_SPEND.map((c) => ({
+      label: CATEGORIES.find((x) => x.slug === c.slug)?.name ?? c.slug,
+      value: Math.round(c.spend * scale),
+    })).sort((a, b) => b.value - a.value)
 
-  const totalSupplierSpend = SUPPLIER_SPEND.reduce((s, x) => s + x.spend, 0)
-  const suppliers = SUPPLIER_SPEND.map((s) => ({
-    label: SUPPLIERS.find((x) => x.id === s.id)?.name ?? s.id,
-    value: Math.round(s.spend * scale),
-    caption: `${Math.round((s.spend / totalSupplierSpend) * 100)}%`,
-    orders: s.orders,
-  })).sort((a, b) => b.value - a.value)
+    const totalSupplierSpend = SUPPLIER_SPEND.reduce((s, x) => s + x.spend, 0)
+    suppliers = SUPPLIER_SPEND.map((s) => ({
+      label: SUPPLIERS.find((x) => x.id === s.id)?.name ?? s.id,
+      value: Math.round(s.spend * scale),
+      caption: `${Math.round((s.spend / totalSupplierSpend) * 100)}%`,
+      orders: s.orders,
+    })).sort((a, b) => b.value - a.value)
 
-  const items = TOP_ITEMS.map((t) => ({
-    label: productById(t.sku)?.name ?? t.sku,
-    value: Math.round(t.spend * scale),
-  })).sort((a, b) => b.value - a.value)
+    items = TOP_ITEMS.map((t) => ({
+      label: productById(t.sku)?.name ?? t.sku,
+      value: Math.round(t.spend * scale),
+    })).sort((a, b) => b.value - a.value)
+  } else {
+    // Real order lines — a young practice sees honestly-empty charts, not
+    // the demo's fabricated dollars.
+    const { data: lineRows, error } = await supabase
+      .from('order_items')
+      .select(
+        'line_total, products(name, categories(name)), orders!inner(id, status, suppliers(name))',
+      )
+      .neq('orders.status', 'draft')
+      .neq('orders.status', 'cancelled')
+      .limit(2000)
+    if (error) throw error
+
+    const catMap = new Map()
+    const supMap = new Map()
+    const itemMap = new Map()
+    for (const r of lineRows ?? []) {
+      const amount = Number(r.line_total ?? 0)
+      const cat = r.products?.categories?.name ?? 'Uncategorized'
+      catMap.set(cat, (catMap.get(cat) ?? 0) + amount)
+      const supName = r.orders?.suppliers?.name ?? 'Unknown vendor'
+      const sup = supMap.get(supName) ?? { value: 0, orderIds: new Set() }
+      sup.value += amount
+      if (r.orders?.id) sup.orderIds.add(r.orders.id)
+      supMap.set(supName, sup)
+      const item = r.products?.name ?? 'Unknown item'
+      itemMap.set(item, (itemMap.get(item) ?? 0) + amount)
+    }
+    const sorted = (m) =>
+      [...m.entries()]
+        .map(([label, value]) => ({ label, value: Math.round(value) }))
+        .sort((a, b) => b.value - a.value)
+    const totalSupplierSpend = [...supMap.values()].reduce((s, x) => s + x.value, 0)
+    categories = sorted(catMap)
+    suppliers = [...supMap.entries()]
+      .map(([label, s]) => ({
+        label,
+        value: Math.round(s.value),
+        caption: totalSupplierSpend ? `${Math.round((s.value / totalSupplierSpend) * 100)}%` : '0%',
+        orders: s.orderIds.size,
+      }))
+      .sort((a, b) => b.value - a.value)
+    items = sorted(itemMap).slice(0, 8)
+  }
 
   const totalSpend = history.reduce((s, m) => s + m.spend, 0)
   const totalSaved = history.reduce((s, m) => s + m.saved, 0)
@@ -2780,18 +3052,48 @@ export async function recordMovement({
   if (isDemo) {
     const row = store().inventory.find((r) => r.id === inventoryItemId)
     if (!row) throw new Error('Item not found')
-    const signed = ['consumed', 'wasted'].includes(type) ? -Math.abs(quantity) : Math.abs(quantity)
+    // A count is a signed correction (new minus old) — abs() here would turn
+    // counting DOWN into an increase. Consumption draws down; the rest add.
+    const signed =
+      type === 'counted'
+        ? quantity
+        : ['consumed', 'wasted'].includes(type)
+          ? -Math.abs(quantity)
+          : Math.abs(quantity)
     row.onHand = Math.max(0, row.onHand + signed)
     if (type === 'counted') row.lastCountedAt = new Date().toISOString()
-    if (expiresAt) row.expiresAt = expiresAt
+    if (type === 'received' && (lotNumber || expiresAt)) {
+      // The received box is a new lot on the shelf.
+      demoLots = [
+        ...lots(),
+        {
+          id: `lot-${Date.now().toString(36)}`,
+          inventoryItemId: row.id,
+          productName: row.productName,
+          brand: row.brand,
+          unit: row.unit,
+          locationName: row.locationName,
+          lotNumber: lotNumber ?? null,
+          quantity: Math.abs(quantity),
+          expiresAt: expiresAt ?? null,
+          receivedAt: new Date().toISOString(),
+        },
+      ]
+    }
+    // The item's headline expiry stays the EARLIEST expiring stock — a fresh
+    // box must never hide an older lot that is still on the shelf.
+    if (expiresAt && (!row.expiresAt || expiresAt < row.expiresAt)) row.expiresAt = expiresAt
     recomputeRow(row)
-    movements.unshift({
-      id: `mv-${movements.length + 1}`,
+    ledger().unshift({
+      id: `mv-${Date.now().toString(36)}-${ledger().length}`,
       inventoryItemId,
+      productName: row.productName,
       type,
       quantity: signed,
       reason,
       lotNumber,
+      userName: TEAM[0].name,
+      userInitials: TEAM[0].initials,
       createdAt: new Date().toISOString(),
     })
     emit()
@@ -2807,6 +3109,7 @@ export async function recordMovement({
     p_expires_at: expiresAt ?? null,
   })
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2831,6 +3134,7 @@ export async function updateInventorySettings(id, { parLevel, reorderPoint, reor
 
   const { error } = await supabase.from('inventory_items').update(patch).eq('id', id)
   if (error) throw error
+  emit()
   return { ok: true }
 }
 
@@ -2843,22 +3147,31 @@ export async function createOrder({ supplierId, supplierName, locationId, lines 
 
   if (isDemo) {
     const s = store()
+    // Same numbering scheme as drafts (max reference + 1) — counting array
+    // length collides with ids the moment any order is ever removed.
+    const maxRef = s.orders.reduce(
+      (max, o) => Math.max(max, Number(String(o.reference ?? '').replace(/\D/g, '')) || 0),
+      1042,
+    )
+    const supplier = SUPPLIERS.find((sup) => sup.id === supplierId)
     const order = {
-      id: `ord-${1043 + s.orders.length}`,
-      reference: `PO-${1043 + s.orders.length}`,
+      id: `ord-${maxRef + 1}`,
+      reference: `PO-${maxRef + 1}`,
       supplierId,
       supplierName,
       locationId,
       status: 'submitted',
-      subtotal: Number(subtotal.toFixed(2)),
-      shipping: 0,
-      tax: Number((subtotal * 0.0825).toFixed(2)),
-      total: Number((subtotal * 1.0825).toFixed(2)),
+      shipping: null,
       savings: Number(savings.toFixed(2)),
       placedAt: new Date().toISOString(),
-      expectedAt: new Date(Date.now() + 3 * 86400000).toISOString(),
-      itemCount: lines.length,
+      expectedAt: addDaysIso(new Date().toISOString(), supplier?.leadDays ?? 3),
     }
+    // The lines go into the store too — an order that opens as "0 items" and
+    // can never be checked in is not an order.
+    for (const l of lines) {
+      s.orderItems.push([order.id, l.productId, l.quantity, l.unitPrice, 0])
+    }
+    recomputeOrderTotals(order)
     s.orders.unshift(order)
     emit()
     return order
@@ -2867,6 +3180,7 @@ export async function createOrder({ supplierId, supplierName, locationId, lines 
   const { data: order, error } = await supabase
     .from('orders')
     .insert({
+      practice_id: await myPracticeId(),
       supplier_id: supplierId,
       location_id: locationId,
       status: 'submitted',
@@ -2875,6 +3189,7 @@ export async function createOrder({ supplierId, supplierName, locationId, lines 
       total: subtotal * 1.0825,
       savings,
       placed_at: new Date().toISOString(),
+      expected_at: addDaysIso(new Date().toISOString(), 4),
     })
     .select()
     .single()
@@ -2894,6 +3209,7 @@ export async function createOrder({ supplierId, supplierName, locationId, lines 
   )
   if (itemsError) throw itemsError
 
+  emit()
   return order
 }
 

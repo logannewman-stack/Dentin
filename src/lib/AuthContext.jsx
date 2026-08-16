@@ -40,25 +40,39 @@ export function AuthProvider({ children }) {
   })
   // Only a real backend needs an async session check; demo state is local.
   const [loading, setLoading] = useState(isSupabaseConfigured && !AUTO_ENTER)
-  const [onboarded, setOnboarded] = useState(
-    () => AUTO_ENTER || localStorage.getItem(ONBOARDED_KEY) === 'true',
-  )
+  // Live truth for "onboarded" is ONLY the database — a localStorage flag is
+  // per-browser, not per-user, so trusting it lets a brand-new account skip
+  // the wizard on any machine where someone once onboarded (and then crash
+  // on a practice-less dashboard). null = not known yet; the gate waits.
+  const [onboarded, setOnboarded] = useState(() => {
+    if (AUTO_ENTER) return true
+    if (!isSupabaseConfigured) return localStorage.getItem(ONBOARDED_KEY) === 'true'
+    return null
+  })
 
   useEffect(() => {
     if (AUTO_ENTER || !isSupabaseConfigured) return undefined
 
     let active = true
 
-    // Live truth for "onboarded" is the database, not a browser flag: a
-    // profile with a practice attached has finished setup, on any device.
     const syncOnboarded = async (session) => {
-      if (!session?.user) return
-      const { data } = await supabase
+      if (!session?.user) {
+        if (active) setOnboarded(null)
+        return
+      }
+      const { data, error } = await supabase
         .from('profiles')
         .select('practice_id')
         .eq('id', session.user.id)
         .maybeSingle()
-      if (active) setOnboarded(Boolean(data?.practice_id))
+      if (!active) return
+      // On a failed read, never DOWNGRADE a known true — one transient error
+      // mid-session must not dump an onboarded user into the setup wizard.
+      if (error) {
+        setOnboarded((prev) => (prev === true ? true : false))
+        return
+      }
+      setOnboarded(Boolean(data?.practice_id))
     }
 
     supabase.auth.getSession().then(({ data }) => {
@@ -97,12 +111,14 @@ export function AuthProvider({ children }) {
       setSession({ demo: true })
       return { error: null }
     }
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: fullName } },
     })
-    return { error }
+    // With email confirmation on (Supabase default), signUp succeeds with no
+    // session — the caller must say "check your inbox", not bounce silently.
+    return { error, needsConfirmation: !error && !data?.session }
   }, [])
 
   const signOut = useCallback(async () => {
@@ -112,7 +128,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(DEMO_KEY)
     localStorage.removeItem(ONBOARDED_KEY)
     if (isSupabaseConfigured) await supabase.auth.signOut()
-    setOnboarded(false)
+    setOnboarded(isSupabaseConfigured ? null : false)
     setSession(null)
   }, [])
 

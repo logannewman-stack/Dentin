@@ -1,4 +1,4 @@
-import { differenceInDays, format, formatDistanceToNowStrict, isValid, parseISO } from 'date-fns'
+import { differenceInCalendarDays, format, formatDistanceToNowStrict, isValid, parseISO } from 'date-fns'
 
 const usd = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -77,7 +77,7 @@ export function relativeTime(value) {
 
 export function daysUntil(value) {
   const d = toDate(value)
-  return d ? differenceInDays(d, new Date()) : null
+  return d ? differenceInCalendarDays(d, new Date()) : null
 }
 
 /**

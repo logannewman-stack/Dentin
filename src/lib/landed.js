@@ -143,6 +143,7 @@ export function computeLandedTotals({ lines, vendors, tax, rebates = {} }) {
   // cost more than the same basket at the mean of everyone else's prices.
   if (freeShipVendor) {
     let atMean = 0
+    let atVendor = 0
     let comparable = 0
     for (const line of lines) {
       const fs = line.offers[freeShipVendor.vendorId]
@@ -151,9 +152,12 @@ export function computeLandedTotals({ lines, vendors, tax, rebates = {} }) {
         .map(([, o]) => o.price)
       if (!fs?.inStock || !others.length) continue
       comparable += 1
+      atVendor += fs.price * line.quantity
       atMean += (others.reduce((s, p) => s + p, 0) / others.length) * line.quantity
     }
-    const premium = round2(freeShipVendor.subtotal - atMean)
+    // Compare goods totals over the SAME comparable lines — a line only this
+    // vendor carries has no market mean and must not inflate the premium.
+    const premium = round2(atVendor - atMean)
     if (comparable && premium > 0.005) {
       flags.push({
         kind: 'inflated-pricing',
@@ -172,17 +176,23 @@ export function computeLandedTotals({ lines, vendors, tax, rebates = {} }) {
       const gap = round2(p.freeShipOver - p.subtotal)
       const paddedGoods = p.freeShipOver
       const paddedLanded = round2(paddedGoods + taxFor(tax, paddedGoods, 0) - (rebates[p.vendorId] ?? 0))
+      // Beating its own freight is not enough — the padded plan must also beat
+      // the best plan on the table (the winner, or its own unpadded total when
+      // it IS the winner or no winner exists).
+      const target = winner && winner.vendorId !== p.vendorId ? winner.landedTotal : p.landedTotal
+      const worthIt = gap < p.shipping && paddedLanded < target
       flags.push({
         kind: 'padding',
         vendorId: p.vendorId,
         vendorName: p.vendorName,
         gap,
         shippingAvoided: p.shipping,
-        worthIt: gap < p.shipping,
+        worthIt,
         paddedLanded,
-        message:
-          gap < p.shipping
-            ? `${p.vendorName}: adding $${gap.toFixed(2)} of stock you'd buy anyway clears free shipping and beats paying $${p.shipping.toFixed(2)} freight.`
+        message: worthIt
+          ? `${p.vendorName}: adding $${gap.toFixed(2)} of stock you'd buy anyway clears free shipping and beats paying $${p.shipping.toFixed(2)} freight.`
+          : gap < p.shipping
+            ? `${p.vendorName}: padding $${gap.toFixed(2)} clears free shipping, but the padded $${paddedLanded.toFixed(2)} total still loses to the better plan — don't.`
             : `${p.vendorName}: padding $${gap.toFixed(2)} to reach free shipping costs more than the $${p.shipping.toFixed(2)} freight it avoids — don't.`,
       })
     }

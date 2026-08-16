@@ -89,6 +89,10 @@ function AppRoutes() {
     )
   }
 
+  // Signed in, but whether the practice is set up is not known yet — wait
+  // rather than flashing the wizard at an already-onboarded user.
+  if (onboarded == null) return <Loading />
+
   // Signed in but the practice is not set up yet.
   if (!onboarded) {
     return (
