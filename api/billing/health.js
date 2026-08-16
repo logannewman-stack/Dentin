@@ -142,6 +142,17 @@ export default async function handler(req, res) {
             if (full?.coupon && typeof full.coupon === 'object') c = full.coupon
           }
           if (!c || typeof c !== 'object') {
+            // 2026+ API: the discount lives under `promotion` instead.
+            const promo = pc.promotion
+            if (promo && typeof promo === 'object') {
+              if (promo.coupon && typeof promo.coupon === 'object') c = promo.coupon
+              else if (typeof promo.coupon === 'string')
+                c = await stripe.coupons.retrieve(promo.coupon).catch(() => null)
+              else if (promo.percent_off != null || promo.amount_off != null || promo.duration)
+                c = promo
+            }
+          }
+          if (!c || typeof c !== 'object') {
             // Can't read the percent on this API version — the code itself
             // still exists, so report what we know plus the object's fields
             // so the missing shape is obvious from the report.
