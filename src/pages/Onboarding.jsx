@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -16,10 +16,34 @@ import {
   Store,
   X,
 } from 'lucide-react'
-import { PRODUCTS, SUPPLIERS } from '@/lib/demoData'
+import { PRODUCTS, SUPPLIERS, VENDOR_DIRECTORY, VENDOR_KINDS } from '@/lib/demoData'
+import { SearchField } from '@/components/ui/Controls'
 import { STARTER_PACK, completePracticeSetup } from '@/lib/repository'
 import { useAuth } from '@/lib/AuthContext'
 import { cn, haptic } from '@/lib/utils'
+
+const KIND_LABEL = Object.fromEntries(VENDOR_KINDS.map((k) => [k.id, k.label]))
+
+// Every dental vendor in the directory as a pickable choice — the handful
+// Dentin prices today lead the list and carry their shipping economics.
+const VENDOR_CHOICES = VENDOR_DIRECTORY.map((d) => {
+  const slug = d.supplierId ?? d.id
+  const s = SUPPLIERS.find((x) => x.id === slug)
+  return {
+    slug,
+    name: s?.name ?? d.name,
+    kind: d.kind,
+    hq: d.hq ?? '',
+    priced: Boolean(s),
+    subtitle: s
+      ? `Priced by Dentin · ${
+          s.freeShipOver > 0
+            ? `free shipping over $${s.freeShipOver}`
+            : `flat $${s.shipFee.toFixed(2)} shipping`
+        } · ~${s.leadDays}d`
+      : `${KIND_LABEL[d.kind] ?? d.kind}${d.hq ? ` · ${d.hq}` : ''}`,
+  }
+}).sort((a, b) => (a.priced !== b.priced ? (a.priced ? -1 : 1) : a.name.localeCompare(b.name)))
 
 function Field({ label, value, onChange, placeholder, type = 'text', autoComplete, inputMode }) {
   return (
@@ -95,11 +119,13 @@ export default function Onboarding() {
     region: '',
     postalCode: '',
   })
+  // One office is the common case — those practices never see the Locations
+  // step; the single location is named after the practice automatically.
+  const [multiLoc, setMultiLoc] = useState('one')
   const [locations, setLocations] = useState([{ name: '', operatories: '' }])
-  const [suppliers, setSuppliers] = useState(() =>
-    // Pre-select the ones nearly every practice already buys from.
-    new Set(['henry-schein', 'patterson', 'benco', 'darby', 'net32']),
-  )
+  // No preselected vendors: who a practice buys from is their answer to give.
+  const [suppliers, setSuppliers] = useState(() => new Set())
+  const [vendorQuery, setVendorQuery] = useState('')
   const [stock, setStock] = useState('starter')
   // The editable pre-populated shelf: everything in, anything out, more in.
   const [shelf, setShelf] = useState(() =>
@@ -139,18 +165,24 @@ export default function Onboarding() {
           address.city.trim().length > 1 &&
           address.postalCode.trim().length >= 5,
       },
-      {
-        key: 'locations',
-        Icon: Store,
-        title: 'Locations',
-        blurb: 'Stock, par levels and orders are tracked per location.',
-        valid: locations.some((l) => l.name.trim().length > 1),
-      },
+      // Single-location practices skip this step entirely — their location is
+      // created from the practice name without another form.
+      ...(multiLoc === 'multi'
+        ? [
+            {
+              key: 'locations',
+              Icon: Store,
+              title: 'Locations',
+              blurb: 'Stock, par levels and orders are tracked per location.',
+              valid: locations.some((l) => l.name.trim().length > 1),
+            },
+          ]
+        : []),
       {
         key: 'suppliers',
         Icon: Store,
         title: 'Who you buy from',
-        blurb: 'Dentin prices every item across the suppliers you select.',
+        blurb: 'Every dental vendor in the directory — check who you order from today.',
         valid: suppliers.size > 0,
       },
       {
@@ -161,7 +193,7 @@ export default function Onboarding() {
         valid: true,
       },
     ],
-    [practice, address, locations, suppliers],
+    [practice, address, locations, suppliers, multiLoc],
   )
 
   const current = STEPS[step]
@@ -169,6 +201,28 @@ export default function Onboarding() {
   // Ref, not state: two taps in the same frame both see busy=false, and a
   // doubled run would race the practice-setup writes.
   const finishing = useRef(false)
+
+  // Arriving at the Locations step, seed Location 1 with the practice name —
+  // nobody should retype what they entered two screens ago.
+  useEffect(() => {
+    if (current?.key !== 'locations') return
+    setLocations((l) =>
+      l[0] && !l[0].name.trim() ? [{ ...l[0], name: practice.name }, ...l.slice(1)] : l,
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.key])
+
+  const vendorResults = useMemo(() => {
+    const q = vendorQuery.trim().toLowerCase()
+    if (!q) return VENDOR_CHOICES
+    return VENDOR_CHOICES.filter(
+      (v) =>
+        v.name.toLowerCase().includes(q) ||
+        v.kind.toLowerCase().includes(q) ||
+        (KIND_LABEL[v.kind] ?? '').toLowerCase().includes(q) ||
+        v.hq.toLowerCase().includes(q),
+    )
+  }, [vendorQuery])
 
   const finish = async () => {
     if (finishing.current) return
@@ -178,7 +232,10 @@ export default function Onboarding() {
     try {
       await completePracticeSetup({
         practice: { ...practice, ...address },
-        locations,
+        locations:
+          multiLoc === 'one'
+            ? [{ name: practice.name.trim(), operatories: locations[0]?.operatories ?? '' }]
+            : locations,
         supplierSlugs: [...suppliers],
         starterItems:
           stock === 'starter'
@@ -299,6 +356,36 @@ export default function Onboarding() {
                     placeholder="ops@practice.com"
                     autoComplete="email"
                   />
+
+                  <span className="mt-2 block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
+                    Locations
+                  </span>
+                  <SelectCard
+                    selected={multiLoc === 'one'}
+                    title="One location"
+                    subtitle={`Stock and orders track to ${practice.name.trim() || 'your practice'}`}
+                    onClick={() => setMultiLoc('one')}
+                  />
+                  <SelectCard
+                    selected={multiLoc === 'multi'}
+                    title="More than one location"
+                    subtitle="Each office gets its own stock, par levels and orders"
+                    onClick={() => setMultiLoc('multi')}
+                  />
+                  {multiLoc === 'one' ? (
+                    <Field
+                      label="Operatories (optional)"
+                      inputMode="numeric"
+                      value={locations[0]?.operatories ?? ''}
+                      onChange={(v) =>
+                        setLocations((l) => [
+                          { ...(l[0] ?? { name: '' }), operatories: v.replace(/\D/g, '') },
+                          ...l.slice(1),
+                        ])
+                      }
+                      placeholder="8"
+                    />
+                  ) : null}
                 </>
               ) : null}
 
@@ -406,21 +493,39 @@ export default function Onboarding() {
                 </>
               ) : null}
 
-              {current.key === 'suppliers'
-                ? SUPPLIERS.map((s) => (
+              {current.key === 'suppliers' ? (
+                <>
+                  <SearchField
+                    value={vendorQuery}
+                    onChange={setVendorQuery}
+                    placeholder="Search any dental vendor — name, type, state"
+                  />
+                  {suppliers.size > 0 ? (
+                    <p className="text-footnote font-medium text-label-2">
+                      {suppliers.size} selected
+                    </p>
+                  ) : null}
+                  {vendorResults.map((v) => (
                     <SelectCard
-                      key={s.id}
-                      selected={suppliers.has(s.id)}
-                      title={s.name}
-                      subtitle={
-                        s.freeShipOver > 0
-                          ? `Free shipping over $${s.freeShipOver} · ~${s.leadDays}d`
-                          : `Flat $${s.shipFee.toFixed(2)} shipping · ~${s.leadDays}d`
-                      }
-                      onClick={() => toggle(suppliers, setSuppliers)(s.id)}
+                      key={v.slug}
+                      selected={suppliers.has(v.slug)}
+                      title={v.name}
+                      subtitle={v.subtitle}
+                      onClick={() => toggle(suppliers, setSuppliers)(v.slug)}
                     />
-                  ))
-                : null}
+                  ))}
+                  {vendorResults.length === 0 ? (
+                    <p className="py-4 text-center text-subhead text-label-3">
+                      No vendor matches “{vendorQuery.trim()}”. Check the spelling or pick them
+                      up later under Vendors.
+                    </p>
+                  ) : null}
+                  <p className="pt-1 text-footnote text-label-3">
+                    Vendors marked “Priced by Dentin” are compared on every item today. The whole
+                    directory stays searchable later under Vendors.
+                  </p>
+                </>
+              ) : null}
 
               {current.key === 'stock' ? (
                 <>
