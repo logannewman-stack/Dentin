@@ -1179,6 +1179,76 @@ export const TEAM = [
 ]
 
 /**
+ * Shelf life by category, in months — the working assumption for bulk-buy
+ * math when a product has no explicit override. Values are typical of the
+ * category (peroxide whitening is short; burs and instruments effectively
+ * never expire). null = no practical expiry.
+ */
+const SHELF_LIFE_MONTHS = {
+  'infection-control': 36,
+  restorative: 24,
+  preventive: 18,
+  endodontics: 24,
+  'oral-surgery': 36,
+  implants: 60,
+  orthodontics: 24,
+  'impression-lab': 24,
+  anesthetics: 18,
+  'rotary-burs': null,
+  imaging: 36,
+  whitening: 12,
+  disposables: 60,
+  equipment: null,
+}
+
+// Products whose real dating differs meaningfully from their category.
+const SHELF_LIFE_OVERRIDES = {
+  'SEP-ART-100': 18, // articaine carpules
+  'SEP-LID-100': 18,
+  'ULT-OPL-20': 12, // peroxide take-home kits
+  '3M-VAN-100': 24, // fluoride varnish
+}
+
+/** Remaining shelf life assumed at receipt, in days. null = never expires. */
+export function shelfLifeDaysFor(productId) {
+  const product = PRODUCT_BY_ID.get(productId)
+  const months =
+    SHELF_LIFE_OVERRIDES[productId] ?? SHELF_LIFE_MONTHS[product?.category] ?? 24
+  return months == null ? null : Math.round(months * 30.44)
+}
+
+/**
+ * Case and bulk price breaks for a product, derived from its best in-stock
+ * offer. Deterministic per SKU so the demo is stable; discount depth varies
+ * a little by product the way real case pricing does.
+ */
+export function bulkTiersFor(productId) {
+  // Quote the deal from a vendor the practice can order from today; fall back
+  // to the market only when no account vendor carries it.
+  const accountIds = new Set(SUPPLIER_ACCOUNTS.map((a) => a.supplierId))
+  const offers = offersFor(productId).filter((o) => o.inStock)
+  const best = offers.find((o) => accountIds.has(o.supplierId)) ?? offers[0]
+  if (!best) return null
+  const h = hash(`bulk-${productId}`)
+  const caseQty = [6, 8, 10][h % 3]
+  const bulkQty = caseQty * [2, 3][(h >> 3) % 2]
+  const caseDiscount = 0.05 + ((h >> 5) % 5) / 100 // 5–9%
+  const bulkDiscount = 0.12 + ((h >> 8) % 7) / 100 // 12–18%
+  const round = (n) => Number(n.toFixed(2))
+
+  return {
+    supplierId: best.supplierId,
+    supplierName: best.supplierName,
+    baseUnitPrice: best.price,
+    tiers: [
+      { label: `Single ${PRODUCT_BY_ID.get(productId)?.unit ?? 'pack'}`, units: 1, unitPrice: best.price },
+      { label: `Case of ${caseQty}`, units: caseQty, unitPrice: round(best.price * (1 - caseDiscount)) },
+      { label: `Bulk ${bulkQty}`, units: bulkQty, unitPrice: round(best.price * (1 - bulkDiscount)) },
+    ],
+  }
+}
+
+/**
  * Certifications and registrations the practice must keep current.
  *
  * Renewal cadences here are the common industry defaults (annual HIPAA and

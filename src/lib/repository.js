@@ -9,6 +9,7 @@ import { isSupabaseConfigured, supabase } from './supabase'
 import { parseInteger, parseMoney } from './csv'
 import { PROCEDURE_TEMPLATES, TEMPLATE_BY_CODE, expandProcedure, unitsPerPack } from './cdt'
 import { SPEND_WINDOW_MONTHS, assessSpend } from './benchmarks'
+import { analyzeBulkTier, analyzeBulkTiers } from './spoilage'
 import {
   ASSETS,
   CATEGORIES,
@@ -27,6 +28,8 @@ import {
   TEAM,
   TOP_ITEMS,
   VENDOR_DIRECTORY,
+  bulkTiersFor,
+  shelfLifeDaysFor,
   buildInventory,
   buildLots,
   buildMovements,
@@ -1394,6 +1397,134 @@ export async function removeOrderLine(orderId, productId) {
     .eq('product_id', productId)
   if (error) throw error
   return { ok: true }
+}
+
+// --- bulk buying & spoilage ---------------------------------------------------
+
+const BURN_WINDOW_DAYS = 90
+
+/**
+ * Daily burn derived from the practice's CDT procedure history: every
+ * completed procedure expands through its bill of materials, so this is what
+ * the schedule actually consumed — not what someone remembers ordering.
+ */
+function cdtDailyBurn(productId) {
+  const cutoff = Date.now() - BURN_WINDOW_DAYS * 86400000
+  const procedures = procedureLog().filter(
+    (p) => new Date(p.completedAt).getTime() >= cutoff,
+  )
+  const row = projectConsumption(procedures).find((c) => c.sku === productId)
+  if (!row || row.packs <= 0) return null
+  return {
+    perDay: row.packs / BURN_WINDOW_DAYS,
+    procedures: row.procedures,
+    windowDays: BURN_WINDOW_DAYS,
+  }
+}
+
+/**
+ * Bulk-deal analysis for a product: each case/bulk tier priced honestly —
+ * months of supply at the practice's real burn rate, the share projected to
+ * expire before use (new stock waits behind what is already on the shelf),
+ * the effective unit cost after that waste, and the projected dollar loss.
+ *
+ * Burn comes from CDT procedure history when the product appears in any
+ * bill of materials, else from stock-movement history; the result says
+ * which, because the two carry different confidence.
+ */
+export async function getBulkAnalysis(productId) {
+  const inventory = await listInventory()
+  const item = inventory.find((r) => r.productId === productId) ?? null
+  const onHand = item?.onHand ?? 0
+  const shelfLifeDays = shelfLifeDaysFor(productId)
+
+  const cdt = isDemo ? cdtDailyBurn(productId) : null
+  const dailyBurn = cdt?.perDay ?? item?.dailyBurn ?? 0
+  const burnSource = cdt ? 'procedures' : item?.dailyBurn ? 'movements' : 'none'
+
+  let deal
+  if (isDemo) {
+    deal = bulkTiersFor(productId)
+  } else {
+    // Until vendor feeds quote real case breaks, estimate standard ones off
+    // the best orderable offer so the math is available — flagged estimated.
+    const best = (await compareOffers(productId)).find((o) => o.inStock && o.hasAccount)
+    deal = best
+      ? {
+          supplierId: best.supplierId,
+          supplierName: best.supplierName,
+          baseUnitPrice: best.price,
+          tiers: [
+            { label: 'Single pack', units: 1, unitPrice: best.price },
+            { label: 'Case of 8', units: 8, unitPrice: Number((best.price * 0.93).toFixed(2)) },
+            { label: 'Bulk 16', units: 16, unitPrice: Number((best.price * 0.86).toFixed(2)) },
+          ],
+        }
+      : null
+  }
+  if (!deal) return null
+
+  const tiers = analyzeBulkTiers(deal.tiers, {
+    baseUnitPrice: deal.baseUnitPrice,
+    dailyBurn,
+    shelfLifeDays,
+    onHand,
+  })
+
+  return {
+    productId,
+    supplierId: deal.supplierId,
+    supplierName: deal.supplierName,
+    baseUnitPrice: deal.baseUnitPrice,
+    dailyBurn,
+    burnSource,
+    burnWindowDays: cdt?.windowDays ?? null,
+    burnProcedures: cdt?.procedures ?? null,
+    shelfLifeDays,
+    onHand,
+    tiers,
+    safeUnits: tiers.find((t) => t.safeUnits != null)?.safeUnits ?? null,
+    // Case pricing is synthesized until a vendor feed quotes real breaks.
+    pricingEstimated: true,
+  }
+}
+
+/**
+ * The pre-order spoilage check: given a quantity about to be added to an
+ * order, return a warning payload when part of it is projected to expire
+ * before use — or null when the quantity is safe or unknowable.
+ */
+export async function assessOrderQuantity(productId, quantity, unitPrice) {
+  const inventory = await listInventory()
+  const item = inventory.find((r) => r.productId === productId) ?? null
+  const shelfLifeDays = shelfLifeDaysFor(productId)
+  if (shelfLifeDays == null) return null
+
+  const cdt = isDemo ? cdtDailyBurn(productId) : null
+  const dailyBurn = cdt?.perDay ?? item?.dailyBurn ?? 0
+  if (!dailyBurn) return null // no history — nothing honest to warn with
+
+  const price =
+    unitPrice ?? (isDemo ? (offersFor(productId).find((o) => o.inStock)?.price ?? 0) : 0)
+
+  const result = analyzeBulkTier({
+    units: quantity,
+    unitPrice: price,
+    baseUnitPrice: price,
+    dailyBurn,
+    shelfLifeDays,
+    onHand: item?.onHand ?? 0,
+  })
+  if (result.indeterminate || result.spoiledUnits === 0) return null
+
+  return {
+    ...result,
+    dailyBurn,
+    burnSource: cdt ? 'procedures' : 'movements',
+    burnWindowDays: cdt?.windowDays ?? null,
+    shelfLifeDays,
+    onHand: item?.onHand ?? 0,
+  }
 }
 
 // --- compliance & training ----------------------------------------------------

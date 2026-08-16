@@ -19,6 +19,7 @@ import { Gauge, Pill, Stepper } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
+import AddToOrder from '@/components/AddToOrder'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
 import ActivityLedger from '@/components/ActivityLedger'
@@ -26,6 +27,7 @@ import { assessLevels } from '@/lib/benchmarks'
 import {
   compareOffers,
   discardLot,
+  getBulkAnalysis,
   getInventoryItem,
   listLotsForItem,
   listMovements,
@@ -53,6 +55,10 @@ export default function ItemDetail() {
   )
   const { data: movements } = useData(() => listMovements(id), [id])
   const { data: itemLots } = useData(() => listLotsForItem(id), [id])
+  const { data: bulk } = useData(
+    () => (item?.productId ? getBulkAnalysis(item.productId) : Promise.resolve(null)),
+    [item?.productId],
+  )
 
   const [sheet, setSheet] = useState(null) // 'receive' | 'consume' | 'count' | 'settings'
   const [amount, setAmount] = useState(1)
@@ -339,6 +345,116 @@ export default function ItemDetail() {
               </Row>
             ))}
           </Section>
+
+          {/* Bulk deals priced against what the schedule actually consumes —
+              a lower sticker unit price means nothing if the tail expires. */}
+          {bulk ? (
+            <Section
+              title="Bulk buying"
+              footer={
+                bulk.shelfLifeDays == null
+                  ? 'No practical expiry on this item — take the best price break your budget allows.'
+                  : `Assumes fresh stock arrives with ~${Math.round(
+                      bulk.shelfLifeDays / 30.44,
+                    )} months of dating and is used after the ${qty(bulk.onHand)} already on the shelf. Case pricing is estimated until a vendor feed quotes real breaks.`
+              }
+            >
+              <p className="row block py-2.5 text-footnote text-label-2">
+                {bulk.burnSource === 'procedures' ? (
+                  <>
+                    You use <b className="tnum">{bulk.dailyBurn.toFixed(2)}</b>/day — computed
+                    from the CDT codes of {bulk.burnProcedures} procedures in the last{' '}
+                    {bulk.burnWindowDays} days.
+                  </>
+                ) : bulk.burnSource === 'movements' ? (
+                  <>
+                    You use <b className="tnum">{bulk.dailyBurn.toFixed(2)}</b>/day, from stock
+                    movement history.
+                  </>
+                ) : (
+                  'No usage history yet — bulk math sharpens after a few weeks of procedures or movements.'
+                )}
+              </p>
+
+              {bulk.tiers
+                .filter((t) => t.units > 1)
+                .map((t) => (
+                  <Row
+                    key={t.label}
+                    chevron={false}
+                    title={t.label}
+                    subtitle={`${money(t.unitPrice)} per pack${
+                      t.daysOfSupply
+                        ? ` · ~${
+                            t.daysOfSupply < 45
+                              ? `${Math.round(t.daysOfSupply)} days`
+                              : `${(t.daysOfSupply / 30.44).toFixed(
+                                  t.daysOfSupply / 30.44 < 10 ? 1 : 0,
+                                )} months`
+                          } of supply`
+                        : ''
+                    }`}
+                    trailing={
+                      <div className="text-right">
+                        {t.indeterminate ? (
+                          <p className="text-caption text-label-3">Needs history</p>
+                        ) : t.spoiledUnits > 0 ? (
+                          <>
+                            <p className="tnum text-callout font-semibold">
+                              {money(t.effectiveUnitPrice)}
+                            </p>
+                            <p className="text-caption text-label-3">true cost/pack</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="tnum text-callout font-semibold text-ios-green">
+                              {t.netVsBase > 0.005 ? `−${money(t.netVsBase)}` : money(t.totalCost)}
+                            </p>
+                            <p className="text-caption text-label-3">
+                              {t.netVsBase > 0.005 ? 'vs buying singles' : 'total'}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    }
+                  >
+                    <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {t.recommended && t.spoiledUnits === 0 ? (
+                        <Pill tone="good">Best call</Pill>
+                      ) : null}
+                      {t.verdict === 'risky' ? (
+                        <Pill tone="warning">{Math.round(t.spoilPct)}% may expire first</Pill>
+                      ) : null}
+                      {t.verdict === 'loses' ? (
+                        <Pill tone="critical">
+                          {Math.round(t.spoilPct)}% would expire · {money(t.lossDollars)} lost
+                        </Pill>
+                      ) : null}
+                      <AddToOrder
+                        productId={item.productId}
+                        productName={item.productName}
+                        supplierId={bulk.supplierId}
+                        supplierName={bulk.supplierName}
+                        unitPrice={t.unitPrice}
+                        quantity={t.units}
+                        className="ml-auto"
+                        label={`Add ${t.units}`}
+                      />
+                    </span>
+                  </Row>
+                ))}
+
+              {bulk.safeUnits != null &&
+              Number.isFinite(bulk.safeUnits) &&
+              bulk.tiers.some((t) => t.spoiledUnits > 0) ? (
+                <p className="row block py-2.5 text-footnote text-label-2">
+                  Safe ceiling today:{' '}
+                  <b className="tnum">{qty(Math.max(0, bulk.safeUnits))}</b> — the most you can
+                  buy and still use every pack before it expires.
+                </p>
+              ) : null}
+            </Section>
+          ) : null}
         </>
       ) : null}
 
