@@ -6,7 +6,9 @@ import { stripeClient } from '../_lib/stripe.js'
  *
  * Starts a Stripe Checkout session for the caller's practice: one monthly
  * subscription, quantity = number of locations, free trial from
- * STRIPE_TRIAL_DAYS (default 90). Returns { url } to redirect to.
+ * STRIPE_TRIAL_DAYS (default 7). The card is collected at checkout and
+ * Stripe charges it automatically the moment the trial ends. Returns
+ * { url } to redirect to.
  *
  * The caller is identified by their Supabase bearer token; the practice id
  * rides into Stripe as metadata so the webhook can map events back without
@@ -49,7 +51,7 @@ export default async function handler(req, res) {
     }
 
     const origin = req.headers.origin ?? `https://${req.headers.host}`
-    const trialDays = Number(process.env.STRIPE_TRIAL_DAYS ?? 90)
+    const trialDays = Number(process.env.STRIPE_TRIAL_DAYS ?? 7)
 
     const stripe = stripeClient()
     const session = await stripe.checkout.sessions.create({

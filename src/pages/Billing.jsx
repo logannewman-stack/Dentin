@@ -172,7 +172,7 @@ export default function Billing() {
               $200<span className="text-title3 font-semibold text-label-3"> / location / month</span>
             </p>
             <p className="mt-1 text-subhead text-label-2">
-              First 90 days free · month to month · no setup fee · cancel anytime
+              First 7 days free · then billed monthly · no setup fee · cancel anytime
             </p>
           </div>
 
