@@ -1947,6 +1947,61 @@ export async function removeCredential(id) {
   return { ok: true }
 }
 
+// --- Dentin's own subscription (Stripe) ---------------------------------------
+
+/**
+ * The practice's Dentin plan, mirrored from Stripe by the billing webhook.
+ * Demo mode shows a furnished trial so the screen is explorable.
+ */
+export async function getSubscription() {
+  if (isDemo) {
+    return {
+      demo: true,
+      status: 'trialing',
+      quantity: 1,
+      trialEnd: addDaysIso(new Date().toISOString(), 62),
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+    }
+  }
+  const { data, error } = await supabase.from('subscriptions').select('*').maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return {
+    status: data.status,
+    priceId: data.price_id,
+    quantity: data.quantity,
+    currentPeriodEnd: data.current_period_end,
+    trialEnd: data.trial_end,
+    cancelAtPeriodEnd: data.cancel_at_period_end,
+  }
+}
+
+async function billingRedirect(path) {
+  const { data } = await supabase.auth.getSession()
+  const token = data?.session?.access_token
+  if (!token) throw new Error('Sign in first')
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? `Billing request failed (${res.status})`)
+  window.location.assign(body.url)
+}
+
+/** Redirects to Stripe Checkout (subscription with trial). */
+export async function startSubscriptionCheckout() {
+  if (isDemo) throw new Error('Billing activates once the app runs on Supabase with Stripe keys.')
+  return billingRedirect('/api/billing/checkout')
+}
+
+/** Redirects to the Stripe customer portal (card, invoices, cancel). */
+export async function openBillingPortal() {
+  if (isDemo) throw new Error('Billing activates once the app runs on Supabase with Stripe keys.')
+  return billingRedirect('/api/billing/portal')
+}
+
 // --- vendor payments ---------------------------------------------------------
 
 export async function listPaymentMethods() {

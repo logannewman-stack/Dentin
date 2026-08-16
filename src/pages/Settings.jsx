@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarClock,
   Check,
+  CreditCard,
   FileSpreadsheet,
   Info,
   Landmark,
@@ -206,6 +207,12 @@ export default function Settings() {
           title="Payment methods"
           subtitle="How vendors get paid — ACH and cards on file"
           to="/settings/payments"
+        />
+        <Row
+          leading={<CreditCard size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          title="Billing & subscription"
+          subtitle="Your Dentin plan, invoices and card"
+          to="/settings/billing"
         />
       </Section>
 
