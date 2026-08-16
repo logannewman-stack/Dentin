@@ -32,10 +32,13 @@ create table contract_prices (
   effective_from date not null default current_date,
   effective_to   date,
   source         text,                                  -- 'csv', 'edi-832', 'manual'
-  imported_at    timestamptz not null default now(),
-
-  unique (practice_id, supplier_id, coalesce(gtin, ''), coalesce(mfr_sku, ''), effective_from)
+  imported_at    timestamptz not null default now()
 );
+
+-- One row per practice + vendor + item identity + effective date. Postgres
+-- forbids expressions inside a UNIQUE constraint, so this is a unique index.
+create unique index contract_prices_identity
+  on contract_prices (practice_id, supplier_id, coalesce(gtin, ''), coalesce(mfr_sku, ''), effective_from);
 
 create index on contract_prices (practice_id, supplier_id);
 create index on contract_prices (product_id);
