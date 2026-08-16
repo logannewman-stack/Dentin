@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { differenceInCalendarDays, format } from 'date-fns'
 import { BadgeCheck, Check, ChevronLeft, CreditCard, ExternalLink } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
-import { Pill } from '@/components/ui/Controls'
+import { Pill, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
@@ -45,6 +45,9 @@ export default function Billing() {
   const [params] = useSearchParams()
   const { data: sub, loading } = useData(() => getSubscription(), [])
   const [busy, setBusy] = useState(false)
+  // Annual leads — the 10% is baked into the yearly price itself, so promo
+  // codes (one per checkout, Stripe enforces it) apply on top of either plan.
+  const [plan, setPlan] = useState('annual')
 
   // Back from Stripe: say what happened.
   useEffect(() => {
@@ -99,7 +102,7 @@ export default function Billing() {
             <div className="min-w-0">
               <p className="text-headline font-semibold">Dentin</p>
               <p className="mt-0.5 text-footnote text-label-3">
-                Billed monthly · {sub.quantity} location{sub.quantity === 1 ? '' : 's'}
+                {sub.quantity} location{sub.quantity === 1 ? '' : 's'} · billed through Stripe
               </p>
             </div>
             <Pill tone={status.tone} icon={sub.status === 'active' ? BadgeCheck : undefined}>
@@ -120,7 +123,7 @@ export default function Billing() {
             ) : sub.status === 'active' ? (
               <>
                 {sub.cancelAtPeriodEnd ? 'Ends' : 'Renews'}{' '}
-                {sub.currentPeriodEnd ? <b className="text-label">{day(sub.currentPeriodEnd)}</b> : 'monthly'}
+                {sub.currentPeriodEnd ? <b className="text-label">{day(sub.currentPeriodEnd)}</b> : 'automatically'}
                 {sub.cancelAtPeriodEnd ? ' — cancellation is scheduled.' : '.'}
               </>
             ) : sub.status === 'past_due' ? (
@@ -137,7 +140,7 @@ export default function Billing() {
               <Button
                 className="w-full"
                 loading={busy}
-                onClick={() => act(startSubscriptionCheckout)}
+                onClick={() => act(() => startSubscriptionCheckout('annual'))}
               >
                 Restart subscription
               </Button>
@@ -168,11 +171,39 @@ export default function Billing() {
             <p className="text-caption font-bold uppercase tracking-[0.5px] text-brand-700 dark:text-brand-400">
               Dentin
             </p>
-            <p className="mt-1.5 text-title1 font-bold leading-tight">
-              $200<span className="text-title3 font-semibold text-label-3"> / location / month</span>
-            </p>
+
+            <div className="mt-3">
+              <SegmentedControl
+                value={plan}
+                onChange={setPlan}
+                options={[
+                  { value: 'annual', label: 'Annual · save 10%' },
+                  { value: 'monthly', label: 'Monthly' },
+                ]}
+              />
+            </div>
+
+            {plan === 'annual' ? (
+              <>
+                <p className="mt-3.5 text-title1 font-bold leading-tight">
+                  $180
+                  <span className="text-title3 font-semibold text-label-3"> / location / month</span>
+                </p>
+                <p className="mt-1 text-subhead text-label-2">
+                  Billed annually — $2,160 per location per year, 10% under the monthly rate
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3.5 text-title1 font-bold leading-tight">
+                  $200
+                  <span className="text-title3 font-semibold text-label-3"> / location / month</span>
+                </p>
+                <p className="mt-1 text-subhead text-label-2">Billed month to month</p>
+              </>
+            )}
             <p className="mt-1 text-subhead text-label-2">
-              First 7 days free · then billed monthly · no setup fee · cancel anytime
+              First 7 days free · no setup fee · cancel anytime
             </p>
           </div>
 
@@ -191,13 +222,13 @@ export default function Billing() {
               size="lg"
               icon={CreditCard}
               loading={busy}
-              onClick={() => act(startSubscriptionCheckout)}
+              onClick={() => act(() => startSubscriptionCheckout(plan))}
             >
-              Start the free trial
+              Start the free trial{plan === 'annual' ? ' — annual' : ' — monthly'}
             </Button>
             <p className="mt-2 text-center text-caption text-label-3">
               Checkout and card details are handled by Stripe — Dentin never sees the number.
-              Have a promo code? Enter it on the checkout page.
+              Have a promo code? Enter it on the checkout page (one code per subscription).
             </p>
           </div>
         </div>

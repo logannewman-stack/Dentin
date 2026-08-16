@@ -17,8 +17,17 @@ import { stripeClient } from '../_lib/stripe.js'
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' })
 
-  const priceId = process.env.STRIPE_PRICE_ID
-  if (!priceId) return json(res, 500, { error: 'STRIPE_PRICE_ID is not configured' })
+  // Two ways to pay for the same plan. Annual carries its 10% discount baked
+  // into the price itself, so a promotion code (one max — Stripe Checkout
+  // does not stack codes) still applies cleanly on top of either.
+  const plan = req.body?.plan === 'monthly' ? 'monthly' : 'annual'
+  const priceId =
+    plan === 'annual'
+      ? process.env.STRIPE_PRICE_ID_ANNUAL
+      : (process.env.STRIPE_PRICE_ID_MONTHLY ?? process.env.STRIPE_PRICE_ID)
+  if (!priceId) {
+    return json(res, 500, { error: `The Stripe price for the ${plan} plan is not configured` })
+  }
 
   try {
     const supabase = userClient(req)

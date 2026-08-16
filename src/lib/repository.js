@@ -1977,13 +1977,17 @@ export async function getSubscription() {
   }
 }
 
-async function billingRedirect(path) {
+async function billingRedirect(path, payload) {
   const { data } = await supabase.auth.getSession()
   const token = data?.session?.access_token
   if (!token) throw new Error('Sign in first')
   const res = await fetch(path, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(payload ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(payload ? { body: JSON.stringify(payload) } : {}),
   })
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body.error ?? `Billing request failed (${res.status})`)
@@ -1991,9 +1995,9 @@ async function billingRedirect(path) {
 }
 
 /** Redirects to Stripe Checkout (subscription with trial). */
-export async function startSubscriptionCheckout() {
+export async function startSubscriptionCheckout(plan = 'annual') {
   if (isDemo) throw new Error('Billing activates once the app runs on Supabase with Stripe keys.')
-  return billingRedirect('/api/billing/checkout')
+  return billingRedirect('/api/billing/checkout', { plan })
 }
 
 /** Redirects to the Stripe customer portal (card, invoices, cancel). */
