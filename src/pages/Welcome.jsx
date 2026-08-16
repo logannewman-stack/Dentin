@@ -225,6 +225,12 @@ export default function Welcome() {
 
         {isDemoAuth ? (
           <div className="mt-8">
+            {/* Unmissable build-mode label: if this line renders in production,
+                the deployment was built without the VITE_SUPABASE_* keys. */}
+            <p className="mb-3 text-center text-caption font-medium text-amber-300/90">
+              Demo build — Supabase keys were not visible when this deployment was built.
+              Accounts and data here are simulated.
+            </p>
             <div className="mb-3 flex items-center gap-3" aria-hidden="true">
               <span className="h-px flex-1 bg-white/15" />
               <span className="text-caption font-medium uppercase tracking-[0.5px] text-white/45">
