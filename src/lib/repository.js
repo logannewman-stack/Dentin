@@ -28,7 +28,6 @@ import {
   SUPPLIER_SPEND,
   TEAM,
   TOP_ITEMS,
-  STARTER_PACK,
   VENDOR_DIRECTORY,
   buildInventoryRow,
   bulkTiersFor,
@@ -1544,7 +1543,7 @@ export { STARTER_PACK } from './demoData'
  * INSERT..RETURNING would need a SELECT policy the caller does not have until
  * the claim lands.
  */
-export async function completePracticeSetup({ practice, locations, supplierSlugs, starter }) {
+export async function completePracticeSetup({ practice, locations, supplierSlugs, starterItems }) {
   if (isDemo) {
     Object.assign(store().practice, {
       name: practice.name,
@@ -1566,9 +1565,9 @@ export async function completePracticeSetup({ practice, locations, supplierSlugs
     }
     demoAccounts = accounts().filter((a) => chosen.has(a.supplierId) || String(a.supplierId).startsWith('dir-'))
 
-    if (starter === 'starter') {
+    if (starterItems?.length) {
       const s = store()
-      for (const entry of STARTER_PACK) {
+      for (const entry of starterItems) {
         if (s.inventory.some((r) => r.productId === entry.productId)) continue
         const row = buildInventoryRow(entry.productId, {
           onHand: 0,
@@ -1641,9 +1640,9 @@ export async function completePracticeSetup({ practice, locations, supplierSlugs
   }
 
   // 5. Starter shelf — matched by GTIN, the key stable across catalogs.
-  if (starter === 'starter' && locationRows[0]) {
+  if (starterItems?.length && locationRows[0]) {
     const gtinByDemo = new Map(
-      STARTER_PACK.map((e) => [e.productId, productById(e.productId)?.gtin]).filter(([, g]) => g),
+      starterItems.map((e) => [e.productId, productById(e.productId)?.gtin]).filter(([, g]) => g),
     )
     const { data: productRows, error: productError } = await supabase
       .from('products')
@@ -1652,7 +1651,7 @@ export async function completePracticeSetup({ practice, locations, supplierSlugs
     if (productError) throw productError
     const idByGtin = new Map((productRows ?? []).map((p) => [p.gtin, p.id]))
 
-    const items = STARTER_PACK.flatMap((e) => {
+    const items = starterItems.flatMap((e) => {
       const productId = idByGtin.get(gtinByDemo.get(e.productId))
       if (!productId) return []
       return [
