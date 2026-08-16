@@ -35,17 +35,21 @@ import { cn } from '@/lib/utils'
  *                it for the least all-in, shipping included. Usually costs a
  *                little more on goods and saves on freight and receiving time.
  */
-function priceBasket(lines, offersByProduct) {
+function priceBasket(lines, offersByProduct, vendorChoice = {}) {
   const split = { supplierGroups: new Map(), goods: 0, shipping: 0 }
 
   for (const line of lines) {
-    // Only vendors the practice can actually order from today. A cheaper
-    // quote behind an account application is not a basket this order can use.
-    const offers = (offersByProduct[line.productId] ?? []).filter(
-      (o) => o.inStock && o.hasAccount,
-    )
-    if (!offers.length) continue
-    const best = offers[0]
+    // Default: the cheapest vendor the practice can order from today. A
+    // cheaper quote behind an account application is not a basket this order
+    // can use — unless the buyer explicitly picks that vendor for this line,
+    // in which case any in-stock vendor is theirs to choose.
+    const all = (offersByProduct[line.productId] ?? []).filter((o) => o.inStock)
+    const offers = all.filter((o) => o.hasAccount)
+    const chosen = vendorChoice[line.id]
+      ? all.find((o) => o.supplierId === vendorChoice[line.id])
+      : null
+    const best = chosen ?? offers[0]
+    if (!best) continue
     const cost = best.price * line.quantity
     split.goods += cost
 
@@ -106,6 +110,8 @@ export default function Reorder() {
 
   const [selected, setSelected] = useState({})
   const [quantities, setQuantities] = useState({})
+  // Per-line vendor overrides: line id → supplierId the buyer picked.
+  const [vendorChoice, setVendorChoice] = useState({})
   const [strategy, setStrategy] = useState('split')
   const [offersByProduct, setOffers] = useState({})
   const [editing, setEditing] = useState(null)
@@ -145,8 +151,8 @@ export default function Reorder() {
   )
 
   const pricing = useMemo(
-    () => (lines.length ? priceBasket(lines, offersByProduct) : null),
-    [lines, offersByProduct],
+    () => (lines.length ? priceBasket(lines, offersByProduct, vendorChoice) : null),
+    [lines, offersByProduct, vendorChoice],
   )
 
   // The deeper truth: landed totals (shipping thresholds, minimums,
@@ -567,12 +573,11 @@ export default function Reorder() {
         })}
       </Section>
 
-      {/* Quantity editor */}
+      {/* Line editor: how many, and from whom */}
       <Sheet
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
         title={editing?.productName ?? ''}
-        detent="small"
         footer={
           <Button className="w-full" size="lg" onClick={() => setEditing(null)}>
             Done
@@ -580,19 +585,81 @@ export default function Reorder() {
         }
       >
         {editing ? (
-          <div className="flex flex-col items-center gap-1 py-6">
-            <p className="text-subhead text-label-3">How many {editing.unit}?</p>
-            <div className="py-4">
-              <Stepper
-                value={quantities[editing.id] ?? editing.suggestedQty}
-                onChange={(v) => setQuantities((prev) => ({ ...prev, [editing.id]: v }))}
-                min={1}
-                max={999}
-              />
+          <div className="px-4 pb-2">
+            <div className="flex flex-col items-center gap-1 pb-4 pt-5">
+              <p className="text-subhead text-label-3">How many {editing.unit}?</p>
+              <div className="py-3">
+                <Stepper
+                  value={quantities[editing.id] ?? editing.suggestedQty}
+                  onChange={(v) => setQuantities((prev) => ({ ...prev, [editing.id]: v }))}
+                  min={1}
+                  max={999}
+                />
+              </div>
+              <p className="text-footnote text-label-3">
+                Par is {qty(editing.parLevel)} · {qty(editing.onHand)} on hand
+              </p>
             </div>
-            <p className="text-footnote text-label-3">
-              Par is {qty(editing.parLevel)} · {qty(editing.onHand)} on hand
-            </p>
+
+            {/* Every vendor that stocks it — the buyer's pick beats the default */}
+            <p className="section-label">Buy from</p>
+            <div className="overflow-hidden rounded-card border border-line bg-surface">
+              {(offersByProduct[editing.productId] ?? [])
+                .filter((o) => o.inStock)
+                .map((o) => {
+                  const defaultOffer = (offersByProduct[editing.productId] ?? []).find(
+                    (x) => x.inStock && x.hasAccount,
+                  )
+                  const chosenId = vendorChoice[editing.id] ?? defaultOffer?.supplierId
+                  const on = o.supplierId === chosenId
+                  return (
+                    <button
+                      key={o.supplierId}
+                      type="button"
+                      onClick={() =>
+                        setVendorChoice((prev) => ({ ...prev, [editing.id]: o.supplierId }))
+                      }
+                      className="row press w-full gap-3 py-2.5 text-left"
+                    >
+                      <span
+                        className={cn(
+                          'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
+                          on ? 'border-brand-600 bg-brand-600 text-white' : 'border-separator',
+                        )}
+                        aria-hidden="true"
+                      >
+                        {on ? <Check size={13} strokeWidth={3} /> : null}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-body text-label">
+                          {o.supplierName}
+                        </span>
+                        <span className="block truncate text-caption text-label-3">
+                          {o.hasAccount
+                            ? o.isContractPrice
+                              ? 'Your contract price'
+                              : 'Your account'
+                            : 'No account — charged at checkout'}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="tnum block text-callout font-semibold text-label">
+                          {money(o.price)}
+                        </span>
+                        <span className="block text-caption text-label-3">
+                          {unitMoney(o.unitPrice)}/unit · {o.leadDays}d
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+            </div>
+            {strategy === 'consolidate' ? (
+              <p className="px-1 pt-2 text-footnote text-label-3">
+                Vendor picks apply to the Lowest price strategy — Fewest shipments always uses
+                one vendor for everything.
+              </p>
+            ) : null}
           </div>
         ) : null}
       </Sheet>

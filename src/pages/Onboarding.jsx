@@ -10,15 +10,12 @@ import {
   FileSpreadsheet,
   Loader2,
   MapPin,
-  Plus,
   ScanLine,
-  Search,
   Store,
-  X,
 } from 'lucide-react'
-import { PRODUCTS, SUPPLIERS, VENDOR_DIRECTORY, VENDOR_KINDS } from '@/lib/demoData'
+import { SUPPLIERS, VENDOR_DIRECTORY, VENDOR_KINDS } from '@/lib/demoData'
 import { SearchField } from '@/components/ui/Controls'
-import { STARTER_PACK, completePracticeSetup } from '@/lib/repository'
+import { completePracticeSetup } from '@/lib/repository'
 import { useAuth } from '@/lib/AuthContext'
 import { cn, haptic } from '@/lib/utils'
 
@@ -126,25 +123,11 @@ export default function Onboarding() {
   // No preselected vendors: who a practice buys from is their answer to give.
   const [suppliers, setSuppliers] = useState(() => new Set())
   const [vendorQuery, setVendorQuery] = useState('')
-  const [stock, setStock] = useState('starter')
-  // The editable pre-populated shelf: everything in, anything out, more in.
-  const [shelf, setShelf] = useState(() =>
-    STARTER_PACK.map((e) => ({ ...e, name: PRODUCTS.find((p) => p.id === e.productId)?.name ?? e.productId, unit: PRODUCTS.find((p) => p.id === e.productId)?.unit ?? '' })),
-  )
-  const [addQuery, setAddQuery] = useState('')
+  // Two ways to start, both empty of assumptions: bring the file from the
+  // last system, or build the shelf yourself by catalog and barcode.
+  const [stock, setStock] = useState('blank')
   const [busy, setBusy] = useState(false)
   const [finishError, setFinishError] = useState(null)
-
-  const addResults = useMemo(() => {
-    const q = addQuery.trim().toLowerCase()
-    if (!q) return []
-    const onShelf = new Set(shelf.map((s) => s.productId))
-    return PRODUCTS.filter(
-      (p) =>
-        !onShelf.has(p.id) &&
-        (p.name.toLowerCase().includes(q) || (p.brand ?? '').toLowerCase().includes(q)),
-    ).slice(0, 6)
-  }, [addQuery, shelf])
 
   const STEPS = useMemo(
     () => [
@@ -237,10 +220,7 @@ export default function Onboarding() {
             ? [{ name: practice.name.trim(), operatories: locations[0]?.operatories ?? '' }]
             : locations,
         supplierSlugs: [...suppliers],
-        starterItems:
-          stock === 'starter'
-            ? shelf.map(({ productId, par, reorderQty }) => ({ productId, par, reorderQty }))
-            : null,
+        starterItems: null,
       })
       completeOnboarding()
       navigate(stock === 'import' ? '/inventory/import' : '/', { replace: true })
@@ -531,13 +511,6 @@ export default function Onboarding() {
                 <>
                   {[
                     {
-                      key: 'starter',
-                      Icon: Boxes,
-                      title: `Start stocked with the usual supplies (${shelf.length})`,
-                      subtitle:
-                        'The typical dental shelf, pre-filled — remove anything, add anything, before you finish.',
-                    },
-                    {
                       key: 'import',
                       Icon: FileSpreadsheet,
                       title: 'Upload from your previous system',
@@ -599,98 +572,10 @@ export default function Onboarding() {
                     </button>
                   ))}
 
-                  {stock === 'starter' ? (
-                    <>
-                      {/* The shelf itself — theirs to edit before it exists */}
-                      <div className="overflow-hidden rounded-card border border-line bg-surface">
-                        <p className="border-b border-line bg-surface-2/60 px-3 py-2 text-caption font-semibold uppercase tracking-[0.05em] text-label-3">
-                          Your starting shelf · {shelf.length} items
-                        </p>
-                        {shelf.map((item) => (
-                          <div
-                            key={item.productId}
-                            className="flex items-center gap-2.5 border-b border-line px-3 py-2 last:border-b-0"
-                          >
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-subhead text-label">
-                                {item.name}
-                              </span>
-                              <span className="block text-caption text-label-3">
-                                {item.unit} · par {item.par}
-                              </span>
-                            </span>
-                            <button
-                              type="button"
-                              aria-label={`Remove ${item.name}`}
-                              onClick={() =>
-                                setShelf((s) => s.filter((x) => x.productId !== item.productId))
-                              }
-                              className="press flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] border border-line text-label-3"
-                            >
-                              <X size={13} strokeWidth={2.4} />
-                            </button>
-                          </div>
-                        ))}
-                        {shelf.length === 0 ? (
-                          <p className="px-3 py-4 text-center text-footnote text-label-3">
-                            Everything removed — that's the same as starting from scratch.
-                          </p>
-                        ) : null}
-                      </div>
-
-                      {/* Add anything else from the catalog */}
-                      <div className="rounded-card border border-line bg-surface p-3">
-                        <div className="relative flex items-center">
-                          <Search
-                            size={14}
-                            className="pointer-events-none absolute left-2.5 text-label-3"
-                            aria-hidden="true"
-                          />
-                          <input
-                            value={addQuery}
-                            onChange={(e) => setAddQuery(e.target.value)}
-                            placeholder="Add an item — search the catalog"
-                            aria-label="Add an item from the catalog"
-                            className="h-9 w-full rounded-[3px] border border-line bg-surface pl-8 pr-3 text-subhead text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-                          />
-                        </div>
-                        {addResults.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => {
-                              haptic(6)
-                              setShelf((s) => [
-                                ...s,
-                                { productId: p.id, par: 2, reorderQty: 1, name: p.name, unit: p.unit },
-                              ])
-                              setAddQuery('')
-                            }}
-                            className="press mt-2 flex w-full items-center gap-2.5 rounded-[3px] border border-line px-3 py-2 text-left"
-                          >
-                            <Plus size={14} className="shrink-0 text-brand-600" strokeWidth={2.4} />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-subhead text-label">{p.name}</span>
-                              <span className="block text-caption text-label-3">
-                                {p.brand} · {p.unit}
-                              </span>
-                            </span>
-                          </button>
-                        ))}
-                        {addQuery.trim() && !addResults.length ? (
-                          <p className="mt-2 text-center text-footnote text-label-3">
-                            Nothing in the catalog matches — scan it in later and it joins the list.
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <p className="px-1 text-footnote text-label-3">
-                        Par targets are pre-set and counts start at zero — walk the stockroom with
-                        Scan afterwards and reorder alerts switch on from real counts, never
-                        guesses.
-                      </p>
-                    </>
-                  ) : null}
+                  <p className="px-1 text-footnote text-label-3">
+                    Either way the shelf starts honestly empty — counts come from your file or
+                    your own scanning, never from guesses.
+                  </p>
                 </>
               ) : null}
             </div>
@@ -716,9 +601,7 @@ export default function Onboarding() {
               {isLast
                 ? stock === 'import'
                   ? 'Finish & upload your file'
-                  : stock === 'starter' && shelf.length
-                    ? `Finish with ${shelf.length} items stocked`
-                    : 'Finish setup'
+                  : 'Finish setup'
                 : 'Continue'}
               <ArrowRight size={17} strokeWidth={2.4} aria-hidden="true" />
             </>
