@@ -1,15 +1,23 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, ChevronLeft, PartyPopper, Sparkles, Truck } from 'lucide-react'
+import {
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  PackageSearch,
+  PartyPopper,
+  Sparkles,
+  Truck,
+} from 'lucide-react'
 import Screen from '@/components/ui/Screen'
 import { Section } from '@/components/ui/List'
-import { EmptyState, Pill, SegmentedControl } from '@/components/ui/Controls'
+import { EmptyState, Pill, SearchField, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import ProductTile from '@/components/ProductTile'
 import AddToOrder from '@/components/AddToOrder'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
-import { getPriceOpportunities } from '@/lib/repository'
+import { getPriceOpportunities, listCatalog } from '@/lib/repository'
 import { money, qty, unitMoney } from '@/lib/format'
 
 /**
@@ -98,10 +106,45 @@ function OpportunityRow({ row }) {
   )
 }
 
+/** A catalog hit — tapping it opens the every-vendor price check for that product. */
+function SearchResultRow({ product, onOpen }) {
+  return (
+    <button type="button" onClick={onOpen} className="row press w-full gap-3 py-2.5 text-left">
+      <ProductTile product={product} size={36} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-body text-label">{product.productName}</span>
+        <span className="block truncate text-caption text-label-3">
+          {product.brand}
+          {product.categoryName ? ` · ${product.categoryName}` : ''}
+        </span>
+      </span>
+      <span className="shrink-0 text-right">
+        {product.bestPrice != null ? (
+          <>
+            <span className="tnum block text-callout font-semibold text-label">
+              from {money(product.bestPrice)}
+            </span>
+            <span className="block text-caption text-label-3">
+              {product.offerCount} vendor{product.offerCount === 1 ? '' : 's'}
+            </span>
+          </>
+        ) : (
+          <span className="text-caption text-label-3">Compare</span>
+        )}
+      </span>
+      <ChevronRight size={16} className="shrink-0 text-label-3" aria-hidden="true" />
+    </button>
+  )
+}
+
 export default function MarketScan() {
   const navigate = useNavigate()
   const { data, loading } = useData(() => getPriceOpportunities(), [])
+  // The whole catalog loads once; typing filters it client-side, and picking
+  // a hit opens the all-vendor price check for that product.
+  const { data: catalog } = useData(() => listCatalog(), [])
   const [vendorFilter, setVendorFilter] = useState('all')
+  const [query, setQuery] = useState('')
 
   const rows = useMemo(() => {
     if (!data) return []
@@ -109,6 +152,21 @@ export default function MarketScan() {
       ? data.rows
       : data.rows.filter((r) => r.marketSupplierId === vendorFilter)
   }, [data, vendorFilter])
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return (catalog ?? [])
+      .filter(
+        (p) =>
+          p.productName.toLowerCase().includes(q) ||
+          (p.brand ?? '').toLowerCase().includes(q) ||
+          (p.gtin ?? '').includes(q),
+      )
+      .slice(0, 30)
+  }, [catalog, query])
+
+  const searching = query.trim().length > 0
 
   if (loading) {
     return (
@@ -132,114 +190,143 @@ export default function MarketScan() {
     </button>
   )
 
-  if (!data?.rows.length) {
-    return (
-      <Screen title="Competitive pricing" largeTitle={false} leading={back}>
+  return (
+    <Screen
+      title="Competitive pricing"
+      subtitle={
+        data?.rows.length ? `${data.rows.length} items across ${data.byVendor.length} vendors` : undefined
+      }
+      largeTitle={false}
+      leading={back}
+      toolbar={
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Price-check anything — item, brand, barcode"
+        />
+      }
+    >
+      {searching ? (
+        /* --- Search mode: any catalog product → its all-vendor price check --- */
+        results.length ? (
+          <Section
+            title={`Results · ${results.length}`}
+            footer="Pick an item to pull every vendor's price on it, side by side."
+          >
+            {results.map((p) => (
+              <SearchResultRow
+                key={p.productId}
+                product={p}
+                onOpen={() => navigate(`/price-check/${p.productId}`)}
+              />
+            ))}
+          </Section>
+        ) : (
+          <EmptyState
+            icon={PackageSearch}
+            title="Nothing matches"
+            body={`No catalog product matches “${query.trim()}”. Try a brand name or a barcode.`}
+          />
+        )
+      ) : !data?.rows.length ? (
         <EmptyState
           icon={PartyPopper}
           title="You are already on the best price"
           body={`Across every tracked item, no vendor outside your ${data?.accountCount ?? 0} accounts beats what you can order today.`}
           action={<Button to="/orders/new">Build a restock</Button>}
         />
-      </Screen>
-    )
-  }
-
-  return (
-    <Screen
-      title="Competitive pricing"
-      subtitle={`${data.rows.length} items across ${data.byVendor.length} vendors`}
-      largeTitle={false}
-      leading={back}
-    >
-      {/* The headline number */}
-      <div
-        className="mt-3 rounded-card p-5 text-white"
-        style={{
-          background:
-            'linear-gradient(135deg, rgb(var(--viz-2)) 0%, rgb(var(--viz-2) / 0.8) 100%)',
-        }}
-      >
-        <div className="flex items-center gap-1.5">
-          <Sparkles size={13} strokeWidth={2.6} aria-hidden="true" />
-          <span className="text-caption font-bold uppercase tracking-[0.5px]">
-            Left on the table
-          </span>
-        </div>
-        <p className="tnum mt-1.5 text-[40px] font-bold leading-[44px]">
-          {money(data.totalSavings)}
-        </p>
-        <p className="mt-1.5 text-footnote text-white/90">
-          on one full restock, if you could order from every vendor Dentin prices. You hold{' '}
-          {data.accountCount} of {data.vendorCount} accounts.
-        </p>
-      </div>
-
-      {/* Which account unlocks what */}
-      <Section
-        title="By vendor"
-        footer="Opening one account usually captures most of this — the list is ordered by what each unlocks."
-      >
-        {data.byVendor.map((v) => (
-          <button
-            key={v.supplierId}
-            type="button"
-            onClick={() => setVendorFilter(v.supplierId)}
-            className="row press w-full justify-between py-3"
+      ) : (
+        <>
+          {/* The headline number */}
+          <div
+            className="mt-3 rounded-card p-5 text-white"
+            style={{
+              background:
+                'linear-gradient(135deg, rgb(var(--viz-2)) 0%, rgb(var(--viz-2) / 0.8) 100%)',
+            }}
           >
-            <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="truncate text-body text-label">{v.name}</span>
-              <VendorStatus hasAccount={false} />
-            </span>
-            <span className="shrink-0 text-right">
-              <span
-                className="tnum block text-callout font-bold"
-                style={{ color: 'rgb(var(--viz-2))' }}
-              >
-                {money(v.savings)}
+            <div className="flex items-center gap-1.5">
+              <Sparkles size={13} strokeWidth={2.6} aria-hidden="true" />
+              <span className="text-caption font-bold uppercase tracking-[0.5px]">
+                Left on the table
               </span>
-              <span className="block text-caption text-label-3">{v.items} items</span>
-            </span>
-          </button>
-        ))}
-      </Section>
+            </div>
+            <p className="tnum mt-1.5 text-[40px] font-bold leading-[44px]">
+              {money(data.totalSavings)}
+            </p>
+            <p className="mt-1.5 text-footnote text-white/90">
+              on one full restock, if you could order from every vendor Dentin prices. You hold{' '}
+              {data.accountCount} of {data.vendorCount} accounts.
+            </p>
+          </div>
 
-      <div className="pb-2 pt-4">
-        <SegmentedControl
-          value={vendorFilter}
-          onChange={setVendorFilter}
-          options={[
-            { value: 'all', label: 'All', count: data.rows.length },
-            // Full vendor names — "Dental City" clipped to "Dental" reads as
-            // a category, not a supplier.
-            ...data.byVendor.slice(0, 2).map((v) => ({
-              value: v.supplierId,
-              label: v.name,
-            })),
-          ]}
-        />
-      </div>
+          {/* Which account unlocks what */}
+          <Section
+            title="By vendor"
+            footer="Opening one account usually captures most of this — the list is ordered by what each unlocks."
+          >
+            {data.byVendor.map((v) => (
+              <button
+                key={v.supplierId}
+                type="button"
+                onClick={() => setVendorFilter(v.supplierId)}
+                className="row press w-full justify-between py-3"
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="truncate text-body text-label">{v.name}</span>
+                  <VendorStatus hasAccount={false} />
+                </span>
+                <span className="shrink-0 text-right">
+                  <span
+                    className="tnum block text-callout font-bold"
+                    style={{ color: 'rgb(var(--viz-2))' }}
+                  >
+                    {money(v.savings)}
+                  </span>
+                  <span className="block text-caption text-label-3">{v.items} items</span>
+                </span>
+              </button>
+            ))}
+          </Section>
 
-      {/* Item-by-item */}
-      <div className="overflow-hidden rounded-card border border-line bg-surface">
-        {rows.map((row) => (
-          <OpportunityRow key={row.inventoryItemId} row={row} />
-        ))}
-      </div>
+          <div className="pb-2 pt-4">
+            <SegmentedControl
+              value={vendorFilter}
+              onChange={setVendorFilter}
+              options={[
+                { value: 'all', label: 'All', count: data.rows.length },
+                // Full vendor names — "Dental City" clipped to "Dental" reads as
+                // a category, not a supplier.
+                ...data.byVendor.slice(0, 2).map((v) => ({
+                  value: v.supplierId,
+                  label: v.name,
+                })),
+              ]}
+            />
+          </div>
 
-      <p className="px-1 pb-1 pt-3 text-footnote text-label-3">
-        Prices compare like for like on pack size. Savings assume a full restock to par at
-        today&apos;s quoted prices; shipping thresholds are applied when you build the order.
-      </p>
+          {/* Item-by-item */}
+          <div className="overflow-hidden rounded-card border border-line bg-surface">
+            {rows.map((row) => (
+              <OpportunityRow key={row.inventoryItemId} row={row} />
+            ))}
+          </div>
 
-      <div className="mt-4 flex flex-col gap-2">
-        <Button to="/vendors" size="lg" className="w-full">
-          Add a vendor account
-        </Button>
-        <Button to="/orders/new" variant="secondary" size="lg" className="w-full">
-          Build order from current accounts
-        </Button>
-      </div>
+          <p className="px-1 pb-1 pt-3 text-footnote text-label-3">
+            Prices compare like for like on pack size. Savings assume a full restock to par at
+            today&apos;s quoted prices; shipping thresholds are applied when you build the order.
+          </p>
+
+          <div className="mt-4 flex flex-col gap-2">
+            <Button to="/vendors" size="lg" className="w-full">
+              Add a vendor account
+            </Button>
+            <Button to="/orders/new" variant="secondary" size="lg" className="w-full">
+              Build order from current accounts
+            </Button>
+          </div>
+        </>
+      )}
     </Screen>
   )
 }
