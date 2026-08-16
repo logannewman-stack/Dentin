@@ -131,12 +131,25 @@ export default async function handler(req, res) {
             add(`promo code ${code}`, false, 'not found in this mode')
             continue
           }
-          // Newer Stripe API versions return the coupon as an id unless
-          // expanded — resolve either shape to the full object.
+          // Newer Stripe API versions keep reshaping where the discount
+          // lives on a promotion code — try each known shape in turn.
           let c = pc.coupon
-          if (typeof c === 'string') c = await stripe.coupons.retrieve(c)
+          if (typeof c === 'string') c = await stripe.coupons.retrieve(c).catch(() => null)
           if (!c || typeof c !== 'object') {
-            add(`promo code ${code}`, false, 'coupon not readable on this API version')
+            const full = await stripe.promotionCodes
+              .retrieve(pc.id, { expand: ['coupon'] })
+              .catch(() => null)
+            if (full?.coupon && typeof full.coupon === 'object') c = full.coupon
+          }
+          if (!c || typeof c !== 'object') {
+            // Can't read the percent on this API version — the code itself
+            // still exists, so report what we know plus the object's fields
+            // so the missing shape is obvious from the report.
+            add(
+              `promo code ${code}`,
+              Boolean(pc.active),
+              `${pc.active ? 'exists and is active' : 'exists but is DEACTIVATED'} — discount % not exposed here, verify it on the checkout page (fields: ${Object.keys(pc).join(', ')})`,
+            )
             continue
           }
           const notes = [`${c.percent_off ?? '??'}% off · ${c.duration}`]
