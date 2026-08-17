@@ -1032,22 +1032,21 @@ export async function listAlerts() {
     }
   }
 
-  // Equipment service alerts come from the demo's asset list — a live
-  // practice must never see fabricated overdue autoclaves.
-  if (isDemo) {
-    for (const a of ASSETS) {
-      const days = Math.round((new Date(a.nextServiceAt) - new Date()) / 86400000)
-      if (days <= 30) {
-        alerts.push({
-          id: `svc-${a.id}`,
-          type: 'service_due',
-          severity: days < 0 ? 'critical' : 'warning',
-          title: days < 0 ? `${a.name} service overdue` : `${a.name} service due`,
-          body: days < 0 ? `${Math.abs(days)} days overdue` : `In ${days} days`,
-          asset: a,
-          createdAt: new Date().toISOString(),
-        })
-      }
+  // Equipment service, from whichever assets this practice actually owns —
+  // the demo's list in demo mode, the assets table live.
+  for (const a of await listAssets()) {
+    if (!a.nextServiceAt || a.status === 'retired') continue
+    const days = Math.round((new Date(a.nextServiceAt) - new Date()) / 86400000)
+    if (days <= 30) {
+      alerts.push({
+        id: `svc-${a.id}`,
+        type: 'service_due',
+        severity: days < 0 ? 'critical' : 'warning',
+        title: days < 0 ? `${a.name} service overdue` : `${a.name} service due`,
+        body: days < 0 ? `${Math.abs(days)} days overdue` : `In ${days} days`,
+        asset: a,
+        createdAt: new Date().toISOString(),
+      })
     }
   }
 
@@ -1974,17 +1973,38 @@ export async function getBasketLandedAnalysis(lines) {
     ),
   }))
 
-  // Vendors that appear in at least one line's placeable offers.
+  // Vendors that appear in at least one line's placeable offers. Live, their
+  // shipping economics come from the suppliers table (migration 0009) — the
+  // demo constants only describe the demo.
   const vendorIds = new Set(engineLines.flatMap((l) => Object.keys(l.offers)))
-  const vendors = SUPPLIERS.filter((s) => vendorIds.has(s.id)).map((s) => ({
-    id: s.id,
-    name: s.name,
-    shipFee: s.shipFee ?? 0,
-    freeShipOver: s.freeShipOver ?? 0,
-    surcharge: s.surcharge ?? 0,
-    orderMinimum: s.orderMinimum ?? 0,
-    leadDays: s.leadDays ?? null,
-  }))
+  let vendors
+  if (isDemo) {
+    vendors = SUPPLIERS.filter((s) => vendorIds.has(s.id)).map((s) => ({
+      id: s.id,
+      name: s.name,
+      shipFee: s.shipFee ?? 0,
+      freeShipOver: s.freeShipOver ?? 0,
+      surcharge: s.surcharge ?? 0,
+      orderMinimum: s.orderMinimum ?? 0,
+      leadDays: s.leadDays ?? null,
+    }))
+  } else {
+    if (!vendorIds.size) return null
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('id, name, free_ship_over, flat_ship_fee, avg_lead_days, order_minimum, surcharge')
+      .in('id', [...vendorIds])
+    if (error) throw error
+    vendors = (data ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      shipFee: Number(s.flat_ship_fee ?? 0),
+      freeShipOver: Number(s.free_ship_over ?? 0),
+      surcharge: Number(s.surcharge ?? 0),
+      orderMinimum: Number(s.order_minimum ?? 0),
+      leadDays: s.avg_lead_days ?? null,
+    }))
+  }
   if (!vendors.length) return null
 
   const practice = isDemo ? store().practice : await getPractice()
@@ -2135,8 +2155,12 @@ export async function getSubscription() {
     currentPeriodEnd: data.current_period_end,
     trialEnd: data.trial_end,
     cancelAtPeriodEnd: data.cancel_at_period_end,
+    hasCustomer: Boolean(data.stripe_customer_id),
   }
 }
+
+/** Statuses that keep the app open. past_due keeps access during retries. */
+export const ACTIVE_SUB_STATUSES = ['trialing', 'active', 'past_due']
 
 async function billingRedirect(path, payload) {
   const { data } = await supabase.auth.getSession()
@@ -2954,7 +2978,106 @@ export async function getPractice() {
     postalCode: data.postal_code,
     country: data.country,
     timezone: data.timezone,
+    // Landed-cost inputs (migration 0009).
+    taxRate: Number(data.tax_rate ?? 0),
+    taxShipping: Boolean(data.tax_shipping),
+    taxExempt: Boolean(data.tax_exempt),
   }
+}
+
+/** Save the practice's own details — address, contact, tax rule. */
+export async function updatePractice(patch) {
+  if (isDemo) {
+    Object.assign(store().practice, patch)
+    emit()
+    return { ok: true }
+  }
+
+  const columns = {
+    name: 'name',
+    legalName: 'legal_name',
+    phone: 'phone',
+    email: 'email',
+    website: 'website',
+    address1: 'address_1',
+    address2: 'address_2',
+    city: 'city',
+    region: 'region',
+    postalCode: 'postal_code',
+    taxRate: 'tax_rate',
+    taxShipping: 'tax_shipping',
+    taxExempt: 'tax_exempt',
+  }
+  const row = {}
+  for (const [key, column] of Object.entries(columns)) {
+    if (patch[key] !== undefined) row[column] = patch[key] === '' ? null : patch[key]
+  }
+  if (!Object.keys(row).length) return { ok: true }
+
+  const { error } = await supabase.from('practices').update(row).eq('id', await myPracticeId())
+  if (error) throw error
+  emit()
+  return { ok: true }
+}
+
+const PREF_COLUMNS = {
+  lowStock: 'low_stock',
+  expiring: 'expiring_lots',
+  serviceDue: 'service_due',
+  priceDrops: 'price_drops',
+  orderUpdates: 'order_updates',
+}
+const DEFAULT_PREFS = {
+  lowStock: true,
+  expiring: true,
+  serviceDue: true,
+  priceDrops: true,
+  orderUpdates: true,
+}
+let demoPrefs = null
+
+/** Which alerts this user wants pushed. */
+export async function getNotificationPrefs() {
+  if (isDemo) return { ...DEFAULT_PREFS, ...(demoPrefs ?? {}) }
+
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth?.user) return { ...DEFAULT_PREFS }
+  const { data, error } = await supabase
+    .from('notification_prefs')
+    .select('*')
+    .eq('user_id', auth.user.id)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return { ...DEFAULT_PREFS }
+  return Object.fromEntries(
+    Object.entries(PREF_COLUMNS).map(([key, column]) => [key, Boolean(data[column])]),
+  )
+}
+
+export async function saveNotificationPrefs(patch) {
+  if (isDemo) {
+    demoPrefs = { ...DEFAULT_PREFS, ...(demoPrefs ?? {}), ...patch }
+    emit()
+    return { ok: true }
+  }
+
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth?.user) throw new Error('Sign in first')
+  const current = await getNotificationPrefs()
+  const merged = { ...current, ...patch }
+  const { error } = await supabase.from('notification_prefs').upsert(
+    {
+      user_id: auth.user.id,
+      practice_id: await myPracticeId(),
+      ...Object.fromEntries(
+        Object.entries(PREF_COLUMNS).map(([key, column]) => [column, merged[key]]),
+      ),
+    },
+    { onConflict: 'user_id' },
+  )
+  if (error) throw error
+  emit()
+  return { ok: true }
 }
 
 export async function getSpendHistory(months = 12) {

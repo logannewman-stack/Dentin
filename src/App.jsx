@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useCallback, useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import TabBar from '@/components/ui/TabBar'
@@ -6,7 +6,7 @@ import SideNav from '@/components/ui/SideNav'
 import { ToastProvider } from '@/components/ui/Toast'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
-import { listAlerts } from '@/lib/repository'
+import { ACTIVE_SUB_STATUSES, getSubscription, listAlerts } from '@/lib/repository'
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Inventory = lazy(() => import('@/pages/Inventory'))
@@ -35,6 +35,7 @@ const InventoryImport = lazy(() => import('@/pages/InventoryImport'))
 const Billing = lazy(() => import('@/pages/Billing'))
 const Welcome = lazy(() => import('@/pages/Welcome'))
 const Onboarding = lazy(() => import('@/pages/Onboarding'))
+const Paywall = lazy(() => import('@/pages/Paywall'))
 
 function Loading() {
   return (
@@ -75,6 +76,15 @@ function AppRoutes() {
   const { data: alerts } = useData(() => (session ? listAlerts() : Promise.resolve([])), [session])
   const urgent = (alerts ?? []).filter((a) => a.severity === 'critical').length
 
+  // Subscription state gates the whole app once setup is done. `subKey`
+  // re-runs the read when the paywall asks ("already paid? check again").
+  const [subKey, setSubKey] = useState(0)
+  const recheckSub = useCallback(() => setSubKey((k) => k + 1), [])
+  const { data: sub, loading: subLoading } = useData(
+    () => (session && onboarded ? getSubscription() : Promise.resolve(null)),
+    [session, onboarded, subKey],
+  )
+
   if (loading) return <Loading />
 
   // Signed out — the welcome screen owns the whole surface.
@@ -101,6 +111,21 @@ function AppRoutes() {
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="*" element={<Navigate to="/onboarding" replace />} />
         </Routes>
+      </Suspense>
+    )
+  }
+
+  // Set up but not paying: the wall. Nothing is deleted — the practice's
+  // data waits exactly where it was until the subscription resumes.
+  if (subLoading) return <Loading />
+  if (!ACTIVE_SUB_STATUSES.includes(sub?.status)) {
+    return (
+      <Suspense fallback={<Loading />}>
+        <Paywall
+          status={sub?.status ?? 'none'}
+          hasCustomer={Boolean(sub?.hasCustomer)}
+          onRecheck={recheckSub}
+        />
       </Suspense>
     )
   }

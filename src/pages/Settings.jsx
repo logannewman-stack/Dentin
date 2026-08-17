@@ -27,7 +27,17 @@ import Sheet from '@/components/ui/Sheet'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
-import { getCurrentUser, getPractice, isDemo, listCredentials, listLocations } from '@/lib/repository'
+import {
+  getCurrentUser,
+  getNotificationPrefs,
+  getPractice,
+  isDemo,
+  listCredentials,
+  listLocations,
+  saveNotificationPrefs,
+  updatePractice,
+} from '@/lib/repository'
+import { useToast } from '@/components/ui/Toast'
 import { permission, pushSupport, sendTestNotification, subscribeToPush } from '@/lib/push'
 
 const FIELDS = [
@@ -90,6 +100,10 @@ export default function Settings() {
   const [draft, setDraft] = useState({})
   const [saved, setSaved] = useState(false)
 
+  const [saving, setSaving] = useState(false)
+  const toast = useToast()
+
+  const { data: storedPrefs } = useData(() => getNotificationPrefs(), [])
   const [prefs, setPrefs] = useState(() => ({
     lowStock: true,
     expiring: true,
@@ -97,6 +111,22 @@ export default function Settings() {
     priceDrops: true,
     orderUpdates: true,
   }))
+  useEffect(() => {
+    if (storedPrefs) setPrefs(storedPrefs)
+  }, [storedPrefs])
+
+  // Optimistic toggle, reverted if the write fails — a preference that
+  // silently does not stick is worse than one that says so.
+  const setPref = async (key, value) => {
+    const previous = prefs
+    setPrefs((p) => ({ ...p, [key]: value }))
+    try {
+      await saveNotificationPrefs({ [key]: value })
+    } catch (e) {
+      setPrefs(previous)
+      toast({ title: 'Could not save', body: e.message, tone: 'error' })
+    }
+  }
 
   const [pushState, setPushState] = useState(() => ({
     ...pushSupport(),
@@ -141,13 +171,20 @@ export default function Settings() {
     }
   }
 
-  const saveAddress = () => {
-    // Demo mode keeps the edit in memory; live mode persists via Supabase.
-    setSaved(true)
-    setTimeout(() => {
-      setSaved(false)
-      setAddressOpen(false)
-    }, 900)
+  const saveAddress = async () => {
+    setSaving(true)
+    try {
+      await updatePractice(draft)
+      setSaved(true)
+      setTimeout(() => {
+        setSaved(false)
+        setAddressOpen(false)
+      }, 900)
+    } catch (e) {
+      toast({ title: 'Could not save', body: e.message, tone: 'error' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -325,7 +362,7 @@ export default function Settings() {
             trailing={
               <Toggle
                 checked={prefs[key]}
-                onChange={(v) => setPrefs((p) => ({ ...p, [key]: v }))}
+                onChange={(v) => setPref(key, v)}
                 label={label}
               />
             }
@@ -420,7 +457,13 @@ export default function Settings() {
         title="Practice details"
         detent="large"
         footer={
-          <Button className="w-full" size="lg" onClick={saveAddress} icon={saved ? Check : undefined}>
+          <Button
+            className="w-full"
+            size="lg"
+            loading={saving}
+            onClick={saveAddress}
+            icon={saved ? Check : undefined}
+          >
             {saved ? 'Saved' : 'Save'}
           </Button>
         }

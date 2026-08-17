@@ -25,12 +25,13 @@ const money = (cents, currency = 'usd') =>
 /**
  * GET /api/billing/health
  *
- * Pre-flight for live billing: verifies the Stripe env vars point at real,
- * live-mode prices with the published amounts, inspects the promo codes for
- * surprises (wrong percent, first-time-only, product restrictions, expiry),
- * confirms a webhook endpoint is listening for the right events, and checks
- * the service role can reach the subscriptions table. Run it before a live
- * checkout rehearsal and fix anything with pass:false.
+ * Pre-flight for the paid deployment: verifies the Stripe env vars point at
+ * real, live-mode prices with the published amounts, inspects the promo codes
+ * for surprises (wrong percent, first-time-only, product restrictions,
+ * expiry), confirms a webhook endpoint is listening for the right events, and
+ * checks that the service role can reach the tables billing and alerting
+ * depend on — plus whether web push and the daily cron are configured at all.
+ * Run it before a live checkout rehearsal and fix anything with pass:false.
  *
  * Never returns a secret — only presence, prefixes and Stripe-side facts
  * that already appear on the public checkout page. Gated by CRON_SECRET
@@ -208,6 +209,30 @@ export default async function handler(req, res) {
       add('supabase → subscriptions table', !error, error ? error.message : 'reachable')
     } catch (e) {
       add('supabase → subscriptions table', false, e.message)
+    }
+
+    // --- alerting: the daily cron and web push ------------------------------
+    const vapidPublic = process.env.VAPID_PUBLIC_KEY
+    const vapidPrivate = process.env.VAPID_PRIVATE_KEY
+    add(
+      'web push keys',
+      Boolean(vapidPublic && vapidPrivate),
+      vapidPublic && vapidPrivate
+        ? 'VAPID keypair set'
+        : 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY missing — alerts compute but cannot be pushed',
+    )
+    add(
+      'cron authentication',
+      Boolean(gate),
+      gate ? 'CRON_SECRET set — the daily sweep can authenticate' : 'CRON_SECRET unset',
+    )
+    for (const table of ['alerts', 'push_subscriptions', 'notification_prefs']) {
+      try {
+        const { error } = await adminClient().from(table).select('*', { count: 'exact', head: true })
+        add(`supabase → ${table} table`, !error, error ? error.message : 'reachable')
+      } catch (e) {
+        add(`supabase → ${table} table`, false, e.message)
+      }
     }
 
     return json(res, 200, { ok: checks.every((c) => c.pass), checks })
