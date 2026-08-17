@@ -36,6 +36,7 @@ const Billing = lazy(() => import('@/pages/Billing'))
 const Welcome = lazy(() => import('@/pages/Welcome'))
 const Onboarding = lazy(() => import('@/pages/Onboarding'))
 const Paywall = lazy(() => import('@/pages/Paywall'))
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'))
 
 function Loading() {
   return (
@@ -73,6 +74,7 @@ function RouteShell({ children }) {
 
 function AppRoutes() {
   const { session, loading, onboarded } = useAuth()
+  const location = useLocation()
   const { data: alerts } = useData(() => (session ? listAlerts() : Promise.resolve([])), [session])
   const urgent = (alerts ?? []).filter((a) => a.severity === 'critical').length
 
@@ -84,6 +86,17 @@ function AppRoutes() {
     () => (session && onboarded ? getSubscription() : Promise.resolve(null)),
     [session, onboarded, subKey],
   )
+
+  // Password recovery sits outside every gate: the link signs the user in
+  // with a recovery session, and they must be able to set a new password
+  // whether or not they are onboarded or paying.
+  if (location.pathname === '/reset-password') {
+    return (
+      <Suspense fallback={<Loading />}>
+        <ResetPassword />
+      </Suspense>
+    )
+  }
 
   if (loading) return <Loading />
 

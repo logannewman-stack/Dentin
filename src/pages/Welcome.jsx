@@ -13,7 +13,7 @@ const PROOF = [
 
 export default function Welcome() {
   const navigate = useNavigate()
-  const { signIn, signUp, exploreDemo, isDemoAuth } = useAuth()
+  const { signIn, signUp, exploreDemo, isDemoAuth, requestPasswordReset } = useAuth()
 
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
@@ -187,6 +187,28 @@ export default function Welcome() {
               <p role="status" className="mt-3 text-footnote text-[#C8F5D0]">
                 {notice}
               </p>
+            ) : null}
+
+            {mode === 'signin' ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!email.trim()) {
+                    setError('Enter your email first, then tap this again.')
+                    return
+                  }
+                  setError(null)
+                  await requestPasswordReset(email.trim())
+                  // Deliberately the same message either way — confirming
+                  // whether an address has an account would leak it.
+                  setNotice(
+                    `If ${email.trim()} has a Dentin account, a reset link is on its way. The link opens on this device.`,
+                  )
+                }}
+                className="press mt-3 block text-footnote text-white/65"
+              >
+                Forgot your password?
+              </button>
             ) : null}
 
             <button

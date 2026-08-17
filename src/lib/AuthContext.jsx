@@ -121,6 +121,23 @@ export function AuthProvider({ children }) {
     return { error, needsConfirmation: !error && !data?.session }
   }, [])
 
+  /** Email a recovery link. Always resolves the same way — telling a
+   *  stranger whether an address has an account is a data leak. */
+  const requestPasswordReset = useCallback(async (email) => {
+    if (!isSupabaseConfigured) return { error: null }
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    return { error: null }
+  }, [])
+
+  /** Set a new password for the session the recovery link established. */
+  const updatePassword = useCallback(async (password) => {
+    if (!isSupabaseConfigured) return { error: null }
+    const { error } = await supabase.auth.updateUser({ password })
+    return { error }
+  }, [])
+
   const signOut = useCallback(async () => {
     // With the door force-skipped there is nothing to sign out of — the app
     // would simply re-enter — so leave the session in place.
@@ -158,8 +175,21 @@ export function AuthProvider({ children }) {
       signOut,
       exploreDemo,
       completeOnboarding,
+      requestPasswordReset,
+      updatePassword,
     }),
-    [session, loading, onboarded, signIn, signUp, signOut, exploreDemo, completeOnboarding],
+    [
+      session,
+      loading,
+      onboarded,
+      signIn,
+      signUp,
+      signOut,
+      exploreDemo,
+      completeOnboarding,
+      requestPasswordReset,
+      updatePassword,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
