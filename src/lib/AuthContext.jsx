@@ -5,6 +5,15 @@ const AuthContext = createContext(null)
 
 const DEMO_KEY = 'dentin:demo-session'
 const ONBOARDED_KEY = 'dentin:onboarded'
+const DEMO_MODE_KEY = 'dentin:demo-mode'
+
+/**
+ * Previewing the furnished demo on a live deployment. Read once at load —
+ * the repository does the same, and entering or leaving reloads the page, so
+ * the whole app is only ever in one world at a time.
+ */
+const PREVIEWING =
+  typeof localStorage !== 'undefined' && localStorage.getItem(DEMO_MODE_KEY) === 'true'
 
 /**
  * BYPASS_AUTH means the build has no real auth backend — the app runs the
@@ -33,25 +42,26 @@ const AUTO_ENTER = import.meta.env.VITE_BYPASS_AUTH === 'true'
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => {
     if (AUTO_ENTER) return { demo: true, bypassed: true }
-    if (!isSupabaseConfigured && localStorage.getItem(DEMO_KEY) === 'true') {
+    if ((!isSupabaseConfigured || PREVIEWING) && localStorage.getItem(DEMO_KEY) === 'true') {
       return { demo: true }
     }
     return null
   })
   // Only a real backend needs an async session check; demo state is local.
-  const [loading, setLoading] = useState(isSupabaseConfigured && !AUTO_ENTER)
+  const [loading, setLoading] = useState(isSupabaseConfigured && !AUTO_ENTER && !PREVIEWING)
   // Live truth for "onboarded" is ONLY the database — a localStorage flag is
   // per-browser, not per-user, so trusting it lets a brand-new account skip
   // the wizard on any machine where someone once onboarded (and then crash
   // on a practice-less dashboard). null = not known yet; the gate waits.
   const [onboarded, setOnboarded] = useState(() => {
     if (AUTO_ENTER) return true
-    if (!isSupabaseConfigured) return localStorage.getItem(ONBOARDED_KEY) === 'true'
+    if (!isSupabaseConfigured || PREVIEWING) return localStorage.getItem(ONBOARDED_KEY) === 'true'
     return null
   })
 
   useEffect(() => {
-    if (AUTO_ENTER || !isSupabaseConfigured) return undefined
+    // A preview never touches the real auth session.
+    if (AUTO_ENTER || !isSupabaseConfigured || PREVIEWING) return undefined
 
     let active = true
 
@@ -187,17 +197,34 @@ export function AuthProvider({ children }) {
     // With the door force-skipped there is nothing to sign out of — the app
     // would simply re-enter — so leave the session in place.
     if (AUTO_ENTER) return
+    const wasPreviewing = PREVIEWING
     localStorage.removeItem(DEMO_KEY)
     localStorage.removeItem(ONBOARDED_KEY)
+    localStorage.removeItem(DEMO_MODE_KEY)
+    // Leaving a preview on a live deployment reloads back into the real app.
+    if (wasPreviewing && isSupabaseConfigured) {
+      window.location.assign('/welcome')
+      return
+    }
     if (isSupabaseConfigured) await supabase.auth.signOut()
     setOnboarded(isSupabaseConfigured ? null : false)
     setSession(null)
   }, [])
 
-  /** Enter without an account — demo builds only. */
+  /**
+   * Enter the furnished demo practice without an account. On a live
+   * deployment this reloads, because the data seam decides demo-or-real at
+   * module load — a soft state change would leave half the app talking to
+   * Supabase and half to the demo store.
+   */
   const exploreDemo = useCallback(() => {
+    localStorage.setItem(DEMO_MODE_KEY, 'true')
     localStorage.setItem(DEMO_KEY, 'true')
     localStorage.setItem(ONBOARDED_KEY, 'true')
+    if (isSupabaseConfigured && !PREVIEWING) {
+      window.location.assign('/')
+      return
+    }
     setOnboarded(true)
     setSession({ demo: true })
   }, [])
@@ -215,6 +242,7 @@ export function AuthProvider({ children }) {
       bypassed: BYPASS_AUTH,
       autoEntered: AUTO_ENTER,
       isDemoAuth: !isSupabaseConfigured,
+      previewing: PREVIEWING,
       signIn,
       signUp,
       signOut,

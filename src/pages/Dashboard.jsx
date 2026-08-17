@@ -18,6 +18,7 @@ import {
 import Screen from '@/components/ui/Screen'
 import { Gauge, Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
+import { useAuth } from '@/lib/AuthContext'
 import Sparkline from '@/components/charts/Sparkline'
 import InstallPrompt from '@/components/InstallPrompt'
 import Walkthrough from '@/components/Walkthrough'
@@ -74,6 +75,7 @@ function Kpi({ label, icon: Icon, value, caption, tone = 'label', to }) {
 const TABLE_COLS = 'grid-cols-[minmax(0,1fr)_2.75rem_3.25rem]'
 
 export default function Dashboard() {
+  const { previewing, signOut } = useAuth()
   const { data: practice } = useData(() => getPractice(), [])
   const { data: inventory } = useData(() => listInventory(), [])
   const { data: alerts } = useData(() => listAlerts(), [])
@@ -399,9 +401,24 @@ export default function Dashboard() {
       </div>
 
       {isDemo ? (
-        <p className="px-1 pb-2 pt-5 text-center text-caption text-label-3">
-          Demo practice — connect Supabase to run on live data.
-        </p>
+        previewing ? (
+          <div className="mt-5 rounded-card border border-line bg-surface p-3.5 text-center">
+            <p className="text-subhead font-semibold text-label">
+              This is a demo practice
+            </p>
+            <p className="mt-1 text-footnote text-label-3">
+              Everything here is sample data — the inventory, the orders, the prices. Nothing you
+              do is saved, and no account or card is involved.
+            </p>
+            <Button className="mt-3" size="md" onClick={signOut}>
+              Leave the demo and set up my practice
+            </Button>
+          </div>
+        ) : (
+          <p className="px-1 pb-2 pt-5 text-center text-caption text-label-3">
+            Demo practice — connect Supabase to run on live data.
+          </p>
+        )
       ) : null}
     </Screen>
   )

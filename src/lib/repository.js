@@ -42,7 +42,16 @@ import {
   productById,
 } from './demoData'
 
-export const isDemo = !isSupabaseConfigured
+/**
+ * Demo mode is either implicit (no Supabase project configured) or chosen —
+ * a visitor tapping "See a demo practice" on the live site. The flag is read
+ * once at module load, and entering or leaving the preview reloads the page,
+ * so every screen agrees about which world it is in.
+ */
+export const DEMO_MODE_KEY = 'dentin:demo-mode'
+export const isDemo =
+  !isSupabaseConfigured ||
+  (typeof localStorage !== 'undefined' && localStorage.getItem(DEMO_MODE_KEY) === 'true')
 
 // Static app data (not demo-only): the vendor directory taxonomy.
 export { VENDOR_KINDS } from './demoData'

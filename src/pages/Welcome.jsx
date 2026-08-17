@@ -404,50 +404,53 @@ export default function Welcome() {
 
         <div className="flex-1" />
 
-        {isDemoAuth ? (
-          <div className="mt-8">
-            {/* Unmissable build-mode label: if this line renders in production,
-                the deployment was built without the VITE_SUPABASE_* keys. */}
+        {/* Look before you sign up. Available on the live site too — the demo
+            practice is bundled with the app, so it costs nothing to show. */}
+        <div className="mt-8">
+          {isDemoAuth ? (
+            /* Unmissable build-mode label: if this renders in production, the
+               deployment was built without the VITE_SUPABASE_* keys. */
             <p className="mb-3 text-center text-caption font-medium text-amber-300/90">
               Demo build — Supabase keys were not visible when this deployment was built.
               Accounts and data here are simulated.
             </p>
-            <div className="mb-3 flex items-center gap-3" aria-hidden="true">
-              <span className="h-px flex-1 bg-white/15" />
-              <span className="text-caption font-medium uppercase tracking-[0.5px] text-white/45">
-                or
-              </span>
-              <span className="h-px flex-1 bg-white/15" />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                exploreDemo()
-                navigate('/', { replace: true })
-              }}
-              className="group flex w-full items-center gap-3.5 rounded-[4px] border border-white/25 bg-white/10 px-4 py-3.5 text-left backdrop-blur-xl transition-colors duration-150 hover:bg-white/[0.16] active:bg-white/20"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
-                <Compass size={18} strokeWidth={2} aria-hidden="true" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-body font-semibold text-white">
-                  Preview a mock practice
-                </span>
-                <span className="mt-0.5 block text-caption text-white/60">
-                  A furnished demo — sample inventory, orders and live pricing. No account needed.
-                </span>
-              </span>
-              <ArrowRight
-                size={17}
-                strokeWidth={2.4}
-                className="shrink-0 text-white/60 transition-transform duration-150 group-hover:translate-x-0.5"
-                aria-hidden="true"
-              />
-            </button>
+          ) : null}
+          <div className="mb-3 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-white/15" />
+            <span className="text-caption font-medium uppercase tracking-[0.5px] text-white/45">
+              or
+            </span>
+            <span className="h-px flex-1 bg-white/15" />
           </div>
-        ) : null}
+
+          <button
+            type="button"
+            onClick={() => {
+              exploreDemo()
+              navigate('/', { replace: true })
+            }}
+            className="group flex w-full items-center gap-3.5 rounded-[4px] border border-white/25 bg-white/10 px-4 py-3.5 text-left backdrop-blur-xl transition-colors duration-150 hover:bg-white/[0.16] active:bg-white/20"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
+              <Compass size={18} strokeWidth={2} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-body font-semibold text-white">
+                See a demo practice
+              </span>
+              <span className="mt-0.5 block text-caption text-white/60">
+                A furnished example — stocked shelves, live price comparison, real orders. No
+                account, no card.
+              </span>
+            </span>
+            <ArrowRight
+              size={17}
+              strokeWidth={2.4}
+              className="shrink-0 text-white/60 transition-transform duration-150 group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          </button>
+        </div>
       </div>
     </div>
   )
