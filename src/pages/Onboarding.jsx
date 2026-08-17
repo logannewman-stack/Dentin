@@ -55,11 +55,20 @@ const VENDOR_CHOICES = VENDOR_DIRECTORY.map((d) => {
   }
 }).sort((a, b) => (a.priced !== b.priced ? (a.priced ? -1 : 1) : a.name.localeCompare(b.name)))
 
+const OPTIONAL_SUFFIX = /\s*\(optional\)\s*$/i
+
 function Field({ label, value, onChange, placeholder, type = 'text', autoComplete, inputMode }) {
+  // "(optional)" carries real information — whether this can be skipped — so
+  // it reads a shade darker than the field name rather than fading out.
+  const text = String(label)
+  const optional = OPTIONAL_SUFFIX.test(text)
+  const name = text.replace(OPTIONAL_SUFFIX, '')
+
   return (
     <label className="block">
       <span className="mb-1 block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
-        {label}
+        {name}
+        {optional ? <span className="ml-1 text-label-2">(optional)</span> : null}
       </span>
       <input
         type={type}
