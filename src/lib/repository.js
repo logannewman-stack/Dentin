@@ -1198,6 +1198,64 @@ export async function getOrder(id) {
 }
 
 /**
+ * The last order this practice actually placed, with its lines — the basis
+ * for "same as last time", which is how most restocking really works.
+ */
+export async function getLastOrder() {
+  if (isDemo) {
+    const s = store()
+    const last = s.orders
+      .filter((o) => o.status !== 'draft' && o.status !== 'cancelled' && o.placedAt)
+      .sort((a, b) => new Date(b.placedAt) - new Date(a.placedAt))[0]
+    if (!last) return null
+    const lines = s.orderItems
+      .filter(([orderId]) => orderId === last.id)
+      .map(([, sku, quantity, unitPrice]) => {
+        const product = productById(sku)
+        return {
+          productId: sku,
+          productName: product?.name ?? sku,
+          brand: product?.brand,
+          unit: product?.unit,
+          quantity,
+          unitPrice,
+        }
+      })
+    return { ...last, lines }
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, suppliers(name), order_items(*, products(name, brand, unit))')
+    .not('placed_at', 'is', null)
+    .neq('status', 'draft')
+    .neq('status', 'cancelled')
+    .order('placed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+
+  return {
+    id: data.id,
+    reference: data.reference,
+    supplierId: data.supplier_id,
+    supplierName: data.suppliers?.name,
+    status: data.status,
+    total: Number(data.total ?? 0),
+    placedAt: data.placed_at,
+    lines: (data.order_items ?? []).map((l) => ({
+      productId: l.product_id,
+      productName: l.products?.name,
+      brand: l.products?.brand,
+      unit: l.products?.unit,
+      quantity: Number(l.quantity),
+      unitPrice: Number(l.unit_price),
+    })),
+  }
+}
+
+/**
  * Record that this PO actually reached the vendor.
  *
  * Dentin builds and prices the order; a human still sends it through the

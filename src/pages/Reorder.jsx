@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   Plus,
+  RotateCcw,
   Scale,
   Sparkles,
   TrendingDown,
@@ -21,10 +22,11 @@ import {
   compareOffers,
   createOrder,
   getBasketLandedAnalysis,
+  getLastOrder,
   listCatalog,
   reorderSuggestions,
 } from '@/lib/repository'
-import { money, qty, unitMoney } from '@/lib/format'
+import { money, qty, relativeTime, unitMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /**
@@ -112,6 +114,8 @@ export default function Reorder() {
   // Everything orderable, not just what is already tracked — a practice that
   // has counted nothing yet still needs to be able to buy gloves today.
   const { data: catalog } = useData(() => listCatalog(), [])
+  const { data: lastOrder } = useData(() => getLastOrder(), [])
+  const [repeated, setRepeated] = useState(false)
 
   const [selected, setSelected] = useState({})
   const [quantities, setQuantities] = useState({})
@@ -178,6 +182,36 @@ export default function Reorder() {
       })
     return [...fromStock, ...fromCatalog]
   }, [suggestions, selected, quantities, extras, catalog])
+
+  /** Load last time's basket into this one, still fully editable. */
+  const repeatLastOrder = () => {
+    if (!lastOrder?.lines?.length) return
+    const bySuggestion = new Map((suggestions ?? []).map((s) => [s.productId, s]))
+    const nextExtras = {}
+    const nextSelected = {}
+    const nextQuantities = {}
+    for (const line of lastOrder.lines) {
+      const match = bySuggestion.get(line.productId)
+      if (match) {
+        // Already tracked and on the suggestion list — reuse that row so the
+        // par context stays visible rather than duplicating the line.
+        nextSelected[match.id] = true
+        nextQuantities[match.id] = line.quantity
+      } else {
+        nextExtras[line.productId] = line.quantity
+      }
+    }
+    setSelected((prev) => ({ ...prev, ...nextSelected }))
+    setQuantities((prev) => ({ ...prev, ...nextQuantities }))
+    setExtras((prev) => ({ ...prev, ...nextExtras }))
+    setRepeated(true)
+    toast({
+      title: `${lastOrder.reference} loaded`,
+      body: `${lastOrder.lines.length} item${
+        lastOrder.lines.length === 1 ? '' : 's'
+      } — change any quantity or vendor before you create the PO.`,
+    })
+  }
 
   // The orderable catalog, filtered and grouped by first letter.
   const browse = useMemo(() => {
@@ -344,6 +378,40 @@ export default function Reorder() {
         />
       }
     >
+      {/* Same as last time — how most restocking actually works */}
+      {lastOrder?.lines?.length && !repeated && !query.trim() ? (
+        <div className="mt-3 rounded-card border border-line bg-surface p-3.5">
+          <div className="flex items-start gap-3">
+            <span
+              className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-brand-600/12 text-brand-700 dark:text-brand-400"
+              aria-hidden="true"
+            >
+              <RotateCcw size={17} strokeWidth={2.1} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-callout font-semibold text-label">Reorder your last order</p>
+              <p className="mt-0.5 text-footnote text-label-3">
+                {lastOrder.reference} · {lastOrder.supplierName} · {lastOrder.lines.length} item
+                {lastOrder.lines.length === 1 ? '' : 's'}
+                {lastOrder.total ? ` · ${money(lastOrder.total)}` : ''}
+                {lastOrder.placedAt ? ` · ${relativeTime(lastOrder.placedAt)}` : ''}
+              </p>
+            </div>
+          </div>
+          <div className="mt-2.5 flex gap-2">
+            <Button size="md" className="flex-1" icon={RotateCcw} onClick={repeatLastOrder}>
+              Load these items
+            </Button>
+            <Button size="md" variant="secondary" to={`/orders/${lastOrder.id}`}>
+              View it
+            </Button>
+          </div>
+          <p className="mt-2 text-caption text-label-3">
+            Everything stays editable — quantities, vendors, and what is on it.
+          </p>
+        </div>
+      ) : null}
+
       {/* Strategy — only meaningful once something is on the order */}
       {lines.length ? (
         <div className="pb-1 pt-3">
