@@ -1,6 +1,11 @@
 import webpush from 'web-push'
 import { adminClient, json } from '../_lib/supabase.js'
 
+// Vercel kills a function at this limit; the sweep stops itself before then
+// so the response still reports what it managed to cover.
+export const config = { maxDuration: 300 }
+const DEADLINE_MS = 260_000
+
 /**
  * Vercel Cron — runs daily (see vercel.json).
  *
@@ -39,9 +44,15 @@ export default async function handler(req, res) {
       return data
     }
 
-    const practices = must(await supabase.from('practices').select('id, name'), 'practices query')
+    const practices = must(
+      await supabase.from('practices').select('id, name').order('created_at'),
+      'practices query',
+    )
 
-    for (const practice of practices ?? []) {
+    // One practice's sweep. Extracted so the run can fan out — done one at a
+    // time, a thousand practices is thousands of sequential round trips and
+    // the function is killed long before the last office is checked.
+    const sweep = async (practice) => {
       // --- what is short ---
       const short = must(
         await supabase
@@ -181,17 +192,48 @@ export default async function handler(req, res) {
         }
       }
 
-      summary.push({
+      return {
         practice: practice.name,
         out: out.length,
         low: low.length,
         expiring: expiring?.length ?? 0,
         serviceDue: service?.length ?? 0,
         pushDelivered: delivered,
+      }
+    }
+
+    // Fan out in small batches: enough concurrency to finish a large tenant
+    // list inside the function's lifetime, bounded so one run cannot starve
+    // the database of connections. A per-practice failure is recorded and
+    // the sweep continues — one broken office must not silence everyone.
+    const BATCH = 8
+    const deadline = Date.now() + DEADLINE_MS
+    let skipped = 0
+
+    for (let i = 0; i < (practices ?? []).length; i += BATCH) {
+      if (Date.now() > deadline) {
+        skipped = practices.length - i
+        break
+      }
+      const batch = practices.slice(i, i + BATCH)
+      const results = await Promise.allSettled(batch.map(sweep))
+      results.forEach((r, n) => {
+        if (r.status === 'fulfilled') summary.push(r.value)
+        else summary.push({ practice: batch[n].name, error: r.reason?.message ?? 'failed' })
       })
     }
 
-    return json(res, 200, { ok: true, pushConfigured: pushReady, practices: summary })
+    const failed = summary.filter((s2) => s2.error).length
+    return json(res, failed && failed === summary.length ? 500 : 200, {
+      ok: failed === 0 && skipped === 0,
+      pushConfigured: pushReady,
+      swept: summary.length,
+      failed,
+      // Never silently drop practices: say how many the clock cut off so a
+      // shortened run is visible rather than looking like a clean sweep.
+      skippedForTime: skipped,
+      practices: summary,
+    })
   } catch (e) {
     return json(res, 500, { error: e.message })
   }

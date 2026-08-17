@@ -211,6 +211,8 @@ function store() {
 }
 
 function emit() {
+  // Any write can change which vendors the practice holds accounts with.
+  accountIdsCache = null
   listeners.forEach((fn) => fn())
 }
 
@@ -352,10 +354,18 @@ export async function resolveGtin(gtin) {
 }
 
 /** Supplier ids the practice can order from today, without opening anything. */
+// Pricing a basket calls compareOffers once per line, and each call used to
+// re-fetch the practice's vendor accounts — a dozen identical round trips for
+// one screen. The set changes rarely and any local write clears it.
+let accountIdsCache = null
+
 async function accountSupplierIds() {
   if (isDemo) return new Set(accounts().map((a) => a.supplierId))
-  const { data } = await supabase.from('supplier_accounts').select('supplier_id')
-  return new Set((data ?? []).map((a) => a.supplier_id))
+  if (accountIdsCache) return accountIdsCache
+  const { data, error } = await supabase.from('supplier_accounts').select('supplier_id')
+  if (error) throw error
+  accountIdsCache = new Set((data ?? []).map((a) => a.supplier_id))
+  return accountIdsCache
 }
 
 /**
