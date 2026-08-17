@@ -20,6 +20,7 @@ import { Gauge, Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import Sparkline from '@/components/charts/Sparkline'
 import InstallPrompt from '@/components/InstallPrompt'
+import Walkthrough from '@/components/Walkthrough'
 import { useData } from '@/hooks/useData'
 import {
   getPractice,
@@ -154,6 +155,7 @@ export default function Dashboard() {
         </>
       }
     >
+      <Walkthrough />
       <InstallPrompt />
 
       <p className="section-label pt-3">{format(new Date(), 'EEEE, MMMM d')}</p>

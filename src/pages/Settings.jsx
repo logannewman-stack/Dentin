@@ -38,6 +38,7 @@ import {
   updatePractice,
 } from '@/lib/repository'
 import { useToast } from '@/components/ui/Toast'
+import Walkthrough from '@/components/Walkthrough'
 import { permission, pushSupport, sendTestNotification, subscribeToPush } from '@/lib/push'
 
 const FIELDS = [
@@ -101,6 +102,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
 
   const [saving, setSaving] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
   const toast = useToast()
 
   const { data: storedPrefs } = useData(() => getNotificationPrefs(), [])
@@ -414,6 +416,11 @@ export default function Settings() {
 
       {/* About */}
       <Section title="About">
+        <Row
+          title="Replay the walkthrough"
+          subtitle="What Dentin does, and how to install it on a phone"
+          onClick={() => setTourOpen(true)}
+        />
         <Row title="Version" detail="1.0.0" chevron={false} />
         <Row
           title="Data source"
@@ -449,6 +456,8 @@ export default function Settings() {
       <p className="px-1 pb-2 pt-6 text-center text-footnote text-label-3">
         Dentin — the price beneath the top layer.
       </p>
+
+      {tourOpen ? <Walkthrough open onClose={() => setTourOpen(false)} /> : null}
 
       {/* Address editor */}
       <Sheet

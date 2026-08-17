@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { SUPPLIERS, VENDOR_DIRECTORY, VENDOR_KINDS } from '@/lib/demoData'
 import { SearchField, SegmentedControl } from '@/components/ui/Controls'
+import { queueWalkthrough } from '@/components/Walkthrough'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import {
   claimPracticeShell,
@@ -310,6 +311,8 @@ export default function Onboarding() {
       })
       completeOnboarding()
       localStorage.removeItem(DRAFT_KEY)
+      // The optional tour waits on the other side of setup.
+      queueWalkthrough()
       navigate(stock === 'import' ? '/inventory/import' : '/', { replace: true })
     } catch (e) {
       setFinishError(e.message ?? 'Something went wrong — tap Finish again to pick up where it left off.')
