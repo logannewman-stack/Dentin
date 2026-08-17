@@ -11,6 +11,10 @@ import { useAuth } from '@/lib/AuthContext'
 export default function ResetPassword() {
   const navigate = useNavigate()
   const { updatePassword, session } = useAuth()
+  // Invited teammates land here too — same job, different story.
+  const invited =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('invite') === '1'
 
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
@@ -56,13 +60,21 @@ export default function ResetPassword() {
           <KeyRound size={20} strokeWidth={2.1} aria-hidden="true" />
         </span>
         <h1 className="mt-4 text-title1 font-bold tracking-tight text-white">
-          {done ? 'Password updated' : 'Choose a new password'}
+          {done
+            ? invited
+              ? 'You are in'
+              : 'Password updated'
+            : invited
+              ? 'Set your password'
+              : 'Choose a new password'}
         </h1>
         <p className="mt-1.5 text-subhead text-white/70">
           {done
             ? 'Signing you in…'
             : session
-              ? 'This replaces the old one everywhere you use Dentin.'
+              ? invited
+                ? 'Pick a password and you will land straight in your practice.'
+                : 'This replaces the old one everywhere you use Dentin.'
               : 'Open the link from your email on this device to set a new password.'}
         </p>
 

@@ -958,6 +958,54 @@ export async function updateCurrentUser(patch) {
   return { ok: true }
 }
 
+/** POST to one of the app's own API routes as the signed-in user. */
+async function postApi(path, payload) {
+  const { data } = await supabase.auth.getSession()
+  const token = data?.session?.access_token
+  if (!token) throw new Error('Sign in first')
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload ?? {}),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error ?? 'Something went wrong')
+  return body
+}
+
+/**
+ * Add a teammate. Seats are free and unlimited — Dentin bills per location,
+ * not per person, and a practice that hides the software from its assistants
+ * gets worse counts.
+ */
+export async function inviteTeammate({ email, role = 'assistant' }) {
+  if (isDemo) {
+    const name = email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    TEAM.push({
+      id: `usr-${Date.now().toString(36)}`,
+      name,
+      email,
+      role,
+      initials: name.split(/\s+/).slice(0, 2).map((w) => w[0].toUpperCase()).join(''),
+      pending: true,
+    })
+    emit()
+    return { ok: true, invited: true }
+  }
+  return postApi('/api/team/invite', { email, role })
+}
+
+/** Take someone off the practice; their account and audit trail survive. */
+export async function removeTeammate(userId) {
+  if (isDemo) {
+    const i = TEAM.findIndex((m) => m.id === userId)
+    if (i !== -1) TEAM.splice(i, 1)
+    emit()
+    return { ok: true }
+  }
+  return postApi('/api/team/remove', { userId })
+}
+
 export async function listTeam() {
   if (isDemo) return TEAM
   const { data, error } = await supabase

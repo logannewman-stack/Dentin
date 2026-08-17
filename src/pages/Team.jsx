@@ -9,7 +9,12 @@ import Sheet from '@/components/ui/Sheet'
 import ActivityLedger from '@/components/ActivityLedger'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
-import { listRecentActivity, listTeam } from '@/lib/repository'
+import {
+  inviteTeammate,
+  listRecentActivity,
+  listTeam,
+  removeTeammate,
+} from '@/lib/repository'
 
 /**
  * Roles are deliberately coarse. A practice does not want a permissions
@@ -61,13 +66,38 @@ export default function Team() {
     return map
   }, [activity])
 
-  const invite = () => {
-    toast({
-      title: 'Invite sent',
-      body: `${email} joins as ${ROLES[role].label.toLowerCase()}`,
-    })
-    setInviting(false)
-    setEmail('')
+  const [busy, setBusy] = useState(false)
+
+  const invite = async () => {
+    setBusy(true)
+    try {
+      const result = await inviteTeammate({ email: email.trim(), role })
+      toast({
+        title: result.attached ? 'Added to your team' : 'Invite sent',
+        body: result.attached
+          ? `${email.trim()} already had a Dentin login and now joins as ${ROLES[role].label.toLowerCase()}.`
+          : `${email.trim()} will get an email to set a password, then joins as ${ROLES[role].label.toLowerCase()}.`,
+      })
+      setInviting(false)
+      setEmail('')
+    } catch (e) {
+      toast({ title: 'Could not invite', body: e.message, tone: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const remove = async (member) => {
+    try {
+      await removeTeammate(member.id)
+      setDetail(null)
+      toast({
+        title: `${member.name} removed`,
+        body: 'They keep their account and stay named on past movements.',
+      })
+    } catch (e) {
+      toast({ title: 'Could not remove', body: e.message, tone: 'error' })
+    }
   }
 
   return (
@@ -137,6 +167,7 @@ export default function Team() {
           <Button
             className="w-full"
             size="lg"
+            loading={busy}
             disabled={!email.includes('@')}
             onClick={invite}
           >
@@ -232,6 +263,17 @@ export default function Team() {
                 showProduct
               />
             </Section>
+
+            {detail.role !== 'owner' ? (
+              <Section footer="They keep their own account and stay named on every movement they recorded.">
+                <Row
+                  title="Remove from this practice"
+                  destructive
+                  chevron={false}
+                  onClick={() => remove(detail)}
+                />
+              </Section>
+            ) : null}
           </div>
         ) : null}
       </Sheet>
