@@ -19,6 +19,7 @@ import Screen from '@/components/ui/Screen'
 import { Gauge, Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import Sparkline from '@/components/charts/Sparkline'
+import InstallPrompt from '@/components/InstallPrompt'
 import { useData } from '@/hooks/useData'
 import {
   getPractice,
@@ -153,6 +154,8 @@ export default function Dashboard() {
         </>
       }
     >
+      <InstallPrompt />
+
       <p className="section-label pt-3">{format(new Date(), 'EEEE, MMMM d')}</p>
 
       {/* The one thing that stops clinical work today */}
