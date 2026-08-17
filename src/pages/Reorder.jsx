@@ -489,6 +489,13 @@ export default function Reorder() {
               ? `Create ${groups.length} purchase orders`
               : 'Create the purchase order'}
           </Button>
+          {/* Say it before the tap, not after: Dentin writes the PO, the
+              practice places it on their own vendor account. */}
+          <p className="mt-2 text-center text-caption text-white/75">
+            Dentin writes and prices the PO — you place it with{' '}
+            {groups.length === 1 ? groups[0].supplierName : 'each vendor'} on your own account,
+            then check it in when it lands.
+          </p>
         </div>
       ) : null}
 

@@ -5,6 +5,7 @@ import {
   Boxes,
   Check,
   ScanLine,
+  Send,
   Share,
   ShoppingCart,
   Smartphone,
@@ -39,7 +40,12 @@ const STEPS = [
   {
     Icon: ShoppingCart,
     title: 'Build the order in one pass',
-    body: 'Reorder gathers everything below par, prices it split across vendors or consolidated with one, and warns you when something is already on the way. Change any quantity or vendor before it sends.',
+    body: 'Reorder gathers everything below par, prices it split across vendors or consolidated with one, and warns you when something is already on the way. Change any quantity or vendor before you commit.',
+  },
+  {
+    Icon: Send,
+    title: 'You place it, Dentin tracks it',
+    body: 'Dentin writes and prices the purchase order — it does not send it to the distributor. Open the PO and you get it ready to copy, plus the vendor’s site and phone. Order on your own vendor account so your contract pricing applies, tap "I placed this order", and check the boxes in when they arrive.',
   },
   {
     Icon: Bell,
