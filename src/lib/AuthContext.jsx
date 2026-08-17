@@ -102,34 +102,68 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const signIn = useCallback(async ({ email, password }) => {
-    if (!isSupabaseConfigured) {
-      // Signing in claims an existing practice — no setup wizard.
-      localStorage.setItem(DEMO_KEY, 'true')
-      localStorage.setItem(ONBOARDED_KEY, 'true')
-      setOnboarded(true)
-      setSession({ demo: true })
-      return { error: null }
-    }
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+  /**
+   * A real sign-in always wins over a leftover demo preview.
+   *
+   * The preview short-circuits the Supabase session listener, so without
+   * this a browser that once opened the demo would accept the password and
+   * then bounce straight back to the door — signed in as far as Supabase is
+   * concerned, signed out as far as the app could tell. Clearing the flags
+   * is not enough on its own: the modules read them at load, so a real
+   * session has to land on a fresh page.
+   */
+  const clearPreview = useCallback(() => {
+    localStorage.removeItem(DEMO_MODE_KEY)
+    localStorage.removeItem(DEMO_KEY)
+    if (PREVIEWING) localStorage.removeItem(ONBOARDED_KEY)
   }, [])
 
-  const signUp = useCallback(async ({ email, password, fullName }) => {
-    if (!isSupabaseConfigured) {
-      localStorage.setItem(DEMO_KEY, 'true')
-      setSession({ demo: true })
-      return { error: null }
+  const reloadIfPreviewing = useCallback(() => {
+    if (PREVIEWING) {
+      window.location.assign('/')
+      return true
     }
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName } },
-    })
-    // With email confirmation on (Supabase default), signUp succeeds with no
-    // session — the caller must say "check your inbox", not bounce silently.
-    return { error, needsConfirmation: !error && !data?.session }
+    return false
   }, [])
+
+  const signIn = useCallback(
+    async ({ email, password }) => {
+      if (!isSupabaseConfigured) {
+        // Signing in claims an existing practice — no setup wizard.
+        localStorage.setItem(DEMO_KEY, 'true')
+        localStorage.setItem(ONBOARDED_KEY, 'true')
+        setOnboarded(true)
+        setSession({ demo: true })
+        return { error: null }
+      }
+      clearPreview()
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (!error) reloadIfPreviewing()
+      return { error }
+    },
+    [clearPreview, reloadIfPreviewing],
+  )
+
+  const signUp = useCallback(
+    async ({ email, password, fullName }) => {
+      if (!isSupabaseConfigured) {
+        localStorage.setItem(DEMO_KEY, 'true')
+        setSession({ demo: true })
+        return { error: null }
+      }
+      clearPreview()
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } },
+      })
+      // With email confirmation on (Supabase default), signUp succeeds with no
+      // session — the caller must say "check your inbox", not bounce silently.
+      if (!error && data?.session) reloadIfPreviewing()
+      return { error, needsConfirmation: !error && !data?.session }
+    },
+    [clearPreview, reloadIfPreviewing],
+  )
 
   /**
    * Google sign-in. Supabase bounces through Google and returns to the app
@@ -143,6 +177,8 @@ export function AuthProvider({ children }) {
       setSession({ demo: true })
       return { error: null }
     }
+    // Google returns to a fresh page load, so clearing here is enough.
+    clearPreview()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -151,23 +187,31 @@ export function AuthProvider({ children }) {
       },
     })
     return { error }
-  }, [])
+  }, [clearPreview])
 
   /**
    * Confirm a new account with the 6-digit code from the signup email.
    * Supabase names this token type differently across versions, so try the
    * signup type first and fall back to the generic email OTP.
    */
-  const verifyEmailCode = useCallback(async ({ email, token }) => {
-    if (!isSupabaseConfigured) return { error: null }
-    const code = String(token).replace(/\D/g, '')
-    let { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' })
-    if (error) {
-      const retry = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
-      if (!retry.error) return { error: null }
-    }
-    return { error }
-  }, [])
+  const verifyEmailCode = useCallback(
+    async ({ email, token }) => {
+      if (!isSupabaseConfigured) return { error: null }
+      const code = String(token).replace(/\D/g, '')
+      clearPreview()
+      let { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' })
+      if (error) {
+        const retry = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+        if (!retry.error) {
+          reloadIfPreviewing()
+          return { error: null }
+        }
+      }
+      if (!error) reloadIfPreviewing()
+      return { error }
+    },
+    [clearPreview, reloadIfPreviewing],
+  )
 
   /** Send the confirmation code again. */
   const resendEmailCode = useCallback(async (email) => {
