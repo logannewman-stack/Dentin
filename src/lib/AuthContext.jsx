@@ -121,6 +121,29 @@ export function AuthProvider({ children }) {
     return { error, needsConfirmation: !error && !data?.session }
   }, [])
 
+  /**
+   * Confirm a new account with the 6-digit code from the signup email.
+   * Supabase names this token type differently across versions, so try the
+   * signup type first and fall back to the generic email OTP.
+   */
+  const verifyEmailCode = useCallback(async ({ email, token }) => {
+    if (!isSupabaseConfigured) return { error: null }
+    const code = String(token).replace(/\D/g, '')
+    let { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' })
+    if (error) {
+      const retry = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+      if (!retry.error) return { error: null }
+    }
+    return { error }
+  }, [])
+
+  /** Send the confirmation code again. */
+  const resendEmailCode = useCallback(async (email) => {
+    if (!isSupabaseConfigured) return { error: null }
+    const { error } = await supabase.auth.resend({ type: 'signup', email })
+    return { error }
+  }, [])
+
   /** Email a recovery link. Always resolves the same way — telling a
    *  stranger whether an address has an account is a data leak. */
   const requestPasswordReset = useCallback(async (email) => {
@@ -177,6 +200,8 @@ export function AuthProvider({ children }) {
       completeOnboarding,
       requestPasswordReset,
       updatePassword,
+      verifyEmailCode,
+      resendEmailCode,
     }),
     [
       session,
@@ -189,6 +214,8 @@ export function AuthProvider({ children }) {
       completeOnboarding,
       requestPasswordReset,
       updatePassword,
+      verifyEmailCode,
+      resendEmailCode,
     ],
   )
 

@@ -13,7 +13,15 @@ const PROOF = [
 
 export default function Welcome() {
   const navigate = useNavigate()
-  const { signIn, signUp, exploreDemo, isDemoAuth, requestPasswordReset } = useAuth()
+  const {
+    signIn,
+    signUp,
+    exploreDemo,
+    isDemoAuth,
+    requestPasswordReset,
+    verifyEmailCode,
+    resendEmailCode,
+  } = useAuth()
 
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
@@ -23,6 +31,7 @@ export default function Welcome() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [code, setCode] = useState('')
 
   const submit = async (e) => {
     e.preventDefault()
@@ -36,16 +45,42 @@ export default function Welcome() {
         setError(err.message)
         return
       }
-      // Email confirmation on: there is no session yet, so navigating would
-      // just bounce back here looking broken — say what happens next instead.
+      // Confirmation on: there is no session yet. Collect the emailed code
+      // here rather than sending people off to their inbox and back.
       if (mode === 'signup' && needsConfirmation) {
-        setNotice(`Almost there — we emailed a confirmation link to ${email}. Open it, then sign in here.`)
-        setMode('signin')
+        setMode('verify')
+        setNotice(`We sent a 6-digit code to ${email}.`)
         return
       }
       navigate(mode === 'signup' ? '/onboarding' : '/', { replace: true })
     } catch (err) {
       setError(err.message ?? 'Something went wrong.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const submitCode = async (e) => {
+    e.preventDefault()
+    if (code.replace(/\D/g, '').length < 6) {
+      setError('Enter all six digits.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const { error: err } = await verifyEmailCode({ email, token: code })
+      if (err) {
+        setError(
+          /expired|invalid/i.test(err.message)
+            ? 'That code is wrong or has expired. Send a new one below.'
+            : err.message,
+        )
+        return
+      }
+      navigate('/onboarding', { replace: true })
+    } catch (err) {
+      setError(err.message ?? 'Could not verify that code.')
     } finally {
       setBusy(false)
     }
@@ -97,8 +132,8 @@ export default function Welcome() {
           transition={{ duration: 0.5, delay: 0.08, ease: [0.32, 0.72, 0, 1] }}
           className="mt-8 rounded-[4px] bg-white/10 p-1.5 backdrop-blur-xl"
         >
-          {/* Segmented sign-in / create */}
-          <div className="flex gap-1 rounded-[4px] bg-black/15 p-1">
+          {/* Segmented sign-in / create — hidden while confirming a code */}
+          <div className={cn('flex gap-1 rounded-[4px] bg-black/15 p-1', mode === 'verify' && 'hidden')}>
             {[
               { key: 'signin', label: 'Sign in' },
               { key: 'signup', label: 'Create account' },
@@ -121,6 +156,80 @@ export default function Welcome() {
             ))}
           </div>
 
+          {mode === 'verify' ? (
+            <form onSubmit={submitCode} className="p-3.5 pt-4">
+              <p className="text-body font-semibold text-white">Check your email</p>
+              <p className="mt-1 text-footnote text-white/70">
+                Enter the 6-digit code we sent to <b className="text-white/90">{email}</b>.
+              </p>
+
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                placeholder="000000"
+                aria-label="6-digit verification code"
+                className="tnum mt-3.5 h-[54px] w-full rounded-[4px] border border-white/20 bg-black/25 text-center text-title2 font-bold tracking-[0.4em] text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-white/50"
+              />
+
+              {error ? (
+                <p role="alert" className="mt-3 text-footnote text-[#FFC7C2]">
+                  {error}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={busy}
+                className="mt-4 flex h-[50px] w-full items-center justify-center gap-2 rounded-[4px] bg-white text-body font-semibold text-brand-800 transition-opacity active:opacity-80 disabled:opacity-60"
+              >
+                {busy ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    Verify and continue
+                    <ArrowRight size={17} strokeWidth={2.4} />
+                  </>
+                )}
+              </button>
+
+              <div className="mt-3 flex items-center justify-center gap-4 text-footnote text-white/65">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setError(null)
+                    const { error: err } = await resendEmailCode(email)
+                    setNotice(err ? null : 'A new code is on its way.')
+                    if (err) setError(err.message)
+                  }}
+                  className="press"
+                >
+                  Send a new code
+                </button>
+                <span aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signup')
+                    setCode('')
+                    setError(null)
+                    setNotice(null)
+                  }}
+                  className="press"
+                >
+                  Use a different email
+                </button>
+              </div>
+
+              {notice ? (
+                <p role="status" className="mt-3 text-center text-footnote text-[#C8F5D0]">
+                  {notice}
+                </p>
+              ) : null}
+            </form>
+          ) : (
           <form onSubmit={submit} className="p-3.5 pt-4">
             {mode === 'signup' ? (
               <label className="mb-2.5 block">
@@ -226,6 +335,7 @@ export default function Welcome() {
               )}
             </button>
           </form>
+          )}
         </motion.div>
 
         {/* Proof points */}
