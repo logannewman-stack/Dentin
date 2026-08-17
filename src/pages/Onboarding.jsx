@@ -20,9 +20,11 @@ import { SearchField, SegmentedControl } from '@/components/ui/Controls'
 import { queueWalkthrough } from '@/components/Walkthrough'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import {
+  captureReferralCode,
   claimPracticeShell,
   completePracticeSetup,
   getSubscription,
+  setReferralCode,
   startSubscriptionCheckout,
 } from '@/lib/repository'
 import { useData } from '@/hooks/useData'
@@ -158,6 +160,8 @@ export default function Onboarding() {
   const [trialBusy, setTrialBusy] = useState(false)
   const [trialError, setTrialError] = useState(null)
   const [checkoutReturn, setCheckoutReturn] = useState(null)
+  // Whoever referred them — from a ?ref= share link, or typed here.
+  const [referral, setReferral] = useState(() => captureReferralCode() ?? '')
   const subActive =
     ['active', 'trialing', 'past_due'].includes(sub?.status) || checkoutReturn === 'success'
 
@@ -562,9 +566,19 @@ export default function Onboarding() {
                         {trialError}
                       </p>
                     ) : null}
+                    <Field
+                      label="Referral or promo code (optional)"
+                      value={referral}
+                      onChange={(v) => {
+                        setReferral(v)
+                        setReferralCode(v)
+                      }}
+                      placeholder="e.g. tonyacode2026"
+                    />
                     <p className="px-1 text-footnote text-label-3">
-                      Checkout and card details are handled by Stripe — Dentin never sees the
-                      number. Have a promo code? Enter it on the checkout page.
+                      {referral.trim()
+                        ? `We'll apply ${referral.trim()} at checkout — one code per subscription, so it replaces any other.`
+                        : 'Checkout and card details are handled by Stripe — Dentin never sees the number. Have a code? Enter it above or on the checkout page.'}
                     </p>
                   </>
                 )

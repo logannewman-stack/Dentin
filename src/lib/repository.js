@@ -2354,9 +2354,42 @@ async function billingRedirect(path, payload) {
 }
 
 /** Redirects to Stripe Checkout (subscription with trial). */
+const REFERRAL_KEY = 'dentin:referral'
+
+/**
+ * Remember who sent them. An affiliate shares
+ * dentininventory.com/?ref=tonyacode2026; the code is kept until checkout,
+ * where it becomes both the customer's discount and the attribution.
+ */
+export function captureReferralCode() {
+  if (typeof window === 'undefined') return null
+  const fromUrl = new URLSearchParams(window.location.search).get('ref')
+  if (fromUrl) {
+    const clean = fromUrl.trim().slice(0, 64)
+    if (clean) localStorage.setItem(REFERRAL_KEY, clean)
+  }
+  return localStorage.getItem(REFERRAL_KEY)
+}
+
+export function referralCode() {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(REFERRAL_KEY)
+}
+
+export function setReferralCode(code) {
+  const clean = String(code ?? '').trim().slice(0, 64)
+  if (clean) localStorage.setItem(REFERRAL_KEY, clean)
+  else localStorage.removeItem(REFERRAL_KEY)
+}
+
 export async function startSubscriptionCheckout(plan = 'annual', returnTo) {
   if (isDemo) throw new Error('Billing activates once the app runs on Supabase with Stripe keys.')
-  return billingRedirect('/api/billing/checkout', { plan, ...(returnTo ? { returnTo } : {}) })
+  const ref = referralCode()
+  return billingRedirect('/api/billing/checkout', {
+    plan,
+    ...(returnTo ? { returnTo } : {}),
+    ...(ref ? { referralCode: ref } : {}),
+  })
 }
 
 /**
