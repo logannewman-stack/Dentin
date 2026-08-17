@@ -5,6 +5,30 @@ import { ArrowRight, Compass, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-r
 import { useAuth } from '@/lib/AuthContext'
 import { cn } from '@/lib/utils'
 
+/** Google's mark, inline — brand assets may not be recoloured or redrawn. */
+function GoogleMark(props) {
+  return (
+    <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true" {...props}>
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
+  )
+}
+
 const PROOF = [
   'Par levels that account for supplier lead time',
   'Every SKU priced across seven suppliers',
@@ -21,6 +45,7 @@ export default function Welcome() {
     requestPasswordReset,
     verifyEmailCode,
     resendEmailCode,
+    signInWithGoogle,
   } = useAuth()
 
   const [mode, setMode] = useState('signin')
@@ -231,6 +256,30 @@ export default function Welcome() {
             </form>
           ) : (
           <form onSubmit={submit} className="p-3.5 pt-4">
+            {/* Most practices run on Google Workspace — one tap, no password
+                to invent or forget. */}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={async () => {
+                setError(null)
+                const { error: err } = await signInWithGoogle()
+                if (err) setError(err.message)
+              }}
+              className="press mb-3 flex h-[50px] w-full items-center justify-center gap-2.5 rounded-[4px] bg-white text-body font-semibold text-[#1F1F1F] transition-opacity active:opacity-85 disabled:opacity-60"
+            >
+              <GoogleMark />
+              Continue with Google
+            </button>
+
+            <div className="mb-3 flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-white/15" />
+              <span className="text-caption font-medium uppercase tracking-[0.5px] text-white/45">
+                or use email
+              </span>
+              <span className="h-px flex-1 bg-white/15" />
+            </div>
+
             {mode === 'signup' ? (
               <label className="mb-2.5 block">
                 <span className="mb-1 block text-caption font-medium uppercase tracking-[0.4px] text-white/60">

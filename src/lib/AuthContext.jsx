@@ -122,6 +122,28 @@ export function AuthProvider({ children }) {
   }, [])
 
   /**
+   * Google sign-in. Supabase bounces through Google and returns to the app
+   * with the session in the URL, which the client picks up
+   * (detectSessionInUrl). New Google accounts land in onboarding exactly
+   * like email signups — the gate decides, not this call.
+   */
+  const signInWithGoogle = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      localStorage.setItem(DEMO_KEY, 'true')
+      setSession({ demo: true })
+      return { error: null }
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+        queryParams: { prompt: 'select_account' },
+      },
+    })
+    return { error }
+  }, [])
+
+  /**
    * Confirm a new account with the 6-digit code from the signup email.
    * Supabase names this token type differently across versions, so try the
    * signup type first and fall back to the generic email OTP.
@@ -202,6 +224,7 @@ export function AuthProvider({ children }) {
       updatePassword,
       verifyEmailCode,
       resendEmailCode,
+      signInWithGoogle,
     }),
     [
       session,
@@ -216,6 +239,7 @@ export function AuthProvider({ children }) {
       updatePassword,
       verifyEmailCode,
       resendEmailCode,
+      signInWithGoogle,
     ],
   )
 
