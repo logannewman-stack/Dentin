@@ -1142,21 +1142,34 @@ export async function getOrder(id) {
       },
     )
 
-    return { ...order, lines }
+    const supplier = SUPPLIERS.find((s2) => s2.id === order.supplierId)
+    return {
+      ...order,
+      supplierWebsite: supplier?.website ?? null,
+      supplierPhone: supplier?.supportPhone ?? null,
+      lines,
+    }
   }
 
   const { data, error } = await supabase
     .from('orders')
-    .select('*, suppliers(name), order_items(*, products(name, brand, unit))')
+    .select(
+      '*, suppliers(name, website, support_phone), order_items(*, products(name, brand, unit))',
+    )
     .eq('id', id)
-    .single()
+    .maybeSingle()
   if (error) throw error
+  if (!data) throw new Error('Order not found')
 
   return {
     id: data.id,
     reference: data.reference,
     supplierId: data.supplier_id,
     supplierName: data.suppliers?.name,
+    supplierWebsite: data.suppliers?.website ?? null,
+    supplierPhone: data.suppliers?.support_phone ?? null,
+    sentAt: data.sent_at ?? null,
+    sentMethod: data.sent_method ?? null,
     locationId: data.location_id,
     status: data.status,
     subtotal: Number(data.subtotal),
@@ -1182,6 +1195,61 @@ export async function getOrder(id) {
       lineTotal: Number(l.line_total),
     })),
   }
+}
+
+/**
+ * Record that this PO actually reached the vendor.
+ *
+ * Dentin builds and prices the order; a human still sends it through the
+ * distributor's portal, phone or rep. Until that happens the order is issued
+ * but not on its way, and the app says so rather than implying delivery.
+ */
+export async function markOrderSent(orderId, { method = 'portal' } = {}) {
+  const sentAt = new Date().toISOString()
+
+  if (isDemo) {
+    const order = store().orders.find((o) => o.id === orderId)
+    if (!order) throw new Error('Order not found')
+    order.sentAt = sentAt
+    order.sentMethod = method
+    emit()
+    return { ok: true, sentAt }
+  }
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ sent_at: sentAt, sent_method: method })
+    .eq('id', orderId)
+  if (error) throw error
+  emit()
+  return { ok: true, sentAt }
+}
+
+/** The PO as plain text — what gets pasted into a portal or emailed to a rep. */
+export function formatPurchaseOrder(order, practice) {
+  const lines = (order.lines ?? []).map(
+    (l) =>
+      `${String(l.quantity).padStart(4)} × ${l.productName}${l.brand ? ` (${l.brand})` : ''}` +
+      `  @ ${l.unitPrice.toFixed(2)}  = ${(l.quantity * l.unitPrice).toFixed(2)}`,
+  )
+  return [
+    `PURCHASE ORDER ${order.reference ?? ''}`.trim(),
+    `Vendor: ${order.supplierName ?? ''}`,
+    practice?.name ? `Practice: ${practice.name}` : null,
+    practice?.address1
+      ? `Ship to: ${[practice.address1, practice.address2, practice.city, practice.region, practice.postalCode]
+          .filter(Boolean)
+          .join(', ')}`
+      : null,
+    practice?.phone ? `Phone: ${practice.phone}` : null,
+    '',
+    ...lines,
+    '',
+    `Subtotal: ${Number(order.subtotal ?? 0).toFixed(2)}`,
+    `Total (est.): ${Number(order.total ?? 0).toFixed(2)}`,
+  ]
+    .filter((l) => l !== null)
+    .join('\n')
 }
 
 /**

@@ -4,14 +4,14 @@ import {
   ArrowRight,
   Check,
   ChevronLeft,
-  PackageCheck,
+  Plus,
   Scale,
   Sparkles,
   TrendingDown,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
 import { Row, Section } from '@/components/ui/List'
-import { EmptyState, Pill, SegmentedControl, Stepper } from '@/components/ui/Controls'
+import { Pill, SearchField, SegmentedControl, Stepper } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import Sheet from '@/components/ui/Sheet'
 import ProductTile from '@/components/ProductTile'
@@ -21,6 +21,7 @@ import {
   compareOffers,
   createOrder,
   getBasketLandedAnalysis,
+  listCatalog,
   reorderSuggestions,
 } from '@/lib/repository'
 import { money, qty, unitMoney } from '@/lib/format'
@@ -108,8 +109,15 @@ export default function Reorder() {
   const toast = useToast()
   const { data: suggestions, loading } = useData(() => reorderSuggestions(), [])
 
+  // Everything orderable, not just what is already tracked — a practice that
+  // has counted nothing yet still needs to be able to buy gloves today.
+  const { data: catalog } = useData(() => listCatalog(), [])
+
   const [selected, setSelected] = useState({})
   const [quantities, setQuantities] = useState({})
+  // Catalog additions: productId → quantity, for things not tracked yet.
+  const [extras, setExtras] = useState({})
+  const [query, setQuery] = useState('')
   // Per-line vendor overrides: line id → supplierId the buyer picked.
   const [vendorChoice, setVendorChoice] = useState({})
   const [strategy, setStrategy] = useState('split')
@@ -125,30 +133,73 @@ export default function Reorder() {
     setQuantities(Object.fromEntries(suggestions.map((s) => [s.id, Math.max(1, s.suggestedQty)])))
   }, [suggestions])
 
-  // Pull the full offer table for everything on the list.
+  // Price only what is actually on the order — pulling every vendor's price
+  // for the whole catalog would be a lot of work nobody asked for.
+  const pricedIds = useMemo(() => {
+    const ids = new Set()
+    for (const s of suggestions ?? []) if (selected[s.id]) ids.add(s.productId)
+    for (const pid of Object.keys(extras)) ids.add(pid)
+    return [...ids]
+  }, [suggestions, selected, extras])
+  const pricedKey = pricedIds.join(',')
+
   useEffect(() => {
-    if (!suggestions?.length) return
+    if (!pricedIds.length) return undefined
     let cancelled = false
-    Promise.all(
-      [...new Set(suggestions.map((s) => s.productId))].map(async (pid) => [
-        pid,
-        await compareOffers(pid),
-      ]),
-    ).then((pairs) => {
-      if (!cancelled) setOffers(Object.fromEntries(pairs))
+    Promise.all(pricedIds.map(async (pid) => [pid, await compareOffers(pid)])).then((pairs) => {
+      if (!cancelled) setOffers((prev) => ({ ...prev, ...Object.fromEntries(pairs) }))
     })
     return () => {
       cancelled = true
     }
-  }, [suggestions])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricedKey])
 
-  const lines = useMemo(
-    () =>
-      (suggestions ?? [])
-        .filter((s) => selected[s.id])
-        .map((s) => ({ ...s, quantity: quantities[s.id] ?? s.suggestedQty })),
-    [suggestions, selected, quantities],
-  )
+  const lines = useMemo(() => {
+    const fromStock = (suggestions ?? [])
+      .filter((s) => selected[s.id])
+      .map((s) => ({ ...s, quantity: quantities[s.id] ?? s.suggestedQty }))
+    const tracked = new Set(fromStock.map((l) => l.productId))
+    const fromCatalog = Object.entries(extras)
+      .filter(([pid]) => !tracked.has(pid))
+      .map(([pid, quantity]) => {
+        const p = (catalog ?? []).find((c) => c.productId === pid)
+        return {
+          id: `add-${pid}`,
+          productId: pid,
+          productName: p?.productName ?? pid,
+          brand: p?.brand,
+          unit: p?.unit,
+          imageUrl: p?.imageUrl,
+          parLevel: 0,
+          onHand: 0,
+          quantity,
+        }
+      })
+    return [...fromStock, ...fromCatalog]
+  }, [suggestions, selected, quantities, extras, catalog])
+
+  // The orderable catalog, filtered and grouped by first letter.
+  const browse = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const rows = (catalog ?? [])
+      .filter(
+        (p) =>
+          !q ||
+          p.productName.toLowerCase().includes(q) ||
+          (p.brand ?? '').toLowerCase().includes(q) ||
+          (p.categoryName ?? '').toLowerCase().includes(q) ||
+          (p.gtin ?? '').includes(q),
+      )
+      .sort((a, b) => a.productName.localeCompare(b.productName))
+    const groups = new Map()
+    for (const p of rows) {
+      const letter = (p.productName[0] ?? '#').toUpperCase()
+      if (!groups.has(letter)) groups.set(letter, [])
+      groups.get(letter).push(p)
+    }
+    return { rows, groups: [...groups.entries()] }
+  }, [catalog, query])
 
   const pricing = useMemo(
     () => (lines.length ? priceBasket(lines, offersByProduct, vendorChoice) : null),
@@ -264,38 +315,16 @@ export default function Reorder() {
     )
   }
 
-  if (!suggestions?.length) {
-    return (
-      <Screen
-        title="Reorder"
-        largeTitle={false}
-        leading={
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-          >
-            <ChevronLeft size={24} strokeWidth={2.2} />
-            <span className="text-body">Back</span>
-          </button>
-        }
-      >
-        <EmptyState
-          icon={PackageCheck}
-          title="Nothing to reorder"
-          body="Every tracked item is above its reorder point."
-          action={<Button to="/inventory">Browse inventory</Button>}
-        />
-      </Screen>
-    )
-  }
-
   const groups = active ? [...active.supplierGroups.values()] : []
 
   return (
     <Screen
       title="Build order"
-      subtitle={`${lines.length} of ${suggestions.length} items`}
+      subtitle={
+        lines.length
+          ? `${lines.length} item${lines.length === 1 ? '' : 's'} on this order`
+          : 'Search or browse everything you can order'
+      }
       largeTitle={false}
       leading={
         <button
@@ -307,18 +336,27 @@ export default function Reorder() {
           <span className="text-body">Back</span>
         </button>
       }
-    >
-      {/* Strategy */}
-      <div className="pb-1 pt-3">
-        <SegmentedControl
-          value={strategy}
-          onChange={setStrategy}
-          options={[
-            { value: 'split', label: 'Lowest price' },
-            { value: 'consolidate', label: 'Fewest shipments' },
-          ]}
+      toolbar={
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search everything you can order"
         />
-      </div>
+      }
+    >
+      {/* Strategy — only meaningful once something is on the order */}
+      {lines.length ? (
+        <div className="pb-1 pt-3">
+          <SegmentedControl
+            value={strategy}
+            onChange={setStrategy}
+            options={[
+              { value: 'split', label: 'Lowest price' },
+              { value: 'consolidate', label: 'Fewest shipments' },
+            ]}
+          />
+        </div>
+      ) : null}
 
       {pricing && !pricing.consolidate && strategy === 'consolidate' ? (
         <p className="px-1 pt-2 text-footnote text-ios-orange">
@@ -380,8 +418,8 @@ export default function Reorder() {
             onClick={place}
           >
             {strategy === 'split' && groups.length > 1
-              ? `Place ${groups.length} orders`
-              : 'Place order'}
+              ? `Create ${groups.length} purchase orders`
+              : 'Create the purchase order'}
           </Button>
         </div>
       ) : null}
@@ -533,9 +571,13 @@ export default function Reorder() {
         </Section>
       ))}
 
-      {/* Everything available, toggleable */}
-      <Section title="On the list" footer="Tap to include or exclude an item from this order.">
-        {suggestions.map((s) => {
+      {/* Below par — the reason this screen usually gets opened */}
+      {suggestions?.length ? (
+        <Section
+          title="Below par"
+          footer="Tap to include or exclude an item from this order."
+        >
+          {suggestions.map((s) => {
           const on = Boolean(selected[s.id])
           return (
             <Row
@@ -569,8 +611,78 @@ export default function Reorder() {
                 </Pill>
               }
             />
-          )
-        })}
+            )
+          })}
+        </Section>
+      ) : null}
+
+      {/* Everything a practice can order, A to Z */}
+      <Section
+        title={query.trim() ? `Results · ${browse.rows.length}` : 'Everything you can order'}
+        footer={
+          query.trim()
+            ? undefined
+            : 'The full catalog, alphabetically. Add anything — it does not have to be tracked first.'
+        }
+      >
+        {browse.rows.length === 0 ? (
+          <div className="px-3 py-6 text-center">
+            <p className="text-subhead text-label-2">
+              Nothing matches “{query.trim()}”.
+            </p>
+            <p className="mt-1 text-footnote text-label-3">
+              Try a brand or a category — or scan the barcode to add it.
+            </p>
+          </div>
+        ) : (
+          browse.groups.map(([letter, items]) => (
+            <div key={letter}>
+              <p className="border-b border-line bg-surface-2/60 px-3 py-1 text-caption font-bold uppercase tracking-[0.06em] text-label-3">
+                {letter}
+              </p>
+              {items.map((p) => {
+                const onOrder = extras[p.productId]
+                return (
+                  <Row
+                    key={p.productId}
+                    chevron={false}
+                    leading={<ProductTile product={p} size={36} imageUrl={p.imageUrl} />}
+                    title={p.productName}
+                    subtitle={[p.brand, p.unit, p.categoryName].filter(Boolean).join(' · ')}
+                    trailing={
+                      onOrder ? (
+                        <Stepper
+                          value={onOrder}
+                          onChange={(v) =>
+                            setExtras((prev) => {
+                              if (v <= 0) {
+                                const next = { ...prev }
+                                delete next[p.productId]
+                                return next
+                              }
+                              return { ...prev, [p.productId]: v }
+                            })
+                          }
+                          min={0}
+                          max={999}
+                        />
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          icon={Plus}
+                          onClick={() => setExtras((prev) => ({ ...prev, [p.productId]: 1 }))}
+                        >
+                          Add
+                        </Button>
+                      )
+                    }
+                  />
+                )
+              })}
+            </div>
+          ))
+        )}
       </Section>
 
       {/* Line editor: how many, and from whom */}
@@ -692,11 +804,19 @@ export default function Reorder() {
               <Check size={30} strokeWidth={2.6} />
             </span>
             <h3 className="text-title3 font-semibold">
-              {placed.count === 1 ? 'Order submitted' : `${placed.count} orders submitted`}
+              {placed.count === 1
+                ? 'Purchase order ready'
+                : `${placed.count} purchase orders ready`}
             </h3>
             <p className="mt-1.5 text-subhead text-label-3">
               {money(placed.total)} total
               {placed.savings > 0 ? ` · ${money(placed.savings)} below list` : ''}
+            </p>
+            {/* Never let anyone leave this sheet thinking gloves are on a truck. */}
+            <p className="mt-3 text-footnote text-label-2">
+              Priced and written up — but not sent yet. Open{' '}
+              {placed.count === 1 ? 'it' : 'each one'} to copy the PO into your vendor&apos;s
+              portal or call it in, then mark it as placed.
             </p>
           </div>
         ) : null}

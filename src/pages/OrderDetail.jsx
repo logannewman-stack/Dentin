@@ -4,9 +4,12 @@ import {
   BadgeCheck,
   Check,
   ChevronLeft,
+  Copy,
   CreditCard,
+  ExternalLink,
   Landmark,
   PackageCheck,
+  Phone,
   Send,
   Store,
   Truck,
@@ -21,8 +24,11 @@ import ProductTile from '@/components/ProductTile'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import {
+  formatPurchaseOrder,
   getOrder,
+  getPractice,
   listPaymentMethods,
+  markOrderSent,
   payOrder,
   receiveOrder,
   removeOrderLine,
@@ -49,6 +55,9 @@ export default function OrderDetail() {
 
   const { data: order, loading } = useData(() => getOrder(id), [id])
   const { data: methods } = useData(() => listPaymentMethods(), [])
+  const { data: practice } = useData(() => getPractice(), [])
+  const [sending, setSending] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [receiving, setReceiving] = useState(false)
   const [counts, setCounts] = useState({})
   const [busy, setBusy] = useState(false)
@@ -115,8 +124,10 @@ export default function OrderDetail() {
     try {
       const result = await submitDraftOrder(order.id)
       toast({
-        title: `${order.reference} sent to ${order.supplierName}`,
-        body: result.expectedAt ? `Arrives ~${fullDate(result.expectedAt)}` : undefined,
+        title: `${order.reference} is ready to send`,
+        body: `Place it with ${order.supplierName}, then mark it as placed.${
+          result.expectedAt ? ` Expect it ~${fullDate(result.expectedAt)}.` : ''
+        }`,
       })
     } catch (e) {
       toast({ title: 'Could not submit', body: e.message, tone: 'error' })
@@ -240,7 +251,7 @@ export default function OrderDetail() {
       {isDraft ? (
         <div className="mt-3">
           <Button className="w-full" size="lg" icon={Send} loading={busy} onClick={sendDraft}>
-            Submit to {order.supplierName}
+            Finalize this PO for {order.supplierName}
           </Button>
         </div>
       ) : outstanding.length > 0 ? (
@@ -325,6 +336,94 @@ export default function OrderDetail() {
           />
         ) : null}
       </Section>
+
+      {/* Send it. Dentin issues the PO; a human still transmits it, and the
+          app must not imply otherwise. */}
+      {order.status !== 'draft' && order.status !== 'cancelled' ? (
+        order.sentAt ? (
+          <div className="mt-4 flex items-start gap-2.5 rounded-card border border-line bg-surface p-3">
+            <BadgeCheck size={16} className="mt-0.5 shrink-0 text-ios-green" aria-hidden="true" />
+            <p className="text-subhead text-label-2">
+              Sent to {order.supplierName} on{' '}
+              <b className="text-label">{fullDate(order.sentAt)}</b>
+              {order.sentMethod ? ` · ${order.sentMethod}` : ''}. Check it in when the boxes
+              arrive.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-card border-2 border-ios-orange/40 bg-surface p-3">
+            <div className="flex items-start gap-2.5">
+              <Send size={16} className="mt-0.5 shrink-0 text-ios-orange" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="text-headline font-semibold">Not sent to the vendor yet</p>
+                <p className="mt-0.5 text-footnote text-label-2">
+                  Dentin built and priced this order — placing it with {order.supplierName} is
+                  still a human step. Copy it into their portal, or call it in.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={copied ? Check : Copy}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(formatPurchaseOrder(order, practice))
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 1600)
+                }}
+              >
+                {copied ? 'Copied' : 'Copy the PO'}
+              </Button>
+              {order.supplierWebsite ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={ExternalLink}
+                  onClick={() =>
+                    window.open(`https://${order.supplierWebsite}`, '_blank', 'noopener')
+                  }
+                >
+                  {order.supplierWebsite}
+                </Button>
+              ) : null}
+              {order.supplierPhone ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Phone}
+                  onClick={() => window.open(`tel:${order.supplierPhone}`)}
+                >
+                  Call
+                </Button>
+              ) : null}
+            </div>
+
+            <Button
+              className="mt-2.5 w-full"
+              size="md"
+              loading={sending}
+              onClick={async () => {
+                setSending(true)
+                try {
+                  await markOrderSent(order.id)
+                  toast({
+                    title: 'Marked as sent',
+                    body: `${order.reference} is on order with ${order.supplierName}.`,
+                  })
+                } catch (e) {
+                  toast({ title: 'Could not update', body: e.message, tone: 'error' })
+                } finally {
+                  setSending(false)
+                }
+              }}
+            >
+              I placed this order with {order.supplierName}
+            </Button>
+          </div>
+        )
+      ) : null}
 
       {/* Payment — settle the vendor without leaving the order */}
       {order.paymentStatus ? (
