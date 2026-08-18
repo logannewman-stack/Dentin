@@ -23,12 +23,21 @@
 -- A column default rather than app code: a practice created by onboarding, by
 -- a support script, or by hand in the SQL editor all need one, and only the
 -- database sees all three.
+--
+-- The token is a UUID with the dashes taken out — 32 hex characters, random
+-- enough that the address cannot be guessed. Deliberately NOT gen_random_bytes:
+-- that lives in pgcrypto, which is not reliably on the search path in a hosted
+-- SQL editor, and this whole file runs as one transaction — so that one
+-- function silently rolls back the other three migrations pasted with it.
+-- gen_random_uuid() is core Postgres and is already the default on every table
+-- in 0001, so it is known to work wherever this schema does.
 alter table practices
-  add column if not exists import_token text unique default encode(gen_random_bytes(9), 'hex');
+  add column if not exists import_token text unique
+  default replace(gen_random_uuid()::text, '-', '');
 
 -- Backfill the practices that already exist.
 update practices
-   set import_token = encode(gen_random_bytes(9), 'hex')
+   set import_token = replace(gen_random_uuid()::text, '-', '')
  where import_token is null;
 
 -- --------------------------------------------------------------------------
