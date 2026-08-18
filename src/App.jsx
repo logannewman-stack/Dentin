@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import TabBar from '@/components/ui/TabBar'
 import SideNav from '@/components/ui/SideNav'
+import DemoBanner from '@/components/DemoBanner'
 import { ToastProvider } from '@/components/ui/Toast'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
@@ -150,6 +151,7 @@ function AppRoutes() {
 
   return (
     <>
+      <DemoBanner />
       <Suspense fallback={<Loading />}>
         <RouteShell>
           <Routes>
