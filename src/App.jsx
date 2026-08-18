@@ -26,6 +26,7 @@ const Benchmark = lazy(() => import('@/pages/Benchmark'))
 const Value = lazy(() => import('@/pages/Value'))
 const Invoices = lazy(() => import('@/pages/Invoices'))
 const InvoiceImport = lazy(() => import('@/pages/InvoiceImport'))
+const InvoiceDetail = lazy(() => import('@/pages/InvoiceDetail'))
 const Expiry = lazy(() => import('@/pages/Expiry'))
 const Team = lazy(() => import('@/pages/Team'))
 const Account = lazy(() => import('@/pages/Account'))
@@ -167,8 +168,9 @@ function AppRoutes() {
             <Route path="/vendors/compare" element={<MarketScan />} />
             <Route path="/vendors/import" element={<ContractImport />} />
             <Route path="/vendors/benchmark" element={<Benchmark />} />
-            {/* /invoices/import stays above any future /invoices/:id */}
+            {/* /invoices/import and /:id stay above the main /invoices list */}
             <Route path="/invoices/import" element={<InvoiceImport />} />
+            <Route path="/invoices/:id" element={<InvoiceDetail />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/expiry" element={<Expiry />} />
             <Route path="/team" element={<Team />} />

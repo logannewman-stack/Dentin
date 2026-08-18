@@ -8,6 +8,7 @@ import {
   CreditCard,
   ExternalLink,
   Landmark,
+  Mail,
   PackageCheck,
   Phone,
   Send,
@@ -34,6 +35,7 @@ import {
   removeOrderLine,
   submitDraftOrder,
 } from '@/lib/repository'
+import { emailPurchaseOrder } from '@/lib/repo/sending'
 import { fullDate, money, qty, relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -64,6 +66,9 @@ export default function OrderDetail() {
   const [paying, setPaying] = useState(false)
   const [methodId, setMethodId] = useState(null)
   const [payBusy, setPayBusy] = useState(false)
+  const [showEmailSheet, setShowEmailSheet] = useState(false)
+  const [emailNote, setEmailNote] = useState('')
+  const [emailBusy, setEmailBusy] = useState(false)
 
   useEffect(() => {
     if (methods?.length && !methodId) {
@@ -367,6 +372,14 @@ export default function OrderDetail() {
               <Button
                 size="sm"
                 variant="secondary"
+                icon={Mail}
+                onClick={() => setShowEmailSheet(true)}
+              >
+                Email this PO
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
                 icon={copied ? Check : Copy}
                 onClick={async () => {
                   await navigator.clipboard.writeText(formatPurchaseOrder(order, practice))
@@ -598,6 +611,78 @@ export default function OrderDetail() {
               />
             </div>
           ))}
+        </div>
+      </Sheet>
+
+      {/* Email PO sheet */}
+      <Sheet
+        open={showEmailSheet}
+        onClose={() => {
+          setShowEmailSheet(false)
+          setEmailNote('')
+        }}
+        title="Email this PO"
+        detent="medium"
+        footer={
+          <Button
+            className="w-full"
+            size="lg"
+            loading={emailBusy}
+            onClick={async () => {
+              setEmailBusy(true)
+              try {
+                await emailPurchaseOrder(order, practice, { note: emailNote || undefined })
+                setShowEmailSheet(false)
+                setEmailNote('')
+                toast({
+                  title: 'PO sent',
+                  body: `Email sent to ${order.supplierName}'s rep`,
+                })
+                // Mark as sent after email
+                try {
+                  await markOrderSent(order.id)
+                } catch (e) {
+                  console.error('Failed to mark sent:', e)
+                }
+              } catch (error) {
+                toast({
+                  title: 'Failed to send email',
+                  body: error.message,
+                  tone: 'error',
+                })
+              } finally {
+                setEmailBusy(false)
+              }
+            }}
+          >
+            Send email
+          </Button>
+        }
+      >
+        <div className="space-y-3 px-1 pb-2 pt-1">
+          <div className="rounded-card border border-line bg-surface-2 p-3">
+            <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              To
+            </p>
+            <p className="mt-1 text-subhead font-medium text-label">{order.supplierName}</p>
+            <p className="text-caption text-label-3">Sales rep contact on file</p>
+          </div>
+
+          <div>
+            <p className="section-label">Special instructions (optional)</p>
+            <textarea
+              value={emailNote}
+              onChange={(e) => setEmailNote(e.target.value)}
+              placeholder="e.g., Rush delivery needed, different billing address, etc."
+              className="w-full rounded-card border border-line bg-surface p-3 font-system text-subhead text-label outline-none placeholder-label-3 transition-colors focus:border-brand-600 focus:bg-surface-2 dark:focus:border-brand-400"
+              rows={4}
+            />
+          </div>
+
+          <p className="text-caption text-label-3">
+            The PO will include all {order.lines.length} items, line prices, totals, and your
+            contact email for confirmation.
+          </p>
         </div>
       </Sheet>
     </Screen>
