@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   BadgeCheck,
   ChevronLeft,
+  ChevronRight,
   CircleHelp,
   Hash,
   ScanBarcode,
@@ -18,12 +19,18 @@ import ProductTile from '@/components/ProductTile'
 import AddToOrder from '@/components/AddToOrder'
 import { VendorStatus } from '@/components/VendorBadge'
 import { useData } from '@/hooks/useData'
-import { findVendorPrices } from '@/lib/repository'
+import { findVendorPrices, getBenchmarkForProduct } from '@/lib/repository'
 import { MATCH_CONFIDENCE } from '@/lib/demoData'
 import { money, unitMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const MATCH_ICON = { gtin: ScanBarcode, mpn: Hash, name: CircleHelp }
+
+const BENCHMARK_STANDING = {
+  above: { tone: 'warning', label: 'Above market' },
+  typical: { tone: 'quiet', label: 'Typical' },
+  below: { tone: 'good', label: 'Below market' },
+}
 
 /** How a vendor's listing was tied to this exact product. */
 function MatchBadge({ matchedBy, onExplain }) {
@@ -50,6 +57,9 @@ export default function PriceCheck() {
   const navigate = useNavigate()
 
   const { data, loading } = useData(() => findVendorPrices(productId), [productId])
+  // Null whenever the pool cannot price this item — too few practices, or this
+  // practice does not share. The band is then absent rather than promised.
+  const { data: benchmark } = useData(() => getBenchmarkForProduct(productId), [productId])
   const [sort, setSort] = useState('unit')
   const [explain, setExplain] = useState(null)
   // Vendors answer at different speeds; a brief scan state makes the fan-out
@@ -189,6 +199,34 @@ export default function PriceCheck() {
             </p>
           ) : null}
         </div>
+      ) : null}
+
+      {/* What everyone else pays. Anonymized and pooled — see /vendors/benchmark. */}
+      {!scanning && benchmark ? (
+        <Link
+          to="/vendors/benchmark"
+          className="press mt-3 flex items-center gap-3 rounded-card border border-line bg-surface p-3"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="tnum block text-subhead text-label-2">
+              You pay <b className="text-label">{unitMoney(benchmark.yourUnitPrice)}</b> · median of{' '}
+              {benchmark.practices} practices pays{' '}
+              <b className="text-label">{unitMoney(benchmark.medianUnitPrice)}</b>
+            </span>
+            <span className="mt-1.5 block leading-relaxed">
+              <Pill
+                tone={(BENCHMARK_STANDING[benchmark.standing] ?? BENCHMARK_STANDING.typical).tone}
+                className="mr-1.5 align-middle"
+              >
+                {(BENCHMARK_STANDING[benchmark.standing] ?? BENCHMARK_STANDING.typical).label}
+              </Pill>
+              <span className="text-caption text-label-3">
+                anonymized contract prices · quartiles only
+              </span>
+            </span>
+          </span>
+          <ChevronRight size={14} className="shrink-0 text-label-3/60" aria-hidden="true" />
+        </Link>
       ) : null}
 
       <div className="pb-1 pt-3">

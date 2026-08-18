@@ -7,11 +7,14 @@ import { Pill, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
+import { moneyRound } from '@/lib/format'
 import {
-  getSubscription,
+  ACTIVE_SUB_STATUSES,
+  getBillingSnapshot,
   isDemo,
   openBillingPortal,
   startSubscriptionCheckout,
+  syncBillingQuantity,
 } from '@/lib/repository'
 
 const STATUS = {
@@ -33,6 +36,11 @@ const PLAN_POINTS = [
 ]
 
 const day = (iso) => format(new Date(iso), 'MMMM d, yyyy')
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/** The sync reports the Stripe price's interval; that names the plan exactly. */
+const planFromInterval = (interval) =>
+  interval === 'year' ? 'annual' : interval === 'month' ? 'monthly' : null
 
 /**
  * The practice's Dentin plan. Stripe holds the money and the card; this
@@ -43,7 +51,13 @@ export default function Billing() {
   const navigate = useNavigate()
   const toast = useToast()
   const [params] = useSearchParams()
-  const { data: sub, loading } = useData(() => getSubscription(), [])
+  // Set once the reconcile has answered. It names the plan, and re-reading the
+  // snapshot on it picks up a quantity the sync has just changed.
+  const [sync, setSync] = useState(null)
+  const { data: snap, loading } = useData(
+    () => getBillingSnapshot({ planHint: planFromInterval(sync?.interval) }),
+    [sync],
+  )
   const [busy, setBusy] = useState(false)
   // Annual leads — the 10% is baked into the yearly price itself, so promo
   // codes (one per checkout, Stripe enforces it) apply on top of either plan.
@@ -60,6 +74,40 @@ export default function Billing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Checkout runs at onboarding step 2, before the locations step exists, so a
+  // multi-location practice can be subscribed for fewer seats than it uses.
+  // Reconciling costs nothing when the two already agree, and this is the
+  // screen where a change to somebody's bill ought to be explained.
+  useEffect(() => {
+    let alive = true
+    syncBillingQuantity()
+      .then((result) => {
+        if (!alive) return
+        setSync(result)
+        if (!result?.synced) return
+        toast({
+          title: 'Subscription updated',
+          body:
+            `Your plan now covers ${plural(result.to, 'location')}. ` +
+            (result.proration === 'none'
+              ? 'Nothing has been charged yet, so your first invoice reflects the new count.'
+              : result.to > result.from
+                ? 'The difference is prorated onto your next invoice.'
+                : 'The difference comes back as a credit on your next invoice.'),
+        })
+      })
+      .catch((e) => {
+        // Speculative call: a failure is not worth a toast on its own. It only
+        // matters if it left a mismatch on screen, and the banner below says
+        // so — carrying the server's message, which is written to be acted on.
+        if (alive) setSync({ synced: false, reason: 'unreachable', error: e.message })
+      })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const act = async (fn) => {
     setBusy(true)
     try {
@@ -70,11 +118,20 @@ export default function Billing() {
     }
   }
 
+  const sub = snap?.subscription ?? null
   const status = sub ? (STATUS[sub.status] ?? { label: sub.status, tone: 'quiet' }) : null
   const trialDaysLeft =
     sub?.status === 'trialing' && sub.trialEnd
       ? Math.max(0, differenceInCalendarDays(new Date(sub.trialEnd), new Date()))
       : null
+  const money = snap?.money
+  // Only show the per-location maths once the plan is known — the two rates
+  // differ, and a guess about somebody's monthly cost is worse than silence.
+  const showMath = Boolean(snap?.plan && money)
+  // A mismatch on a subscription that will never invoice again is noise.
+  const drift =
+    sub && ACTIVE_SUB_STATUSES.includes(sub.status) ? (snap?.mismatch ?? null) : null
+  const pitchMath = snap?.pricing?.[plan]
 
   return (
     <Screen
@@ -102,13 +159,37 @@ export default function Billing() {
             <div className="min-w-0">
               <p className="text-headline font-semibold">Dentin</p>
               <p className="mt-0.5 text-footnote text-label-3">
-                {sub.quantity} location{sub.quantity === 1 ? '' : 's'} · billed through Stripe
+                {plural(snap.billedQuantity, 'location')} · billed through Stripe
               </p>
             </div>
             <Pill tone={status.tone} icon={sub.status === 'active' ? BadgeCheck : undefined}>
               {status.label}
             </Pill>
           </div>
+
+          {/* What they are paying for, spelled out. A per-location price is
+              only fair if the practice can see the multiplication. */}
+          {showMath ? (
+            <div className="border-t border-line px-3 py-2.5 text-subhead text-label-2">
+              <b className="text-label">{plural(money.locationCount, 'location')}</b> ×{' '}
+              {moneyRound(money.perLocationPerMonth)}/mo
+              {money.plan === 'annual' ? ' (billed annually)' : ''} —{' '}
+              <b className="text-label">{moneyRound(money.perMonth)}/mo</b>,{' '}
+              {moneyRound(money.perYear)}/yr
+            </div>
+          ) : null}
+
+          {drift ? (
+            <div className="border-t border-line px-3 py-2.5 text-footnote text-label-3">
+              Billing covers {plural(drift.billed, 'location')}; you have {drift.actual}.{' '}
+              {sync?.synced
+                ? 'Dentin has updated this — it can take a moment to show here.'
+                : !sync || sync.reason === 'in-step'
+                  ? 'Dentin is updating this.'
+                  : (sync.error ??
+                    'Dentin could not update this automatically. Open Manage billing to adjust the quantity, or contact support and we will set it for you.')}
+            </div>
+          ) : null}
 
           <div className="border-t border-line px-3 py-2.5 text-subhead text-label-2">
             {sub.status === 'trialing' && sub.trialEnd ? (
@@ -157,7 +238,7 @@ export default function Billing() {
             )}
           </div>
 
-          {sub.demo ? (
+          {snap.demo ? (
             <p className="border-t border-line px-3 py-2.5 text-footnote text-label-3">
               This is the demo practice's furnished trial. On the live app this screen mirrors
               Stripe in real time.
@@ -202,6 +283,15 @@ export default function Billing() {
                 <p className="mt-1 text-subhead text-label-2">Billed month to month</p>
               </>
             )}
+            {/* Multi-location practices should see their own total before they
+                enter a card, not a per-location rate they have to multiply. */}
+            {pitchMath && pitchMath.locationCount > 1 ? (
+              <p className="mt-1 text-subhead text-label-2">
+                You have {plural(pitchMath.locationCount, 'location')} —{' '}
+                <b className="text-label">{moneyRound(pitchMath.perMonth)}/mo</b>,{' '}
+                {moneyRound(pitchMath.perYear)}/yr
+              </p>
+            ) : null}
             <p className="mt-1 text-subhead text-label-2">
               First 7 days free · no setup fee · cancel anytime
             </p>

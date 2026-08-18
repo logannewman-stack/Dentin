@@ -326,12 +326,14 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      {/* Savings trend, as a quiet link into Insights */}
+      {/* Savings trend. Points at the value screen rather than Insights: this
+          number is the answer to "is Dentin worth paying for", and that screen
+          is the one that shows it against what the practice actually pays. */}
       {spend?.length ? (
-        <Link to="/insights" className="panel press mt-2 flex items-center gap-3 p-3">
+        <Link to="/insights/value" className="panel press mt-2 flex items-center gap-3 p-3">
           <span className="min-w-0 flex-1">
             <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
-              Saved vs list · 12 months
+              Captured · 12 months
             </span>
             <span className="tnum mt-1 block text-title2 font-semibold">
               {moneyRound(saved12)}

@@ -5,8 +5,8 @@ import { stripeClient } from '../_lib/stripe.js'
  * POST /api/billing/checkout
  *
  * Starts a Stripe Checkout session for the caller's practice: one monthly
- * subscription, quantity = number of locations, free trial from
- * STRIPE_TRIAL_DAYS (default 7). The card is collected at checkout and
+ * subscription, quantity = the locations that exist at this moment, free trial
+ * from STRIPE_TRIAL_DAYS (default 7). The card is collected at checkout and
  * Stripe charges it automatically the moment the trial ends. Returns
  * { url } to redirect to.
  *
@@ -43,11 +43,17 @@ export default async function handler(req, res) {
     const practiceId = profile?.practice_id
     if (!practiceId) return json(res, 400, { error: 'Finish practice setup first' })
 
+    // A floor, not the final answer. Onboarding takes the card at step 2,
+    // before the locations step exists, so for most practices this counts zero
+    // rows and the subscription starts at one seat no matter how many
+    // locations they are about to add. /api/billing/sync-quantity reconciles
+    // it once setup has written the real rows, and again whenever locations
+    // change; the number here only has to be honest about right now.
     const { count: locationCount, error: locationError } = await supabase
       .from('locations')
       .select('id', { count: 'exact', head: true })
-    // A silent fallback here would bill a multi-location practice for one
-    // location for the life of the subscription — fail loud instead.
+    // A silent fallback would start the subscription on a guess and hide the
+    // fact that it did — fail loud instead.
     if (locationError) {
       return json(res, 500, { error: 'Could not count locations — try again in a moment.' })
     }

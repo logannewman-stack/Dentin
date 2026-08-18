@@ -11,6 +11,8 @@ import {
   Landmark,
   MapPin,
   Moon,
+  ReceiptText,
+  Scale,
   Share,
   ShieldCheck,
   Sparkles,
@@ -236,10 +238,22 @@ export default function Settings() {
           to="/vendors/compare"
         />
         <Row
+          leading={<Scale size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          title="Price benchmarks"
+          subtitle="What other practices pay for the same items"
+          to="/vendors/benchmark"
+        />
+        <Row
           leading={<FileSpreadsheet size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
           title="Import contract pricing"
           subtitle="Load the negotiated price file from your rep"
           to="/vendors/import"
+        />
+        <Row
+          leading={<ReceiptText size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          title="Invoices"
+          subtitle="Check what you were billed against what you ordered"
+          to="/invoices"
         />
         <Row
           leading={<Landmark size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}

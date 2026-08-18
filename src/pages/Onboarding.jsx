@@ -26,6 +26,7 @@ import {
   getSubscription,
   setReferralCode,
   startSubscriptionCheckout,
+  syncBillingQuantity,
 } from '@/lib/repository'
 import { useData } from '@/hooks/useData'
 import { useAuth } from '@/lib/AuthContext'
@@ -324,6 +325,11 @@ export default function Onboarding() {
       })
       completeOnboarding()
       localStorage.removeItem(DRAFT_KEY)
+      // The card was taken at step 2, before any location existed, so the
+      // subscription is billing for one. This is the first moment the real
+      // count is known. Fire and forget: a billing hiccup must not strand
+      // someone at the end of setup, and Billing re-syncs on every visit.
+      syncBillingQuantity().catch(() => {})
       // The optional tour waits on the other side of setup.
       queueWalkthrough()
       navigate(stock === 'import' ? '/inventory/import' : '/', { replace: true })

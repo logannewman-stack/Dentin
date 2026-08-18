@@ -5,8 +5,13 @@
  * app behaves identically whether it is backed by a live project or by the
  * bundled demo practice.
  */
-import { isSupabaseConfigured, supabase } from './supabase'
-import { parseInteger, parseMoney } from './csv'
+import { supabase } from './supabase'
+import { DEMO_MODE_KEY, emit, isDemo, myPracticeId, registerInvalidator, subscribe } from './repoCore'
+import { demoContractFor, matchContractRows } from './repo/imports'
+// `export * from` re-exports for screens but creates no local binding, so the
+// call sites below need a real import.
+import { recordCapturedSavings } from './repo/savings'
+import { parseInteger } from './csv'
 import { PROCEDURE_TEMPLATES, TEMPLATE_BY_CODE, expandProcedure, unitsPerPack } from './cdt'
 import { SPEND_WINDOW_MONTHS, assessSpend } from './benchmarks'
 import { analyzeBulkTier, analyzeBulkTiers } from './spoilage'
@@ -42,19 +47,21 @@ import {
   productById,
 } from './demoData'
 
-/**
- * Demo mode is either implicit (no Supabase project configured) or chosen —
- * a visitor tapping "See a demo practice" on the live site. The flag is read
- * once at module load, and entering or leaving the preview reloads the page,
- * so every screen agrees about which world it is in.
- */
-export const DEMO_MODE_KEY = 'dentin:demo-mode'
-export const isDemo =
-  !isSupabaseConfigured ||
-  (typeof localStorage !== 'undefined' && localStorage.getItem(DEMO_MODE_KEY) === 'true')
+// Which world we are in, and how a write announces itself, both live in
+// repoCore so a domain module can be written without importing this file.
+// Re-exported because every screen imports them from here.
+export { DEMO_MODE_KEY, isDemo, subscribe }
 
 // Static app data (not demo-only): the vendor directory taxonomy.
 export { VENDOR_KINDS } from './demoData'
+
+// Domain modules. They own their own tables and demo stores; this file
+// re-exports them so screens keep talking to one seam.
+export * from './repo/imports'
+export * from './repo/benchmarks'
+export * from './repo/invoices'
+export * from './repo/savings'
+export * from './repo/billingSync'
 
 // --- demo store -------------------------------------------------------------
 let demoInventory = null
@@ -67,7 +74,6 @@ let demoOrderItems = null
 let demoPaymentMethods = null
 let demoPractice = null
 const movements = []
-const listeners = new Set()
 
 const DAY_MS = 86400000
 const addDaysIso = (iso, days) => new Date(new Date(iso).getTime() + days * DAY_MS).toISOString()
@@ -81,34 +87,59 @@ const parseTermDays = (terms) => {
  * the profiles SELECT policy exposes every teammate, so an unscoped
  * .single() would error the moment a practice has two users.
  */
-async function myPracticeId() {
-  const { data: auth } = await supabase.auth.getUser()
-  const uid = auth?.user?.id
-  if (!uid) throw new Error('Sign in first')
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('practice_id')
-    .eq('id', uid)
-    .maybeSingle()
-  if (error) throw error
-  if (!data?.practice_id) throw new Error('Finish practice setup first')
-  return data.practice_id
+/**
+ * What an order actually saved, in dollars.
+ *
+ * The benchmark is a price per *unit* (per glove), while the line's price is
+ * per *pack* (per box of 200). Subtracting one from the other compares a
+ * glove to a box: the difference comes out negative, the max() floors it at
+ * zero, and every order silently reports saving nothing. Normalise to units
+ * on both sides, then multiply by the units actually bought.
+ *
+ * A line with no benchmark saved nothing that can be evidenced, so it counts
+ * as zero rather than being guessed at — this number ends up on a screen
+ * whose whole job is to be believed.
+ */
+function lineSavings(lines) {
+  return (lines ?? []).reduce((sum, l) => {
+    const packSize = Number(l.packSize) > 0 ? Number(l.packSize) : 1
+    const paidPerUnit = Number(l.unitPrice ?? 0) / packSize
+    if (l.benchmarkUnitPrice == null) return sum
+    const benchPerUnit = Number(l.benchmarkUnitPrice)
+    const units = Number(l.quantity ?? 0) * packSize
+    return sum + Math.max(0, benchPerUnit - paidPerUnit) * units
+  }, 0)
 }
 
 /** Live drafts and orders: keep the stored money in step with the lines. */
 async function syncOrderTotals(orderId) {
   const { data: lines, error } = await supabase
     .from('order_items')
-    .select('quantity, unit_price')
+    .select('quantity, unit_price, pack_size, benchmark_unit_price')
     .eq('order_id', orderId)
   if (error) throw error
   const subtotal = (lines ?? []).reduce(
     (sum, l) => sum + Number(l.quantity) * Number(l.unit_price),
     0,
   )
+  // Savings are recomputed here rather than stored once, because a draft's
+  // lines keep changing until it is placed. Without this the column stayed at
+  // its default and every order built in the app reported saving nothing.
+  const savings = lineSavings(
+    (lines ?? []).map((l) => ({
+      quantity: l.quantity,
+      unitPrice: l.unit_price,
+      packSize: l.pack_size,
+      benchmarkUnitPrice: l.benchmark_unit_price,
+    })),
+  )
   const { error: updateError } = await supabase
     .from('orders')
-    .update({ subtotal: Number(subtotal.toFixed(2)), total: Number(subtotal.toFixed(2)) })
+    .update({
+      subtotal: Number(subtotal.toFixed(2)),
+      total: Number(subtotal.toFixed(2)),
+      savings: Number(savings.toFixed(2)),
+    })
     .eq('id', orderId)
   if (updateError) throw updateError
 }
@@ -210,17 +241,10 @@ function store() {
   }
 }
 
-function emit() {
-  // Any write can change which vendors the practice holds accounts with.
+// Any write can change which vendors the practice holds accounts with.
+registerInvalidator(() => {
   accountIdsCache = null
-  listeners.forEach((fn) => fn())
-}
-
-/** Subscribe to local mutations so screens re-read after a write. */
-export function subscribe(fn) {
-  listeners.add(fn)
-  return () => listeners.delete(fn)
-}
+})
 
 function recomputeRow(row) {
   const { onHand, parLevel, reorderPoint, dailyBurn } = row
@@ -385,7 +409,7 @@ export async function compareOffers(productId) {
     // Contracted pricing overrides the catalog price for that vendor — it is
     // what the invoice will actually say.
     const raw = offersFor(productId).map((o) => {
-      const contract = product ? demoContracts.get(contractKey(o.supplierId, product.sku)) : null
+      const contract = product ? demoContractFor(o.supplierId, product.sku) : null
       if (!contract) return o
       const packSize = contract.packSize || o.packSize
       return {
@@ -1517,7 +1541,19 @@ export async function findInboundFor(productId) {
  * open. One draft per vendor: "add to next order" always has one unambiguous
  * destination, and repeated adds merge quantities instead of stacking lines.
  */
-export async function addToDraftOrder({ productId, supplierId, supplierName, quantity = 1, unitPrice }) {
+export async function addToDraftOrder({
+  productId,
+  supplierId,
+  supplierName,
+  quantity = 1,
+  unitPrice,
+  // What this item would have cost per unit at the dearest source the practice
+  // could have used instead. Carried from the screen that already knows it —
+  // without it the line is priced but its saving cannot be evidenced, and the
+  // value screen would rather show nothing than a number it cannot defend.
+  benchmarkUnitPrice = null,
+  packSize = null,
+}) {
   if (isDemo) {
     const s = store()
     let draft = s.orders.find((o) => o.status === 'draft' && o.supplierId === supplierId)
@@ -1610,7 +1646,9 @@ export async function addToDraftOrder({ productId, supplierId, supplierName, qua
       supplier_id: supplierId,
       quantity,
       unit_price: unitPrice ?? 0,
+      pack_size: packSize ?? 1,
       line_total: quantity * (unitPrice ?? 0),
+      benchmark_unit_price: benchmarkUnitPrice,
     })
     if (error) throw error
   }
@@ -1649,6 +1687,14 @@ export async function submitDraftOrder(orderId) {
       order.paymentMethodId = method?.id ?? null
       order.paymentMethodLabel = method ? `${method.label} · ${method.detail}` : null
     }
+    // Submitting is the moment the money commits, so it is the moment the
+    // saving is real. Keyed on the order, so a retry cannot bank it twice.
+    await recordCapturedSavings({
+      orderId: order.id,
+      amount: order.savings,
+      supplierId: order.supplierId,
+      detail: `${order.reference} · ${order.supplierName}`,
+    })
     emit()
     return { ok: true, reference: order.reference, expectedAt: order.expectedAt }
   }
@@ -2730,184 +2776,8 @@ export async function addToInventory({ productId, locationId, parLevel, reorderP
 }
 
 // --- contract pricing -------------------------------------------------------
-/** key: `${supplierId}:${mfrSku}` → the practice's negotiated price */
-let demoContracts = new Map()
-
-function contractKey(supplierId, mfrSku) {
-  return `${supplierId}:${mfrSku}`
-}
-
-/**
- * Match imported price-file rows against the catalog.
- *
- * Barcode first, then manufacturer part number, then a normalized description.
- * Nothing is applied here — this only reports what *would* match, so the
- * import can be previewed before it changes any price the practice sees.
- */
-export async function matchContractRows(rows, mapping) {
-  const catalog = isDemo
-    ? PRODUCTS.map((p) => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        gtin: p.gtin,
-        mfrSku: p.sku,
-        packSize: p.packSize,
-        unit: p.unit,
-      }))
-    : await (async () => {
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, brand, gtin, mfr_sku, pack_size, unit')
-          .limit(5000)
-        // A failed catalog read must be an error, not "nothing matched".
-        if (error) throw error
-        return (data ?? []).map((p) => ({
-          id: p.id,
-          name: p.name,
-          brand: p.brand,
-          gtin: p.gtin,
-          mfrSku: p.mfr_sku,
-          packSize: p.pack_size,
-          unit: p.unit,
-        }))
-      })()
-
-  const byGtin = new Map(catalog.filter((p) => p.gtin).map((p) => [String(p.gtin), p]))
-  const bySku = new Map(catalog.filter((p) => p.mfrSku).map((p) => [p.mfrSku.toUpperCase(), p]))
-  const normalize = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-  const byName = new Map(catalog.map((p) => [normalize(p.name), p]))
-
-  return rows.map((row, index) => {
-    const gtin = mapping.gtin ? String(row[mapping.gtin] ?? '').replace(/\D/g, '') : ''
-    const mfrSku = mapping.mfrSku ? String(row[mapping.mfrSku] ?? '').trim() : ''
-    const description = mapping.description ? row[mapping.description] : ''
-    const price = parseMoney(mapping.price ? row[mapping.price] : null)
-    const packSize = parseInteger(mapping.packSize ? row[mapping.packSize] : null, 1)
-    const vendorSku = mapping.vendorSku ? String(row[mapping.vendorSku] ?? '').trim() : ''
-
-    let product = null
-    let matchedBy = null
-
-    if (gtin && byGtin.has(gtin)) {
-      product = byGtin.get(gtin)
-      matchedBy = 'gtin'
-    } else if (mfrSku && bySku.has(mfrSku.toUpperCase())) {
-      product = bySku.get(mfrSku.toUpperCase())
-      matchedBy = 'mpn'
-    } else if (description) {
-      const hit = byName.get(normalize(description))
-      if (hit) {
-        product = hit
-        matchedBy = 'name'
-      }
-    }
-
-    return {
-      index,
-      gtin: gtin || null,
-      mfrSku: mfrSku || null,
-      vendorSku: vendorSku || null,
-      description: description || product?.name || '—',
-      price,
-      packSize,
-      product,
-      matchedBy,
-      // A row with no price cannot be applied even if the product matched.
-      usable: Boolean(product && price != null && price >= 0),
-      issue:
-        price == null
-          ? 'No price found in the mapped column'
-          : !product
-            ? 'No catalog product matched'
-            : null,
-    }
-  })
-}
-
-/** Apply matched rows as this practice's contracted pricing for one vendor. */
-export async function importContractPrices(supplierId, matched) {
-  const usable = matched.filter((m) => m.usable)
-
-  if (isDemo) {
-    for (const row of usable) {
-      demoContracts.set(contractKey(supplierId, row.product.mfrSku), {
-        price: row.price,
-        packSize: row.packSize || row.product.packSize,
-        vendorSku: row.vendorSku,
-        matchedBy: row.matchedBy,
-        importedAt: new Date().toISOString(),
-      })
-    }
-    emit()
-    return { applied: usable.length, skipped: matched.length - usable.length }
-  }
-
-  const profile = { practice_id: await myPracticeId() }
-  // The identity index is expression-based (coalesce on gtin/mfr_sku), which
-  // upsert's plain column list cannot target — Postgres rejects it with
-  // 42P10. Replace today's sheet for this vendor instead: delete, then
-  // insert fresh rows.
-  const today = new Date().toISOString().slice(0, 10)
-  const { error: clearError } = await supabase
-    .from('contract_prices')
-    .delete()
-    .eq('practice_id', profile.practice_id)
-    .eq('supplier_id', supplierId)
-    .eq('effective_from', today)
-  if (clearError) throw clearError
-  const { error } = await supabase.from('contract_prices').insert(
-    usable.map((row) => ({
-      practice_id: profile.practice_id,
-      supplier_id: supplierId,
-      product_id: row.product.id,
-      gtin: row.gtin,
-      mfr_sku: row.mfrSku,
-      vendor_sku: row.vendorSku,
-      description: row.description,
-      price: row.price,
-      pack_size: row.packSize,
-      matched_by: row.matchedBy,
-      source: 'csv',
-    })),
-  )
-  if (error) throw error
-  emit()
-  return { applied: usable.length, skipped: matched.length - usable.length }
-}
-
-/** Which vendors have contracted pricing loaded, and how much of it. */
-export async function contractPriceSummary() {
-  if (isDemo) {
-    const counts = new Map()
-    for (const key of demoContracts.keys()) {
-      const supplierId = key.split(':')[0]
-      counts.set(supplierId, (counts.get(supplierId) ?? 0) + 1)
-    }
-    return [...counts.entries()].map(([supplierId, count]) => ({ supplierId, count }))
-  }
-
-  const { data } = await supabase.from('contract_prices').select('supplier_id')
-  const counts = new Map()
-  for (const row of data ?? []) {
-    counts.set(row.supplier_id, (counts.get(row.supplier_id) ?? 0) + 1)
-  }
-  return [...counts.entries()].map(([supplierId, count]) => ({ supplierId, count }))
-}
-
-export async function clearContractPrices(supplierId) {
-  if (isDemo) {
-    for (const key of [...demoContracts.keys()]) {
-      if (key.startsWith(`${supplierId}:`)) demoContracts.delete(key)
-    }
-    emit()
-    return { ok: true }
-  }
-  const { error } = await supabase.from('contract_prices').delete().eq('supplier_id', supplierId)
-  if (error) throw error
-  emit()
-  return { ok: true }
-}
+// Lives in ./repo/imports now, alongside the import that produces it. Only
+// the demo lookup is needed here, for the price comparison below.
 
 // --- vendors ----------------------------------------------------------------
 let demoAccounts = null
@@ -3552,10 +3422,7 @@ export async function updateInventorySettings(id, { parLevel, reorderPoint, reor
 
 export async function createOrder({ supplierId, supplierName, locationId, lines }) {
   const subtotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
-  const savings = lines.reduce(
-    (sum, l) => sum + Math.max(0, (l.benchmarkUnitPrice ?? l.unitPrice) - l.unitPrice) * l.quantity,
-    0,
-  )
+  const savings = lineSavings(lines)
 
   if (isDemo) {
     const s = store()
@@ -3584,7 +3451,17 @@ export async function createOrder({ supplierId, supplierName, locationId, lines 
       s.orderItems.push([order.id, l.productId, l.quantity, l.unitPrice, 0])
     }
     recomputeOrderTotals(order)
+    // recomputeOrderTotals applies the demo practice's headline savings rate to
+    // every order it touches. This one was priced against real alternatives, so
+    // put the figure that was actually evidenced back.
+    order.savings = Number(savings.toFixed(2))
     s.orders.unshift(order)
+    await recordCapturedSavings({
+      orderId: order.id,
+      amount: order.savings,
+      supplierId,
+      detail: `${order.reference} · ${supplierName}`,
+    })
     emit()
     return order
   }
