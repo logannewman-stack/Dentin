@@ -19,7 +19,7 @@ import ProductTile from '@/components/ProductTile'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import {
-  compareOffers,
+  compareOffersBatch,
   createOrder,
   getBasketLandedAnalysis,
   getLastOrder,
@@ -150,8 +150,8 @@ export default function Reorder() {
   useEffect(() => {
     if (!pricedIds.length) return undefined
     let cancelled = false
-    Promise.all(pricedIds.map(async (pid) => [pid, await compareOffers(pid)])).then((pairs) => {
-      if (!cancelled) setOffers((prev) => ({ ...prev, ...Object.fromEntries(pairs) }))
+    compareOffersBatch(pricedIds).then((offersByProductId) => {
+      if (!cancelled) setOffers((prev) => ({ ...prev, ...offersByProductId }))
     })
     return () => {
       cancelled = true

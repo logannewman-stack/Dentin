@@ -40,7 +40,7 @@ export default function Inventory() {
   const setFilter = (value) => setParams(value === 'attention' ? {} : { filter: value })
 
   const { data: locations } = useData(() => listLocations(), [])
-  const { data: all } = useData(() => listInventory(), [])
+  const { data: all, loading } = useData(() => listInventory(), [])
 
   const rows = useMemo(() => {
     let out = all ?? []
@@ -140,13 +140,19 @@ export default function Inventory() {
         />
       </div>
 
-      {rows.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2 pt-3">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="skeleton h-14 rounded-card" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={PackageSearch}
           title={query ? 'No matches' : 'Everything is above par'}
           body={
             query
-              ? `Nothing matches “${query}”. Try a brand, a bin or a barcode.`
+              ? `Nothing matches "${query}". Try a brand, a bin or a barcode.`
               : 'No item is below its reorder point right now.'
           }
         />

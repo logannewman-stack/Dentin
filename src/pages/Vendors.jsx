@@ -142,7 +142,7 @@ export default function Vendors() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  const { data: vendors } = useData(() => listVendors(), [])
+  const { data: vendors, loading } = useData(() => listVendors(), [])
   const { data: directory } = useData(() => listVendorDirectory(), [])
   const { data: opportunity } = useData(() => getPriceOpportunities(), [])
 
@@ -346,25 +346,35 @@ export default function Vendors() {
 
       {tab === 'accounts' ? (
         <>
-          <div className="mt-2 flex flex-col gap-2.5">
-            {withAccounts.map((vendor) => (
-              <VendorCard
-                key={vendor.supplierId}
-                vendor={vendor}
-                savings={savingsBy.get(vendor.supplierId) ?? 0}
-                onOpen={() => openDetail(vendor)}
-              />
-            ))}
-          </div>
+          {loading ? (
+            <div className="mt-2 space-y-2.5">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="skeleton h-20 rounded-card" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="mt-2 flex flex-col gap-2.5">
+                {withAccounts.map((vendor) => (
+                  <VendorCard
+                    key={vendor.supplierId}
+                    vendor={vendor}
+                    savings={savingsBy.get(vendor.supplierId) ?? 0}
+                    onOpen={() => openDetail(vendor)}
+                  />
+                ))}
+              </div>
 
-          {withAccounts.length === 0 ? (
-            <EmptyState
-              icon={Building2}
-              title="No accounts yet"
-              body="Add the suppliers you already buy from so Dentin only quotes prices you can actually place."
-              action={<Button onClick={() => setTab('new')}>Browse vendors</Button>}
-            />
-          ) : null}
+              {withAccounts.length === 0 ? (
+                <EmptyState
+                  icon={Building2}
+                  title="No accounts yet"
+                  body="Add the suppliers you already buy from so Dentin only quotes prices you can actually place."
+                  action={<Button onClick={() => setTab('new')}>Browse vendors</Button>}
+                />
+              ) : null}
+            </>
+          )}
         </>
       ) : (
         <>

@@ -25,7 +25,7 @@ const STATUS = {
 }
 
 export default function Orders() {
-  const { data: orders } = useData(() => listOrders(), [])
+  const { data: orders, loading } = useData(() => listOrders(), [])
   const { data: suggestions } = useData(() => reorderSuggestions(), [])
 
   const { open, past, totalSaved, payables } = useMemo(() => {
@@ -192,7 +192,13 @@ export default function Orders() {
         </Section>
       ) : null}
 
-      {!orders?.length ? (
+      {loading ? (
+        <div className="space-y-2 pt-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="skeleton h-14 rounded-card" />
+          ))}
+        </div>
+      ) : !orders?.length ? (
         <EmptyState
           icon={ShoppingCart}
           title="No orders yet"

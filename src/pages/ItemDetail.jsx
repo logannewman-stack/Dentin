@@ -48,13 +48,19 @@ import { cn } from '@/lib/utils'
 export default function ItemDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+
+  // Load item and parallel metadata in parallel — movements and lots only depend
+  // on the item id, so they fetch concurrently with the item details.
   const { data: item, loading } = useData(() => getInventoryItem(id), [id])
+  const { data: movements } = useData(() => listMovements(id), [id])
+  const { data: itemLots } = useData(() => listLotsForItem(id), [id])
+
+  // Offers and bulk analysis wait for the product id from item, then fetch in
+  // parallel with each other.
   const { data: offers } = useData(
     () => (item ? compareOffers(item.productId) : Promise.resolve([])),
     [item?.productId],
   )
-  const { data: movements } = useData(() => listMovements(id), [id])
-  const { data: itemLots } = useData(() => listLotsForItem(id), [id])
   const { data: bulk } = useData(
     () => (item?.productId ? getBulkAnalysis(item.productId) : Promise.resolve(null)),
     [item?.productId],
