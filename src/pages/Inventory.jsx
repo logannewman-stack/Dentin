@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useDebounce } from '@/hooks/useDebounce'
 import {
   FileSpreadsheet,
   Minus,
@@ -32,6 +33,7 @@ export default function Inventory() {
   const toast = useToast()
   const [params, setParams] = useSearchParams()
   const [query, setQuery] = useState('')
+  const debouncedQuery = useDebounce(query, 250) // Debounce search input to reduce re-renders
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [category, setCategory] = useState(null)
   const [locationId, setLocationId] = useState(null)
@@ -51,8 +53,8 @@ export default function Inventory() {
     } else if (filter === 'ok') {
       out = out.filter((r) => r.stockStatus === 'ok')
     }
-    if (query) {
-      const q = query.toLowerCase()
+    if (debouncedQuery) {
+      const q = debouncedQuery.toLowerCase()
       out = out.filter(
         (r) =>
           r.productName.toLowerCase().includes(q) ||
@@ -62,7 +64,7 @@ export default function Inventory() {
       )
     }
     return out
-  }, [all, filter, query, category, locationId])
+  }, [all, filter, debouncedQuery, category, locationId])
 
   const counts = useMemo(() => {
     const base = (all ?? []).filter(
@@ -149,10 +151,10 @@ export default function Inventory() {
       ) : rows.length === 0 ? (
         <EmptyState
           icon={PackageSearch}
-          title={query ? 'No matches' : 'Everything is above par'}
+          title={debouncedQuery ? 'No matches' : 'Everything is above par'}
           body={
-            query
-              ? `Nothing matches "${query}". Try a brand, a bin or a barcode.`
+            debouncedQuery
+              ? `Nothing matches "${debouncedQuery}". Try a brand, a bin or a barcode.`
               : 'No item is below its reorder point right now.'
           }
         />

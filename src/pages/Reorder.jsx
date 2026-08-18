@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -122,6 +123,7 @@ export default function Reorder() {
   // Catalog additions: productId → quantity, for things not tracked yet.
   const [extras, setExtras] = useState({})
   const [query, setQuery] = useState('')
+  const debouncedQuery = useDebounce(query, 250) // Debounce search input to reduce re-renders
   // Per-line vendor overrides: line id → supplierId the buyer picked.
   const [vendorChoice, setVendorChoice] = useState({})
   const [strategy, setStrategy] = useState('split')
@@ -215,7 +217,7 @@ export default function Reorder() {
 
   // The orderable catalog, filtered and grouped by first letter.
   const browse = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = debouncedQuery.trim().toLowerCase()
     const rows = (catalog ?? [])
       .filter(
         (p) =>
@@ -233,7 +235,7 @@ export default function Reorder() {
       groups.get(letter).push(p)
     }
     return { rows, groups: [...groups.entries()] }
-  }, [catalog, query])
+  }, [catalog, debouncedQuery])
 
   const pricing = useMemo(
     () => (lines.length ? priceBasket(lines, offersByProduct, vendorChoice) : null),
