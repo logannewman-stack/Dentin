@@ -10,6 +10,7 @@ import {
 import Screen from '@/components/ui/Screen'
 import { Row, RowIcon, Section } from '@/components/ui/List'
 import { EmptyState, Pill } from '@/components/ui/Controls'
+import ErrorState from '@/components/ui/ErrorState'
 import Button from '@/components/ui/Button'
 import { useData } from '@/hooks/useData'
 import { listOrders, reorderSuggestions } from '@/lib/repository'
@@ -25,7 +26,7 @@ const STATUS = {
 }
 
 export default function Orders() {
-  const { data: orders, loading } = useData(() => listOrders(), [])
+  const { data: orders, loading, error, reload } = useData(() => listOrders(), [])
   const { data: suggestions } = useData(() => reorderSuggestions(), [])
 
   const { open, past, totalSaved, payables } = useMemo(() => {
@@ -192,7 +193,15 @@ export default function Orders() {
         </Section>
       ) : null}
 
-      {loading ? (
+      {error ? (
+        <div className="pt-4">
+          <ErrorState
+            title="Could not load orders"
+            body={error?.message || 'An error occurred while loading your orders.'}
+            onRetry={reload}
+          />
+        </div>
+      ) : loading ? (
         <div className="space-y-2 pt-4">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="skeleton h-14 rounded-card" />

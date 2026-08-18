@@ -13,6 +13,7 @@ import {
 import Screen from '@/components/ui/Screen'
 import { Row, Section } from '@/components/ui/List'
 import { EmptyState, Gauge, Pill, SearchField, SegmentedControl } from '@/components/ui/Controls'
+import ErrorState from '@/components/ui/ErrorState'
 import Sheet from '@/components/ui/Sheet'
 import SwipeRow from '@/components/ui/SwipeRow'
 import ProductTile from '@/components/ProductTile'
@@ -42,7 +43,7 @@ export default function Inventory() {
   const setFilter = (value) => setParams(value === 'attention' ? {} : { filter: value })
 
   const { data: locations } = useData(() => listLocations(), [])
-  const { data: all, loading } = useData(() => listInventory(), [])
+  const { data: all, loading, error, reload } = useData(() => listInventory(), [])
 
   const rows = useMemo(() => {
     let out = all ?? []
@@ -142,7 +143,15 @@ export default function Inventory() {
         />
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="pt-4">
+          <ErrorState
+            title="Could not load inventory"
+            body={error?.message || 'An error occurred while loading your items.'}
+            onRetry={reload}
+          />
+        </div>
+      ) : loading ? (
         <div className="space-y-2 pt-3">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="skeleton h-14 rounded-card" />
