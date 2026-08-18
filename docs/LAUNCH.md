@@ -17,7 +17,7 @@ steps are ordered. Every step is tagged:
 |---|---|
 | Every workflow: scan (QR/GS1 lot+expiry), inventory, par formulas, orders + receiving, draft orders + duplicate guard, vendor directory, competitive pricing UX, contract-file import, payments UX, compliance wall, team, insights, benchmarks | The practice data itself (seeded) |
 | The front door: sign in / create account / preview a mock practice | Vendor prices (7 seeded suppliers) |
-| The full Supabase schema (migrations 0001–0006, RLS multi-tenant) | Money movement (tracking only) |
+| The full Supabase schema (migrations 0001–0017, RLS multi-tenant) | Money movement (tracking only) |
 | The design system, desktop + mobile layouts | Product barcodes (demo GTINs) |
 
 The three demo things — **data, prices, money** — are the whole launch plan.
@@ -30,12 +30,14 @@ The three demo things — **data, prices, money** — are the whole launch plan.
    name it `dentin-prod`, region nearest your practices, strong database
    password into a password manager. Free tier is fine today; move to Pro
    ($25/mo, daily backups) before the first real practice's data goes in.
-2. **[You] Run the schema.** Dashboard → SQL Editor → run each file from
-   `supabase/migrations/` **in this order**:
-   `0001_init.sql`, `0002_views_and_rpc.sql`, `0003_supplier_accounts.sql`,
-   `0004_contract_prices.sql`, `0005_payments.sql`, `0006_credentials.sql` —
-   each should report success — then `supabase/seed.sql` (categories,
-   suppliers, starter catalog).
+2. **[You] Run the schema.** Dashboard → SQL Editor → run every file in
+   `supabase/migrations/` **in numeric order**, `0001` through `0017`. Each
+   should report success. Then `supabase/seed.sql` (categories, suppliers,
+   starter catalog).
+
+   Order matters — the later files alter tables the earlier ones create. If a
+   run stops halfway, fix the error and paste the *same file* again: `0014`
+   through `0017` are written to be safe to run twice.
 3. **[You] Collect keys.** Project Settings → API: the **Project URL**, the
    **anon public** key, and the **service_role** key (server-only; treat it
    like a bank password).
@@ -176,6 +178,38 @@ price sources each, and their own contract price on every one.
    rate trending to zero.
 5. **[You] Convert.** Day 60: show the practice its own numbers. Day 90:
    published price.
+
+---
+
+## Phase 6.5 — Price intelligence *(what makes it hard to cancel)*
+
+Everything in this phase depends on one thing: real contract prices, loaded.
+Until a practice's own negotiated numbers are in, every comparison Dentin
+makes is against a seeded list price, and the answer is a guess.
+
+1. **[You] Point an inbound address at the app.** `/api/imports/email` turns a
+   forwarded price file into a pending import. It receives nothing until the
+   mail side exists: register a subdomain (`in.dentininventory.com`), point
+   its MX records at an inbound provider (Resend, Postmark and SendGrid
+   payloads are all handled), and set that provider's webhook to
+   `https://www.dentininventory.com/api/imports/email`. Set
+   `INBOUND_EMAIL_SECRET` in Vercel and configure the provider to send it, so
+   the endpoint is not open to the internet. Each practice's address appears
+   on the import screen. Until this is done the rest of the import still
+   works — file and paste — and nothing in the app claims otherwise.
+2. **[You] Say what the benchmarks pool, in writing.** Practices contribute
+   anonymized unit prices to the market benchmarks by default, they can switch
+   it off in Settings, and nothing is published below five practices. That is
+   a defensible design, but it belongs in the privacy policy and the terms in
+   plain words before the pool has anything in it — not after.
+3. **The flywheel, in the order it turns:** contract files loaded →
+   benchmarks unlock at five practices → a practice sees it is above the
+   median → it renegotiates → the invoice proves it → the value screen shows
+   captured savings against what they pay for Dentin. Each step is only worth
+   building on because the one before it is real.
+4. **Metric that matters more than signups:** the share of paying practices
+   with at least one contract file loaded. A practice without one is a
+   practice that will churn, because it never saw a number it could act on.
 
 ---
 
