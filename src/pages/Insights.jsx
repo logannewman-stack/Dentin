@@ -96,6 +96,22 @@ export default function Insights() {
         </div>
       </div>
 
+      {/* This screen shows where the money went. The renewal question — was
+          Dentin worth what it costs — is a different question with a different
+          answer, and it gets its own screen rather than a corner of this one. */}
+      <Link
+        to="/insights/value"
+        className="panel press mt-2 flex items-center gap-3 p-3"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-subhead font-semibold">Is Dentin paying for itself</span>
+          <span className="mt-0.5 block text-footnote text-label-3">
+            Money found against money captured, and what you have paid
+          </span>
+        </span>
+        <ArrowRight size={14} className="shrink-0 text-label-3" aria-hidden="true" />
+      </Link>
+
       {/* Supply spend against collections — the benchmark the industry runs on */}
       {benchmark?.band ? (
         <Card

@@ -7,6 +7,8 @@ import {
   ChartNoAxesColumn,
   FileSpreadsheet,
   LayoutGrid,
+  ReceiptText,
+  Scale,
   ScanLine,
   Settings2,
   ShoppingCart,
@@ -29,7 +31,9 @@ const PRIMARY = [
 const PURCHASING = [
   { to: '/vendors', label: 'Vendors', Icon: Building2, end: true },
   { to: '/vendors/compare', label: 'Competitive pricing', Icon: Sparkles },
+  { to: '/vendors/benchmark', label: 'Price benchmarks', Icon: Scale },
   { to: '/vendors/import', label: 'Contract pricing', Icon: FileSpreadsheet },
+  { to: '/invoices', label: 'Invoices', Icon: ReceiptText },
 ]
 
 const PRACTICE = [

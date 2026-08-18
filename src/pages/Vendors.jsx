@@ -8,6 +8,8 @@ import {
   ExternalLink,
   Mail,
   Phone,
+  ReceiptText,
+  Scale,
   Sparkles,
   Star,
   Truck,
@@ -306,6 +308,30 @@ export default function Vendors() {
           </span>
         </button>
       ) : null}
+
+      {/* Two ways to answer "am I paying too much", side by side. The card
+          above compares vendors; these compare against your own contract and
+          against what other practices pay. All three are the same question. */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => navigate('/vendors/benchmark')}
+          className="panel press flex flex-col items-start gap-1 p-3 text-left"
+        >
+          <Scale size={15} strokeWidth={2} className="text-brand-600" aria-hidden="true" />
+          <span className="text-subhead font-semibold">Price benchmarks</span>
+          <span className="text-caption text-label-3">What other practices pay</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/invoices')}
+          className="panel press flex flex-col items-start gap-1 p-3 text-left"
+        >
+          <ReceiptText size={15} strokeWidth={2} className="text-brand-600" aria-hidden="true" />
+          <span className="text-subhead font-semibold">Invoices</span>
+          <span className="text-caption text-label-3">Billed vs what you ordered</span>
+        </button>
+      </div>
 
       <div className="pb-1 pt-3">
         <SegmentedControl
