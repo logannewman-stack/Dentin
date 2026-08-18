@@ -610,11 +610,20 @@ export async function searchCatalogForMatch(query) {
     .filter((t) => t.length >= 2)
     .slice(0, 4)
 
+  if (!terms.length) return []
+
   if (isDemo) {
-    const hits = PRODUCTS.filter((p) => {
+    // Demo: first try AND (all terms), then fallback to OR (any term)
+    let hits = PRODUCTS.filter((p) => {
       const hay = `${p.name} ${p.brand} ${p.sku} ${p.gtin}`.toLowerCase()
       return terms.every((t) => hay.includes(t))
     })
+    if (!hits.length && terms.length > 1) {
+      hits = PRODUCTS.filter((p) => {
+        const hay = `${p.name} ${p.brand} ${p.sku} ${p.gtin}`.toLowerCase()
+        return terms.some((t) => hay.includes(t))
+      })
+    }
     return hits.slice(0, 25).map((p) => ({
       id: p.id,
       name: p.name,
@@ -626,21 +635,42 @@ export async function searchCatalogForMatch(query) {
     }))
   }
 
+  // Try AND search first (all terms must match)
   let q = supabase
     .from('products')
     .select('id, name, brand, mfr_sku, gtin, pack_size, unit')
     .order('name')
     .limit(25)
-  // Repeated or() groups are ANDed by PostgREST, so every word has to land
-  // somewhere on the row.
   for (const term of terms) {
     q = q.or(
       `name.ilike.%${term}%,brand.ilike.%${term}%,mfr_sku.ilike.%${term}%,gtin.ilike.%${term}%`,
     )
   }
 
-  const data = must(await q, 'search the catalog')
-  return (data ?? []).map((p) => ({
+  let data = await q
+  if (data.error) throw data.error
+
+  // If AND search returned nothing and we have multiple terms, try OR fallback
+  if (!data.data?.length && terms.length > 1) {
+    q = supabase
+      .from('products')
+      .select('id, name, brand, mfr_sku, gtin, pack_size, unit')
+      .order('name')
+      .limit(25)
+    // Single or() with all terms — matches if any term lands anywhere
+    q = q.or(
+      terms
+        .map(
+          (term) =>
+            `name.ilike.%${term}%,brand.ilike.%${term}%,mfr_sku.ilike.%${term}%,gtin.ilike.%${term}%`,
+        )
+        .join(','),
+    )
+    data = await q
+    if (data.error) throw data.error
+  }
+
+  return (data.data ?? []).map((p) => ({
     id: p.id,
     name: p.name,
     brand: p.brand,
