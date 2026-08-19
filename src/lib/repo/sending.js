@@ -1,4 +1,4 @@
-import { supabase, myPracticeId, must } from './repoCore'
+import { supabase, myPracticeId, must } from '../repoCore'
 
 /**
  * Build a purchase order email ready to send.

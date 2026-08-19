@@ -15,7 +15,7 @@ import { Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
-import { supabase, myPracticeId } from '@/lib/repo/repoCore'
+import { supabase, myPracticeId } from '@/lib/repoCore'
 import { money, fullDate, relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
