@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from './supabase'
+import { track } from './analytics'
 
 const AuthContext = createContext(null)
 
@@ -262,11 +263,17 @@ export function AuthProvider({ children }) {
    * Supabase and half to the demo store.
    */
   const exploreDemo = useCallback(() => {
+    // Fired BEFORE the localStorage writes, so the event is not tagged as
+    // demo traffic — this is the click that a real visitor makes.
+    track('demo_opened')
     localStorage.setItem(DEMO_MODE_KEY, 'true')
     localStorage.setItem(DEMO_KEY, 'true')
     localStorage.setItem(ONBOARDED_KEY, 'true')
     if (isSupabaseConfigured && !PREVIEWING) {
-      window.location.assign('/')
+      // ?demo=1 makes the entry visible as a distinct page view, so the demo
+      // is still countable on plans without custom events. React Router drops
+      // it on the first in-app navigation.
+      window.location.assign('/?demo=1')
       return
     }
     setOnboarded(true)

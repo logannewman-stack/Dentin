@@ -30,6 +30,7 @@ import {
 } from '@/lib/repository'
 import { useData } from '@/hooks/useData'
 import { useAuth } from '@/lib/AuthContext'
+import { track } from '@/lib/analytics'
 import { cn, haptic } from '@/lib/utils'
 
 // Wizard progress survives the round-trip to Stripe's checkout page.
@@ -170,7 +171,12 @@ export default function Onboarding() {
   useEffect(() => {
     if (!isSupabaseConfigured) return
     const back = new URLSearchParams(window.location.search).get('checkout')
-    if (back) setCheckoutReturn(back)
+    if (back) {
+      setCheckoutReturn(back)
+      // 'cancelled' is the single most expensive event in the funnel: they
+      // asked for the trial, saw Stripe's card form, and backed out.
+      track('checkout_returned', { result: back === 'success' ? 'success' : 'cancelled' })
+    }
     try {
       const raw = localStorage.getItem(DRAFT_KEY)
       if (!raw) return
@@ -212,12 +218,15 @@ export default function Onboarding() {
   const startTrial = async () => {
     setTrialBusy(true)
     setTrialError(null)
+    track('checkout_opened', { plan })
     try {
       // The checkout API needs a claimed practice; create the shell now and
       // the rest of the wizard completes it after Stripe bounces back.
       await claimPracticeShell(practice)
       await startSubscriptionCheckout(plan, '/onboarding')
     } catch (e) {
+      // Never reached Stripe at all — a broken redirect, not a decision.
+      track('checkout_failed', { plan })
       setTrialError(e.message ?? 'Could not open checkout.')
       setTrialBusy(false)
     }
@@ -286,6 +295,13 @@ export default function Onboarding() {
   // doubled run would race the practice-setup writes.
   const finishing = useRef(false)
 
+  // Which wizard screen loses people. `current.key` comes from the fixed
+  // STEPS vocabulary — never anything anyone typed.
+  useEffect(() => {
+    if (!current?.key) return
+    track('onboarding_step_viewed', { step: current.key })
+  }, [current?.key])
+
   // Arriving at the Locations step, seed Location 1 with the practice name —
   // nobody should retype what they entered two screens ago.
   useEffect(() => {
@@ -324,6 +340,7 @@ export default function Onboarding() {
         starterItems: null,
       })
       completeOnboarding()
+      track('onboarding_completed', { locations: multiLoc === 'one' ? 1 : locations.length })
       localStorage.removeItem(DRAFT_KEY)
       // The card was taken at step 2, before any location existed, so the
       // subscription is billing for one. This is the first moment the real

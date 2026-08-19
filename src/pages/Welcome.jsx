@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Compass, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/lib/AuthContext'
+import { track, trackOnce } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 
 /** Google's mark, inline — brand assets may not be recoloured or redrawn. */
@@ -58,25 +59,35 @@ export default function Welcome() {
   const [notice, setNotice] = useState(null)
   const [code, setCode] = useState('')
 
+  // The top of the funnel. Every other rate is a fraction of this number.
+  useEffect(() => {
+    trackOnce('welcome_viewed')
+  }, [])
+
   const submit = async (e) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
     setNotice(null)
+    track('auth_submitted', { method: mode === 'signin' ? 'email_signin' : 'email_signup' })
     try {
       const fn = mode === 'signin' ? signIn : signUp
       const { error: err, needsConfirmation } = await fn({ email, password, fullName })
       if (err) {
+        // The message itself is never sent — only that this step failed.
+        track('auth_failed', { method: mode === 'signin' ? 'email_signin' : 'email_signup' })
         setError(err.message)
         return
       }
       // Confirmation on: there is no session yet. Collect the emailed code
       // here rather than sending people off to their inbox and back.
       if (mode === 'signup' && needsConfirmation) {
+        track('signup_needs_code')
         setMode('verify')
         setNotice(`We sent a 6-digit code to ${email}.`)
         return
       }
+      if (mode === 'signup') track('signup_completed', { method: 'email' })
       navigate(mode === 'signup' ? '/onboarding' : '/', { replace: true })
     } catch (err) {
       setError(err.message ?? 'Something went wrong.')
@@ -96,6 +107,7 @@ export default function Welcome() {
     try {
       const { error: err } = await verifyEmailCode({ email, token: code })
       if (err) {
+        track('signup_code_rejected')
         setError(
           /expired|invalid/i.test(err.message)
             ? 'That code is wrong or has expired. Send a new one below.'
@@ -103,6 +115,7 @@ export default function Welcome() {
         )
         return
       }
+      track('signup_completed', { method: 'email_code' })
       navigate('/onboarding', { replace: true })
     } catch (err) {
       setError(err.message ?? 'Could not verify that code.')
@@ -263,8 +276,14 @@ export default function Welcome() {
               disabled={busy}
               onClick={async () => {
                 setError(null)
+                // Fired before the redirect leaves the page — Google owns the
+                // next screen, so this is the last moment we can observe.
+                track('auth_submitted', { method: 'google' })
                 const { error: err } = await signInWithGoogle()
-                if (err) setError(err.message)
+                if (err) {
+                  track('auth_failed', { method: 'google' })
+                  setError(err.message)
+                }
               }}
               className="press mb-3 flex h-[50px] w-full items-center justify-center gap-2.5 rounded-[4px] bg-white text-body font-semibold text-[#1F1F1F] transition-opacity active:opacity-85 disabled:opacity-60"
             >
