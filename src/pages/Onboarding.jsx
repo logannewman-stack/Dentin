@@ -21,7 +21,6 @@ import { queueWalkthrough } from '@/components/Walkthrough'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import {
   captureReferralCode,
-  claimPracticeShell,
   completePracticeSetup,
   getSubscription,
   setReferralCode,
@@ -33,8 +32,11 @@ import { useAuth } from '@/lib/AuthContext'
 import { track } from '@/lib/analytics'
 import { cn, haptic } from '@/lib/utils'
 
-// Wizard progress survives the round-trip to Stripe's checkout page.
-const DRAFT_KEY = 'dentin:onboarding-draft'
+// Wizard progress survives the round-trip to Stripe's checkout page. Versioned:
+// v1 drafts stored a step INDEX under the old order, where the card came second.
+// Replaying one against the current order would drop somebody on the wrong
+// screen, so old drafts are simply ignored rather than mistranslated.
+const DRAFT_KEY = 'dentin:onboarding-draft-v2'
 
 const KIND_LABEL = Object.fromEntries(VENDOR_KINDS.map((k) => [k.id, k.label]))
 
@@ -164,6 +166,9 @@ export default function Onboarding() {
   const [checkoutReturn, setCheckoutReturn] = useState(null)
   // Whoever referred them — from a ?ref= share link, or typed here.
   const [referral, setReferral] = useState(() => captureReferralCode() ?? '')
+  // Set on the way back from Stripe; resolved to the trial step's real index
+  // once STEPS exists, since that index depends on the location count.
+  const [returnToTrial, setReturnToTrial] = useState(false)
   const subActive =
     ['active', 'trialing', 'past_due'].includes(sub?.status) || checkoutReturn === 'success'
 
@@ -187,10 +192,11 @@ export default function Onboarding() {
       if (Array.isArray(d.locations) && d.locations.length) setLocations(d.locations)
       if (Array.isArray(d.suppliers)) setSuppliers(new Set(d.suppliers))
       if (d.stock) setStock(d.stock)
-      // practice(0) → trial(1) → address(2): success moves on, cancel returns
-      // to the trial step, anything else resumes where they left off.
-      if (back === 'success') setStep(2)
-      else if (back === 'cancelled') setStep(1)
+      // The card is the last step now, so every return from Stripe lands
+      // there: paid, and the footer turns into Finish; backed out, and the
+      // pitch is still on screen to try again. Resolved by key rather than a
+      // hard-coded index — STEPS grows and shrinks with the location count.
+      if (back) setReturnToTrial(true)
       else if (typeof d.step === 'number') setStep(d.step)
     } catch {
       // A malformed draft is not worth blocking setup over.
@@ -220,9 +226,25 @@ export default function Onboarding() {
     setTrialError(null)
     track('checkout_opened', { plan })
     try {
-      // The checkout API needs a claimed practice; create the shell now and
-      // the rest of the wizard completes it after Stripe bounces back.
-      await claimPracticeShell(practice)
+      // Persist the WHOLE practice before handing off to Stripe, not just a
+      // name-only shell. Two things follow from that. Anyone who backs out at
+      // the card form keeps every answer they gave — on any device, not just
+      // the browser holding the draft. And the locations now exist before
+      // checkout reads them, so the subscription is billed for the real count
+      // from the very first invoice instead of starting at one.
+      //
+      // Safe to run twice: completePracticeSetup short-circuits once the
+      // practice has locations, so finish() re-running it after the redirect
+      // costs one count query.
+      await completePracticeSetup({
+        practice: { ...practice, ...address },
+        locations:
+          multiLoc === 'one'
+            ? [{ name: practice.name.trim(), operatories: locations[0]?.operatories ?? '' }]
+            : locations,
+        supplierSlugs: [...suppliers],
+        starterItems: null,
+      })
       await startSubscriptionCheckout(plan, '/onboarding')
     } catch (e) {
       // Never reached Stripe at all — a broken redirect, not a decision.
@@ -240,13 +262,6 @@ export default function Onboarding() {
         title: 'Your practice',
         blurb: 'This is what appears on purchase orders.',
         valid: practice.name.trim().length > 1,
-      },
-      {
-        key: 'trial',
-        Icon: CreditCard,
-        title: 'Start your free trial',
-        blurb: '7 days free — cancel anytime before day 7 and pay nothing.',
-        valid: subActive,
       },
       {
         key: 'address',
@@ -285,6 +300,16 @@ export default function Onboarding() {
         blurb: 'How should your inventory start? Everything is editable later.',
         valid: true,
       },
+      // The card comes LAST, once the practice is built and there is something
+      // to lose by walking away. Asking on screen two — before a single shelf
+      // was stocked — was costing roughly four out of five signups.
+      {
+        key: 'trial',
+        Icon: CreditCard,
+        title: 'Start your free trial',
+        blurb: '7 days free — cancel anytime before day 7 and pay nothing.',
+        valid: subActive,
+      },
     ],
     [practice, address, locations, suppliers, multiLoc, subActive],
   )
@@ -294,6 +319,15 @@ export default function Onboarding() {
   // Ref, not state: two taps in the same frame both see busy=false, and a
   // doubled run would race the practice-setup writes.
   const finishing = useRef(false)
+
+  // Land on the card step after a Stripe round-trip. Runs once: the flag is
+  // cleared immediately, so this never fights the wizard's own navigation.
+  useEffect(() => {
+    if (!returnToTrial) return
+    const i = STEPS.findIndex((s) => s.key === 'trial')
+    if (i >= 0) setStep(i)
+    setReturnToTrial(false)
+  }, [returnToTrial, STEPS])
 
   // Which wizard screen loses people. `current.key` comes from the fixed
   // STEPS vocabulary — never anything anyone typed.
@@ -342,10 +376,11 @@ export default function Onboarding() {
       completeOnboarding()
       track('onboarding_completed', { locations: multiLoc === 'one' ? 1 : locations.length })
       localStorage.removeItem(DRAFT_KEY)
-      // The card was taken at step 2, before any location existed, so the
-      // subscription is billing for one. This is the first moment the real
-      // count is known. Fire and forget: a billing hiccup must not strand
-      // someone at the end of setup, and Billing re-syncs on every visit.
+      // Locations now exist before checkout runs, so Stripe should already
+      // hold the right quantity. Kept as a safety net for the practice that
+      // added a location between opening checkout and finishing. Fire and
+      // forget: a billing hiccup must not strand someone at the end of setup,
+      // and Billing re-syncs on every visit.
       syncBillingQuantity().catch(() => {})
       // The optional tour waits on the other side of setup.
       queueWalkthrough()
