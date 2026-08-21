@@ -161,6 +161,18 @@ export default function Welcome() {
             Dentin
           </h1>
           <p className="mt-2 text-callout text-white/70">The price beneath the top layer.</p>
+          {/* The offer, above the fold. 15% is the floor, not the ceiling: the
+              catalog's own spread runs 17.7% against a Henry Schein-loyal
+              practice and 20.2% against Patterson, so a claim of 15% is one
+              most practices should clear rather than chase. */}
+          {/* text-wrap:balance keeps both lines from orphaning a single word
+              on a 320px screen, where these wrap to two lines each. */}
+          <p className="mt-6 max-w-[20rem] text-title1 font-bold leading-tight text-white [text-wrap:balance]">
+            Save 15%+ on your inventory costs
+          </p>
+          <p className="mt-2 max-w-[20rem] text-subhead text-white/70 [text-wrap:balance]">
+            with one-of-a-kind competitive pricing built in.
+          </p>
         </motion.div>
 
         {/* Form */}
