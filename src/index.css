@@ -3,23 +3,27 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   Dentin — Sharp UI
-   A software surface, not a phone OS one: cool neutrals, hairline structure,
-   dense rows, and no translucency doing decorative work.
+   Dentin — iOS Native
+   A phone-OS surface: grouped backgrounds, inset cards floating on them,
+   44pt rows, translucent chrome, and the platform's own type sizes.
    ========================================================================== */
 @layer base {
   :root {
-    --canvas: 246 246 247;
+    /* systemGroupedBackground. Cards sit ON this rather than drawing against
+       it with a border, which is what makes a grouped list read as iOS. */
+    --canvas: 242 242 247;
     --surface: 255 255 255;
-    --surface-2: 241 241 243;
-    --surface-3: 233 233 236;
-    --label: 16 16 18;
-    --label-2: 74 74 82;
-    --label-3: 134 134 143;
-    --separator: 226 226 230;
-    --fill: 138 138 148;
+    --surface-2: 242 242 247;
+    --surface-3: 229 229 234;
+    --label: 0 0 0;
+    --label-2: 60 60 67;
+    --label-3: 138 138 142;
+    /* The hairline between rows inside a card — nothing else. */
+    --separator: 216 216 220;
+    --fill: 120 120 128;
 
-    --nav-material: 255 255 255;
+    /* Chrome is translucent over content, not an opaque strip. */
+    --nav-material: 249 249 251;
     --brand: 12 125 118;
 
     --viz-1: 13 148 136;
@@ -30,17 +34,17 @@
   }
 
   :root[data-theme='dark'] {
-    --canvas: 10 10 12;
-    --surface: 19 19 22;
-    --surface-2: 27 27 31;
-    --surface-3: 35 35 40;
-    --label: 245 245 247;
-    --label-2: 180 180 190;
-    --label-3: 124 124 136;
-    --separator: 38 38 44;
-    --fill: 110 110 122;
+    --canvas: 0 0 0;
+    --surface: 28 28 30;
+    --surface-2: 44 44 46;
+    --surface-3: 58 58 60;
+    --label: 255 255 255;
+    --label-2: 235 235 245;
+    --label-3: 152 152 157;
+    --separator: 56 56 58;
+    --fill: 120 120 128;
 
-    --nav-material: 15 15 18;
+    --nav-material: 30 30 32;
     --brand: 56 184 174;
 
     --viz-1: 38 166 154;
@@ -52,17 +56,17 @@
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) {
-      --canvas: 10 10 12;
-      --surface: 19 19 22;
-      --surface-2: 27 27 31;
-      --surface-3: 35 35 40;
-      --label: 245 245 247;
-      --label-2: 180 180 190;
-      --label-3: 124 124 136;
-      --separator: 38 38 44;
-      --fill: 110 110 122;
+      --canvas: 0 0 0;
+      --surface: 28 28 30;
+      --surface-2: 44 44 46;
+      --surface-3: 58 58 60;
+      --label: 255 255 255;
+      --label-2: 235 235 245;
+      --label-3: 152 152 157;
+      --separator: 56 56 58;
+      --fill: 120 120 128;
 
-      --nav-material: 15 15 18;
+      --nav-material: 30 30 32;
       --brand: 56 184 174;
 
       --viz-1: 38 166 154;
@@ -86,19 +90,19 @@
 
   body {
     @apply bg-canvas text-label font-sans antialiased;
-    font-size: 14px;
-    line-height: 20px;
-    letter-spacing: -0.008em;
+    font-size: 17px;
+    line-height: 22px;
+    letter-spacing: -0.022em;
     overscroll-behavior-y: none;
     font-feature-settings: 'cv05' 1, 'ss01' 1;
   }
 
-  /* 16px keeps iOS Safari from zooming the viewport on focus, even though the
-     rest of the interface sits at 13–14px. */
+  /* Fields match body now, which also clears the 16px floor that stops iOS
+     Safari zooming the viewport on focus. */
   input,
   textarea,
   select {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   button {
@@ -107,32 +111,34 @@
 }
 
 @layer components {
-  /* Chrome is opaque and separated by a rule, not by blur. */
+  /* Chrome floats over content: a translucent material with saturation, the
+     way a UIKit bar does, rather than an opaque strip with a rule. */
   .material-chrome {
-    background-color: rgb(var(--nav-material));
+    background-color: rgb(var(--nav-material) / 0.82);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
 
-  /* A panel: hairline border defines it, radius stays tight. */
+  /* A grouped-list card. No border — it reads as a card because it is lighter
+     than the grouped background behind it and casts a shadow onto it. */
   .panel {
-    @apply bg-surface rounded-card border border-line overflow-hidden;
+    @apply bg-surface rounded-card shadow-card overflow-hidden;
   }
 
+  /* 44pt is the platform's minimum touch target, and the reason iOS lists
+     feel unhurried where a 38px row feels like a spreadsheet. */
   .row {
-    @apply flex items-center gap-2.5 px-3 min-h-[38px] w-full text-left;
+    @apply flex items-center gap-3 px-4 min-h-[44px] w-full text-left;
   }
 
+  /* Hairlines start after the text inset, never at the card edge — the single
+     most recognisable detail of an iOS grouped list. */
   .row + .row {
-    box-shadow: inset 0 1px 0 rgb(var(--separator));
-  }
-
-  /* Dividers stop short of the leading edge when a row has art, so the eye
-     tracks the column of icons rather than a full-width rule. */
-  .row-inset + .row-inset {
     background-image: linear-gradient(
       to right,
       transparent 0,
-      transparent 42px,
-      rgb(var(--separator)) 42px,
+      transparent 16px,
+      rgb(var(--separator)) 16px,
       rgb(var(--separator)) 100%
     );
     background-size: 100% 1px;
@@ -140,10 +146,21 @@
     background-position: top;
   }
 
-  /* Micro-label: the workhorse of dense software UI. */
+  /* With art in the row the hairline clears the icon column instead. */
+  .row-inset + .row-inset {
+    background-image: linear-gradient(
+      to right,
+      transparent 0,
+      transparent 56px,
+      rgb(var(--separator)) 56px,
+      rgb(var(--separator)) 100%
+    );
+  }
+
+  /* Grouped list header: sentence case, roomy, and quiet. */
   .section-label {
-    @apply text-caption2 uppercase text-label-3 px-0.5 pb-1.5 pt-5 font-semibold;
-    letter-spacing: 0.07em;
+    @apply text-footnote text-label-3 px-4 pb-2 pt-6;
+    letter-spacing: -0.006em;
   }
 
   .scroll-area {
@@ -151,9 +168,21 @@
     overscroll-behavior: contain;
   }
 
-  /* Interaction reads as a fast state change, not a rubbery press. */
+  /* A tap highlights the whole row and releases slowly, the way a UITableView
+     cell does. Nothing scales; iOS rows do not bounce. */
   .press {
-    @apply transition-colors duration-100 hover:bg-surface-2 active:bg-surface-2;
+    @apply transition-colors duration-200 ease-out;
+  }
+
+  .press:active {
+    background-color: rgb(var(--fill) / 0.12);
+    transition-duration: 0ms;
+  }
+
+  @media (hover: hover) {
+    .press:hover {
+      background-color: rgb(var(--fill) / 0.06);
+    }
   }
 
   .skeleton {
@@ -186,9 +215,15 @@
     @apply font-mono text-caption tracking-tight;
   }
 
-  /* Focus is visible and square, the way keyboard-driven software expects. */
+  /* Focus follows the control's own corner radius rather than boxing it. */
   .focus-ring:focus-visible {
-    @apply outline-none ring-2 ring-brand-500/45 ring-offset-0;
+    @apply outline-none ring-[3px] ring-brand-500/35 ring-offset-0;
+  }
+
+  /* The grouped-list content inset. Cards stop short of the screen edge on a
+     phone and stay centred once there is room. */
+  .inset-group {
+    @apply mx-auto w-full max-w-2xl px-4;
   }
 }
 

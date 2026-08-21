@@ -1,3 +1,17 @@
+> **Branch note — `claude/ios-native-polish`.**
+> This branch deliberately reverses everything below, taking the interface
+> back to a phone-OS language: grouped backgrounds with cards floating on
+> them, 44pt rows, 17px body, continuous corners, translucent chrome, and the
+> platform's own controls. `main` keeps the sharp software aesthetic this
+> document describes — read the rest of this file as the thing being
+> reversed, not as a description of this branch.
+>
+> The change lives in the token layer (`tailwind.config.js`, `src/index.css`)
+> plus six primitives: `Screen`, `List`, `TabBar`, `Button`, `Controls` and
+> `DemoBanner`. Those cascade to all 34 screens, so page-level edits were
+> limited to what the cascade could not reach — the dashboard's micro-caps
+> and the settings list's icon tiles.
+
 # Sharp UI
 
 The interface language: software, not a phone OS. Developed on

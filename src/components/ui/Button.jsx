@@ -3,26 +3,22 @@ import { Link } from 'react-router-dom'
 import { cn, haptic } from '@/lib/utils'
 
 /**
- * Buttons are bordered and square-ish rather than filled pills. Secondary and
- * tinted variants carry a visible edge so they still read as controls on a
- * dense surface, where a tint alone disappears.
+ * Filled, borderless, and rounded — UIKit buttons, not bordered web controls.
+ * A press dims the whole control rather than swapping its fill, which is what
+ * makes an iOS tap feel immediate instead of stateful.
  */
 const VARIANTS = {
-  primary:
-    'bg-brand-600 text-white border border-brand-700 hover:bg-brand-500 active:bg-brand-700 disabled:bg-brand-600/45 disabled:border-transparent',
-  secondary:
-    'bg-surface text-label border border-line hover:bg-surface-2 active:bg-surface-3',
-  tinted:
-    'bg-brand-600/10 text-brand-700 dark:text-brand-400 border border-brand-600/25 hover:bg-brand-600/16',
-  destructive:
-    'bg-ios-red text-white border border-ios-red hover:opacity-90 active:opacity-80',
-  plain: 'text-brand-700 dark:text-brand-400 border border-transparent hover:bg-surface-2',
+  primary: 'bg-brand-600 text-white disabled:bg-brand-600/40',
+  secondary: 'bg-fill/[0.10] text-label dark:bg-fill/[0.24]',
+  tinted: 'bg-brand-600/12 text-brand-600 dark:text-brand-400 dark:bg-brand-400/16',
+  destructive: 'bg-ios-red text-white',
+  plain: 'text-brand-600 dark:text-brand-400',
 }
 
 const SIZES = {
-  sm: 'h-7 px-2.5 text-footnote rounded-[3px] gap-1.5',
-  md: 'h-8 px-3 text-subhead rounded-[3px] gap-1.5',
-  lg: 'h-10 px-4 text-body rounded-[4px] gap-2',
+  sm: 'h-8 px-3 text-footnote rounded-[8px] gap-1.5',
+  md: 'h-9 px-3.5 text-subhead rounded-[9px] gap-1.5',
+  lg: 'h-[50px] px-5 text-body rounded-field gap-2',
 }
 
 export default function Button({
@@ -38,20 +34,23 @@ export default function Button({
   ...rest
 }) {
   const classes = cn(
-    'focus-ring inline-flex select-none items-center justify-center font-medium',
-    'transition-colors duration-100',
-    'disabled:pointer-events-none disabled:opacity-50',
+    'focus-ring inline-flex select-none items-center justify-center font-semibold',
+    // The press is an opacity dip, instantly on and eased off.
+    'transition-opacity duration-200 ease-out active:opacity-55 active:duration-0',
+    'disabled:pointer-events-none disabled:opacity-45',
     VARIANTS[variant],
     SIZES[size],
     className,
   )
 
+  const glyph = size === 'lg' ? 18 : 15
+
   const content = (
     <>
       {loading ? (
-        <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+        <Loader2 size={glyph} className="animate-spin" aria-hidden="true" />
       ) : Icon ? (
-        <Icon size={14} strokeWidth={2.2} aria-hidden="true" />
+        <Icon size={glyph} strokeWidth={2.2} aria-hidden="true" />
       ) : null}
       {children}
     </>

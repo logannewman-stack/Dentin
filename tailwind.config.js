@@ -92,40 +92,46 @@ export default {
        * of the iOS ramp, which loosens.
        */
       fontSize: {
-        caption2: ['10px', { lineHeight: '13px', letterSpacing: '0.04em' }],
-        caption: ['11px', { lineHeight: '15px', letterSpacing: '0.01em' }],
-        footnote: ['12px', { lineHeight: '17px', letterSpacing: '0' }],
-        subhead: ['13px', { lineHeight: '18px', letterSpacing: '-0.005em' }],
-        callout: ['13px', { lineHeight: '18px', letterSpacing: '-0.005em' }],
-        body: ['14px', { lineHeight: '20px', letterSpacing: '-0.008em' }],
-        headline: ['14px', { lineHeight: '20px', letterSpacing: '-0.011em', fontWeight: '600' }],
-        title3: ['16px', { lineHeight: '22px', letterSpacing: '-0.014em' }],
-        title2: ['20px', { lineHeight: '26px', letterSpacing: '-0.019em' }],
-        title1: ['24px', { lineHeight: '30px', letterSpacing: '-0.022em' }],
-        large: ['30px', { lineHeight: '36px', letterSpacing: '-0.026em' }],
+        // The iOS text styles at their real sizes. Body is 17px because that
+        // is what the platform reads like, and tracking loosens as type
+        // shrinks rather than tightening — the opposite of the sharp ramp.
+        caption2: ['11px', { lineHeight: '13px', letterSpacing: '0.006em' }],
+        caption: ['12px', { lineHeight: '16px', letterSpacing: '0' }],
+        footnote: ['13px', { lineHeight: '18px', letterSpacing: '-0.006em' }],
+        subhead: ['15px', { lineHeight: '20px', letterSpacing: '-0.012em' }],
+        callout: ['16px', { lineHeight: '21px', letterSpacing: '-0.018em' }],
+        body: ['17px', { lineHeight: '22px', letterSpacing: '-0.022em' }],
+        headline: ['17px', { lineHeight: '22px', letterSpacing: '-0.022em', fontWeight: '600' }],
+        title3: ['20px', { lineHeight: '25px', letterSpacing: '-0.026em' }],
+        title2: ['22px', { lineHeight: '28px', letterSpacing: '-0.028em' }],
+        title1: ['28px', { lineHeight: '34px', letterSpacing: '-0.032em' }],
+        large: ['34px', { lineHeight: '41px', letterSpacing: '-0.037em' }],
       },
-      // Sharp by default. Enough radius to avoid a jagged 1px corner on a
-      // hairline border, and no more than that.
+      // Continuous corners. A grouped list card is 10, a floating card 14, a
+      // sheet 16 — and pills are round again.
       borderRadius: {
-        ios: '3px',
-        card: '4px',
-        sheet: '6px',
-        continuous: '4px',
+        ios: '10px',
+        card: '14px',
+        sheet: '16px',
+        continuous: '12px',
+        field: '10px',
       },
       boxShadow: {
-        // Structure comes from borders; shadows are reserved for things that
-        // genuinely float above the page.
-        card: '0 1px 2px rgb(16 16 18 / 0.04)',
-        raised: '0 1px 3px rgb(16 16 18 / 0.08), 0 8px 24px rgb(16 16 18 / 0.10)',
-        sheet: '0 -1px 0 rgb(var(--separator)), 0 -12px 40px rgb(16 16 18 / 0.18)',
+        // Structure comes from elevation against the grouped background, not
+        // from a hairline drawn around every box.
+        card: '0 1px 2px rgb(16 16 18 / 0.04), 0 6px 16px -8px rgb(16 16 18 / 0.10)',
+        raised: '0 2px 6px rgb(16 16 18 / 0.06), 0 16px 40px -12px rgb(16 16 18 / 0.18)',
+        sheet: '0 -12px 44px rgb(16 16 18 / 0.20)',
+        control: '0 1px 2px rgb(16 16 18 / 0.10)',
       },
       spacing: {
         'safe-t': 'env(safe-area-inset-top)',
         'safe-b': 'env(safe-area-inset-bottom)',
         'safe-l': 'env(safe-area-inset-left)',
         'safe-r': 'env(safe-area-inset-right)',
-        tabbar: '52px',
-        navbar: '48px',
+        // Platform metrics: 49pt tab bar, 44pt nav bar.
+        tabbar: '49px',
+        navbar: '44px',
       },
       backdropBlur: {
         ios: '12px',

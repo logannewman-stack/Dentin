@@ -210,13 +210,21 @@ export default function Settings() {
       {/* Practice identity */}
       <Section title="Practice">
         <Row
-          leading={<Building2 size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="gray">
+              <Building2 size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title={practice?.name ?? 'Your practice'}
           subtitle={practice?.legalName}
           onClick={() => setAddressOpen(true)}
         />
         <Row
-          leading={<MapPin size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="red">
+              <MapPin size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Shipping address"
           subtitle={shipTo || 'Add the address orders ship to'}
           onClick={() => setAddressOpen(true)}
@@ -226,43 +234,71 @@ export default function Settings() {
       {/* Vendors */}
       <Section title="Purchasing">
         <Row
-          leading={<Building2 size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="gray">
+              <Building2 size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Vendors & accounts"
           subtitle="Who you can order from, and on what terms"
           to="/vendors"
         />
         <Row
-          leading={<Sparkles size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="brand">
+              <Sparkles size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Competitive pricing"
           subtitle="Vendors that beat your current accounts"
           to="/vendors/compare"
         />
         <Row
-          leading={<Scale size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="purple">
+              <Scale size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Price benchmarks"
           subtitle="What other practices pay for the same items"
           to="/vendors/benchmark"
         />
         <Row
-          leading={<FileSpreadsheet size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="green">
+              <FileSpreadsheet size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Import contract pricing"
           subtitle="Load the negotiated price file from your rep"
           to="/vendors/import"
         />
         <Row
-          leading={<ReceiptText size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="orange">
+              <ReceiptText size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Invoices"
           subtitle="Check what you were billed against what you ordered"
           to="/invoices"
         />
         <Row
-          leading={<Landmark size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="blue">
+              <Landmark size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Payment methods"
           subtitle="How vendors get paid — ACH and cards on file"
           to="/settings/payments"
         />
         <Row
-          leading={<CreditCard size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="green">
+              <CreditCard size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Billing & subscription"
           subtitle="Your Dentin plan, invoices and card"
           to="/settings/billing"
@@ -271,7 +307,11 @@ export default function Settings() {
 
       <Section title="Practice operations">
         <Row
-          leading={<Users size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="blue">
+              <Users size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Team & roles"
           subtitle="Who can order, and who moved the stock"
           to="/team"
@@ -290,19 +330,31 @@ export default function Settings() {
           to="/settings/compliance"
         />
         <Row
-          leading={<Activity size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="gray">
+              <Activity size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Procedures & consumption"
           subtitle="What each procedure draws from stock"
           to="/procedures"
         />
         <Row
-          leading={<CalendarClock size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="gray">
+              <CalendarClock size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Lot expiry"
           subtitle="Expired and expiring lots on the shelf"
           to="/expiry"
         />
         <Row
-          leading={<Wrench size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+          leading={
+            <RowIcon tint="orange">
+              <Wrench size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
           title="Equipment register"
           subtitle="Serials, warranties and service history"
           to="/equipment"
@@ -336,7 +388,11 @@ export default function Settings() {
       >
         {pushState.permission !== 'granted' ? (
           <Row
-            leading={<Bell size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
+            leading={
+            <RowIcon tint="red">
+              <Bell size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
             title="Enable push notifications"
             subtitle={
               pushState.reason === 'ios-needs-install'

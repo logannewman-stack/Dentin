@@ -13,9 +13,9 @@ const TABS = [
 ]
 
 /**
- * Opaque, rule-separated nav. The active tab is marked by a top keyline and a
- * colour shift rather than by a filled glyph, which keeps the row quiet on a
- * dense screen.
+ * Translucent tab bar, 49pt, that content scrolls under. The active tab is
+ * marked by colour and a heavier glyph — no keyline, because iOS has never
+ * used one and it reads as web navigation the moment you add it.
  */
 export default function TabBar({ badges = {} }) {
   const { pathname } = useLocation()
@@ -25,8 +25,11 @@ export default function TabBar({ badges = {} }) {
 
   return (
     <nav
-      className="material-chrome fixed inset-x-0 bottom-0 z-40 border-t border-line lg:hidden"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="material-chrome fixed inset-x-0 bottom-0 z-40 lg:hidden"
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        boxShadow: 'inset 0 0.5px 0 rgb(var(--separator))',
+      }}
       aria-label="Primary"
     >
       <ul className="mx-auto flex h-tabbar w-full max-w-2xl items-stretch">
@@ -40,31 +43,25 @@ export default function TabBar({ badges = {} }) {
                 onClick={() => haptic(4)}
                 className={({ isActive }) =>
                   cn(
-                    'relative flex h-full flex-col items-center justify-center gap-1 transition-colors duration-100',
-                    isActive ? 'text-brand-700 dark:text-brand-400' : 'text-label-3',
+                    'relative flex h-full flex-col items-center justify-center gap-[3px] transition-colors duration-150 active:opacity-45',
+                    isActive ? 'text-brand-600 dark:text-brand-400' : 'text-label-3',
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {isActive ? (
-                      <span
-                        className="absolute inset-x-3 top-0 h-[2px] bg-brand-600"
-                        aria-hidden="true"
-                      />
-                    ) : null}
                     <span className="relative">
-                      <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
+                      <Icon size={25} strokeWidth={isActive ? 2.1 : 1.7} aria-hidden="true" />
                       {badge ? (
                         <span
-                          className="tnum absolute -right-2.5 -top-1.5 min-w-[15px] rounded-[2px] bg-ios-red px-1 text-center text-[9px] font-bold leading-[14px] text-white"
+                          className="tnum absolute -right-2.5 -top-1 min-w-[17px] rounded-full bg-ios-red px-[5px] text-center text-[11px] font-semibold leading-[17px] text-white"
                           aria-hidden="true"
                         >
                           {badge > 99 ? '99+' : badge}
                         </span>
                       ) : null}
                     </span>
-                    <span className="text-caption2 font-medium leading-none tracking-[0.01em]">
+                    <span className="text-[10px] font-medium leading-none tracking-[0.005em]">
                       {label}
                     </span>
                     {badge ? <span className="sr-only">{badge} needing attention</span> : null}

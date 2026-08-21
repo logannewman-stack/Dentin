@@ -1,11 +1,13 @@
 import { Minus, Plus, Search, X } from 'lucide-react'
 import { cn, haptic } from '@/lib/utils'
 
+/** UISearchBar: a filled, rounded, borderless field on the grouped canvas. */
 export function SearchField({ value, onChange, placeholder = 'Search', onFocus, autoFocus }) {
   return (
     <div className="relative flex items-center">
       <Search
-        size={14}
+        size={16}
+        strokeWidth={2.4}
         className="pointer-events-none absolute left-2.5 text-label-3"
         aria-hidden="true"
       />
@@ -19,8 +21,8 @@ export function SearchField({ value, onChange, placeholder = 'Search', onFocus, 
         placeholder={placeholder}
         aria-label={placeholder}
         className={cn(
-          'focus-ring h-8 w-full rounded-[3px] border border-line bg-surface pl-8 pr-8',
-          'text-subhead text-label placeholder:text-label-3',
+          'focus-ring h-9 w-full rounded-[10px] bg-fill/[0.10] pl-9 pr-9 dark:bg-fill/[0.22]',
+          'text-callout text-label placeholder:text-label-3',
           '[&::-webkit-search-cancel-button]:appearance-none',
         )}
       />
@@ -29,26 +31,45 @@ export function SearchField({ value, onChange, placeholder = 'Search', onFocus, 
           type="button"
           aria-label="Clear search"
           onClick={() => onChange('')}
-          className="absolute right-2 flex h-4 w-4 items-center justify-center rounded-[2px] text-label-3 hover:bg-surface-2 hover:text-label"
+          className="absolute right-2.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-label-3/70 text-surface transition-opacity active:opacity-60"
         >
-          <X size={12} strokeWidth={2.6} />
+          <X size={12} strokeWidth={3} />
         </button>
       ) : null}
     </div>
   )
 }
 
-/** A bordered switcher — closer to a tab strip than an iOS segmented control. */
+/**
+ * UISegmentedControl: a recessed grey track with a white thumb that slides
+ * under the selected label. The thumb is a positioned sibling rather than a
+ * background on the active button, which is the only way it can animate
+ * between segments instead of blinking.
+ */
 export function SegmentedControl({ options, value, onChange, className }) {
+  const index = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  )
+  const width = options.length ? 100 / options.length : 100
+
   return (
     <div
       role="tablist"
       className={cn(
-        'inline-flex w-full overflow-hidden rounded-[3px] border border-line bg-surface',
+        'relative inline-flex w-full rounded-[9px] bg-fill/[0.08] p-[2px] dark:bg-fill/[0.20]',
         className,
       )}
     >
-      {options.map((opt, i) => {
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-[2px] left-[2px] rounded-[7px] bg-surface shadow-control transition-transform duration-200 ease-out"
+        style={{
+          width: `calc(${width}% - 4px)`,
+          transform: `translateX(calc(${index * 100}% + ${index * 4}px))`,
+        }}
+      />
+      {options.map((opt) => {
         const active = opt.value === value
         return (
           <button
@@ -61,11 +82,8 @@ export function SegmentedControl({ options, value, onChange, className }) {
               onChange(opt.value)
             }}
             className={cn(
-              'min-w-0 flex-1 px-2.5 py-1.5 text-footnote font-medium transition-colors duration-100',
-              i > 0 && 'border-l border-line',
-              active
-                ? 'bg-brand-600/10 text-brand-700 dark:text-brand-400'
-                : 'text-label-2 hover:bg-surface-2',
+              'relative z-10 min-w-0 flex-1 rounded-[7px] px-2.5 py-[5px] text-footnote transition-colors duration-200',
+              active ? 'font-semibold text-label' : 'font-medium text-label-2',
             )}
           >
             <span className="truncate">{opt.label}</span>
@@ -89,18 +107,18 @@ export function Stepper({ value, onChange, min = 0, max = 9999, step = 1, unit }
   }
 
   return (
-    <div className="inline-flex items-stretch overflow-hidden rounded-[3px] border border-line">
+    <div className="inline-flex items-stretch overflow-hidden rounded-[10px] bg-fill/[0.08] dark:bg-fill/[0.20]">
       <button
         type="button"
         aria-label="Decrease"
         onClick={() => set(value - step)}
         disabled={value <= min}
-        className="flex h-9 w-10 items-center justify-center bg-surface text-label transition-colors hover:bg-surface-2 disabled:opacity-30"
+        className="flex h-[38px] w-11 items-center justify-center text-label transition-opacity active:opacity-45 disabled:opacity-25"
       >
         <Minus size={15} strokeWidth={2.4} />
       </button>
 
-      <div className="flex min-w-[68px] flex-col items-center justify-center border-x border-line bg-surface px-2">
+      <div className="my-[2px] flex min-w-[68px] flex-col items-center justify-center rounded-[8px] bg-surface px-2 shadow-control">
         <span className="tnum text-title3 font-semibold leading-none">{value}</span>
         {unit ? <span className="mt-0.5 text-caption2 text-label-3">{unit}</span> : null}
       </div>
@@ -110,7 +128,7 @@ export function Stepper({ value, onChange, min = 0, max = 9999, step = 1, unit }
         aria-label="Increase"
         onClick={() => set(value + step)}
         disabled={value >= max}
-        className="flex h-9 w-10 items-center justify-center bg-surface text-label transition-colors hover:bg-surface-2 disabled:opacity-30"
+        className="flex h-[38px] w-11 items-center justify-center text-label transition-opacity active:opacity-45 disabled:opacity-25"
       >
         <Plus size={15} strokeWidth={2.4} />
       </button>
@@ -129,7 +147,7 @@ const TONES = {
   good: 'bg-ios-green/10 text-ios-green ring-ios-green/25',
   info: 'bg-ios-blue/10 text-ios-blue ring-ios-blue/25',
   brand: 'bg-brand-600/10 text-brand-700 dark:text-brand-400 ring-brand-600/25',
-  quiet: 'bg-surface-2 text-label-2 ring-line',
+  quiet: 'bg-fill/[0.10] text-label-2 ring-transparent',
 }
 
 /**
@@ -141,18 +159,19 @@ export function Pill({ tone = 'quiet', children, className, icon: Icon }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-[2px] px-1.5 py-[1px]',
-        'text-caption font-medium ring-1 ring-inset',
+        'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[2px]',
+        'text-caption font-semibold ring-1 ring-inset',
         TONES[tone] ?? TONES.quiet,
         className,
       )}
     >
-      {Icon ? <Icon size={10} strokeWidth={2.6} aria-hidden="true" /> : null}
+      {Icon ? <Icon size={11} strokeWidth={2.6} aria-hidden="true" /> : null}
       {children}
     </span>
   )
 }
 
+/** UISwitch: 51×31pt, fully round, with a knob that carries a soft shadow. */
 export function Toggle({ checked, onChange, label }) {
   return (
     <button
@@ -165,14 +184,14 @@ export function Toggle({ checked, onChange, label }) {
         onChange(!checked)
       }}
       className={cn(
-        'focus-ring relative h-[20px] w-[34px] shrink-0 rounded-[2px] border transition-colors duration-100',
-        checked ? 'border-brand-700 bg-brand-600' : 'border-line bg-surface-2',
+        'focus-ring relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 ease-out',
+        checked ? 'bg-ios-green' : 'bg-fill/25',
       )}
     >
       <span
         className={cn(
-          'absolute top-[2px] h-[14px] w-[14px] rounded-[2px] transition-transform duration-100 ease-sharp',
-          checked ? 'translate-x-[17px] bg-white' : 'translate-x-[2px] bg-label-3',
+          'absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-control transition-transform duration-200 ease-out',
+          checked ? 'translate-x-[22px]' : 'translate-x-[2px]',
         )}
       />
     </button>

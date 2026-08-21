@@ -3,21 +3,20 @@ import { cn } from '@/lib/utils'
 /**
  * Screen shell.
  *
- * A fixed, opaque topbar with a hairline rule — nothing moves on scroll.
- * Root screens can show the workspace mark (`logo`) on phones; at `lg` the
- * sidebar owns the brand, the content shifts right of it, and the rail widens
- * from a phone column to a desktop working width. All of it is driven by
- * viewport, so a Mac window, an iPad in landscape, or a resized browser each
- * land in the right layout without user-agent guessing.
+ * A 44pt translucent nav bar with the iOS large title sitting below it, in
+ * the scroll region — so the title reads as the top of the page rather than
+ * as chrome, and slides away as you scroll. Pass `largeTitle={false}` on
+ * pushed detail screens, which keep the compact bar only.
  *
- * `largeTitle` is accepted and ignored, so screens written against the iOS
- * shell render unchanged.
+ * At `lg` the sidebar owns the brand, content shifts right of it, and the
+ * rail widens to a desktop working width. All viewport-driven, so a Mac
+ * window or an iPad in landscape lands in the right layout with no
+ * user-agent guessing.
  */
 export default function Screen({
   title,
   subtitle,
-  // eslint-disable-next-line no-unused-vars
-  largeTitle,
+  largeTitle = true,
   logo = false,
   leading,
   trailing,
@@ -30,56 +29,58 @@ export default function Screen({
   return (
     <div className={cn('flex h-[100dvh] flex-col bg-canvas lg:pl-56', className)}>
       <header
-        className="material-chrome z-30 shrink-0 border-b border-line"
+        className="material-chrome z-30 shrink-0"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div className="mx-auto flex h-navbar w-full max-w-2xl items-center gap-2 px-3 lg:max-w-6xl lg:px-6">
-          {leading ? <div className="flex shrink-0 items-center">{leading}</div> : null}
+        <div className="mx-auto flex h-navbar w-full max-w-2xl items-center gap-2 px-4 lg:max-w-6xl lg:px-6">
+          {leading ? <div className="-ml-2 flex shrink-0 items-center">{leading}</div> : null}
 
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {logo ? (
               <img
                 src="/icon.svg"
                 alt=""
-                className="h-[20px] w-[20px] shrink-0 rounded-[4px] lg:hidden"
+                className="h-[22px] w-[22px] shrink-0 rounded-[5px] lg:hidden"
                 aria-hidden="true"
               />
             ) : null}
-            <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em]">{title}</h1>
-            {subtitle ? (
-              <>
-                <span className="hidden text-label-3/60 sm:block" aria-hidden="true">
-                  /
-                </span>
-                <span className="hidden truncate text-footnote text-label-3 sm:block">
-                  {subtitle}
-                </span>
-              </>
-            ) : null}
+            {/* The large title below already names the screen; repeating it in
+                the bar is the classic iOS double-title mistake. Kept for
+                screen readers, and shown for real on desktop. */}
+            <h1
+              className={cn(
+                'truncate font-semibold tracking-[-0.022em] text-body',
+                largeTitle ? 'sr-only lg:not-sr-only' : null,
+              )}
+            >
+              {title}
+            </h1>
           </div>
 
-          <div className="flex shrink-0 items-center gap-0.5">{trailing}</div>
+          <div className="flex shrink-0 items-center gap-1">{trailing}</div>
         </div>
 
-        {/* On narrow screens the subtitle drops to its own line rather than
-            truncating the title it describes. */}
-        {subtitle ? (
-          <p className="mx-auto w-full max-w-2xl truncate px-3 pb-2 text-footnote text-label-3 sm:hidden">
-            {subtitle}
-          </p>
-        ) : null}
-
-        {toolbar ? (
-          <div className="mx-auto w-full max-w-2xl px-3 pb-2.5 lg:max-w-6xl lg:px-6">{toolbar}</div>
+        {/* With a large title the toolbar belongs under it, in the scroll
+            region — a search bar pinned above the title is the giveaway that
+            a layout was never really iOS. Detail screens keep it in the bar. */}
+        {toolbar && !largeTitle ? (
+          <div className="mx-auto w-full max-w-2xl px-4 pb-2.5 lg:max-w-6xl lg:px-6">{toolbar}</div>
         ) : null}
       </header>
 
       <div className="scroll-area flex-1 overflow-y-auto">
+        {largeTitle ? (
+          <div className="mx-auto w-full max-w-2xl px-4 pb-1 pt-2 lg:max-w-6xl lg:px-6 lg:pt-4">
+            <h2 className="truncate text-large font-bold text-label lg:sr-only">{title}</h2>
+            {subtitle ? (
+              <p className="mt-0.5 truncate text-footnote text-label-3">{subtitle}</p>
+            ) : null}
+            {toolbar ? <div className="pt-2.5">{toolbar}</div> : null}
+          </div>
+        ) : null}
+
         <div
-          className={cn(
-            'mx-auto w-full max-w-2xl px-3 pt-1 lg:max-w-6xl lg:px-6 lg:pt-2',
-            contentClassName,
-          )}
+          className={cn('mx-auto w-full max-w-2xl px-4 lg:max-w-6xl lg:px-6', contentClassName)}
         >
           {children}
         </div>

@@ -50,25 +50,25 @@ function Kpi({ label, icon: Icon, value, caption, tone = 'label', to }) {
 
   const inner = (
     <>
-      <span className="flex items-center gap-1 text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
-        {Icon ? <Icon size={11} strokeWidth={2.1} aria-hidden="true" /> : null}
+      <span className="flex items-center gap-1.5 text-footnote text-label-3">
+        {Icon ? <Icon size={13} strokeWidth={2.1} aria-hidden="true" /> : null}
         {label}
       </span>
-      <span className={cn('tnum mt-1 block text-title2 font-semibold leading-tight', tones[tone])}>
+      <span className={cn('tnum mt-1 block text-title1 font-semibold leading-tight', tones[tone])}>
         {value}
       </span>
       {caption ? (
-        <span className="mt-0.5 block truncate text-caption text-label-3">{caption}</span>
+        <span className="mt-0.5 block truncate text-footnote text-label-3">{caption}</span>
       ) : null}
     </>
   )
 
   return to ? (
-    <Link to={to} className="press block min-w-0 bg-surface p-3">
+    <Link to={to} className="press block min-w-0 bg-surface p-4">
       {inner}
     </Link>
   ) : (
-    <div className="min-w-0 bg-surface p-3">{inner}</div>
+    <div className="min-w-0 bg-surface p-4">{inner}</div>
   )
 }
 
@@ -239,10 +239,12 @@ export default function Dashboard() {
           </div>
 
           <div className="panel">
+            {/* Column headers in sentence case and no fill — a grouped list
+                that happens to have columns, not a data table. */}
             <div
               className={cn(
-                'grid items-center gap-2 border-b border-line bg-surface-2/50 px-3 py-1.5',
-                'text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3',
+                'grid items-center gap-2 px-4 pb-1 pt-2.5',
+                'text-caption text-label-3',
                 TABLE_COLS,
               )}
             >
@@ -330,12 +332,10 @@ export default function Dashboard() {
           number is the answer to "is Dentin worth paying for", and that screen
           is the one that shows it against what the practice actually pays. */}
       {spend?.length ? (
-        <Link to="/insights/value" className="panel press mt-2 flex items-center gap-3 p-3">
+        <Link to="/insights/value" className="panel press mt-2 flex items-center gap-3 p-4">
           <span className="min-w-0 flex-1">
-            <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
-              Captured · 12 months
-            </span>
-            <span className="tnum mt-1 block text-title2 font-semibold">
+            <span className="block text-footnote text-label-3">Captured · 12 months</span>
+            <span className="tnum mt-1 block text-title1 font-semibold">
               {moneyRound(saved12)}
             </span>
           </span>
