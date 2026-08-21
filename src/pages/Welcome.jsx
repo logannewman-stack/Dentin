@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight, Compass, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/lib/AuthContext'
 import { track, trackOnce } from '@/lib/analytics'
-import { SUPPLIERS } from '@/lib/demoData'
+import { PRODUCTS, SUPPLIERS, offersFor } from '@/lib/demoData'
 import { cn } from '@/lib/utils'
 
 /** Google's mark, inline — brand assets may not be recoloured or redrawn. */
@@ -38,6 +38,36 @@ const PROOF = [
   `Every SKU priced across ${SUPPLIERS.length} suppliers`,
   'Barcode receiving straight into the ledger',
 ]
+
+/**
+ * The worked example on the left of the page.
+ *
+ * Run through the same engine the app uses rather than typed out as marketing
+ * copy, so the numbers on the front door can never drift from the numbers
+ * behind it. Aquasil is deliberate — a product every practice recognises — and
+ * the widest spread in the catalog is the fallback if it ever leaves.
+ */
+const SAMPLE = (() => {
+  const product =
+    PRODUCTS.find((p) => /aquasil/i.test(p.name)) ??
+    PRODUCTS.slice().sort((a, b) => offersFor(b.id).length - offersFor(a.id).length)[0]
+  if (!product) return null
+
+  const offers = offersFor(product.id)
+    .filter((o) => o.inStock)
+    .sort((a, b) => b.price - a.price)
+  if (offers.length < 3) return null
+
+  const best = offers[offers.length - 1]
+  const worst = offers[0]
+  return {
+    product,
+    offers,
+    best,
+    saved: worst.price - best.price,
+    pct: ((worst.price - best.price) / worst.price) * 100,
+  }
+})()
 
 export default function Welcome() {
   const navigate = useNavigate()
@@ -128,65 +158,156 @@ export default function Welcome() {
   }
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-brand-900">
-      {/* Depth: two soft light sources over a deep clinical teal */}
-      <div
-        className="pointer-events-none absolute inset-0"
+    <div className="min-h-[100dvh] bg-brand-900 lg:grid lg:grid-cols-[1.1fr_minmax(27rem,0.9fr)]">
+      {/* ------------------------------------------------------------------
+          LEFT — the argument. One restrained light source over deep teal;
+          the two stacked radials and the decorative blur that used to live
+          here are what DESIGN.md retired everywhere else in the app.
+         ------------------------------------------------------------------ */}
+      <section
+        className="relative flex flex-col justify-center overflow-hidden px-6 pb-10 pt-14 lg:px-14 lg:py-16"
         style={{
           background:
-            'radial-gradient(120% 80% at 50% -10%, #17A9A5 0%, #0E7C7B 38%, #0A4B4C 68%, #06292B 100%)',
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-60"
-        style={{
-          background:
-            'radial-gradient(60% 40% at 85% 15%, rgba(255,255,255,0.18) 0%, transparent 70%)',
-        }}
-      />
-
-      <div
-        className="relative mx-auto flex min-h-[100dvh] w-full max-w-[26rem] flex-col px-6"
-        style={{
-          paddingTop: 'calc(env(safe-area-inset-top) + 48px)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom) + 28px)',
+            'radial-gradient(115% 75% at 12% 0%, #0F6E6C 0%, #0B4E4B 45%, #0C3F3D 100%)',
         }}
       >
-        {/* Brand */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-          className="flex flex-col items-center text-center"
+          transition={{ duration: 0.14, ease: [0.32, 0.72, 0, 1] }}
+          className="mx-auto w-full max-w-[34rem]"
         >
-          <img src="/icon.svg" alt="" width={64} height={64} className="rounded-[4px] shadow-raised" />
-          <h1 className="mt-4 text-[40px] font-bold leading-none tracking-tight text-white">
-            Dentin
-          </h1>
-          <p className="mt-2 text-callout text-white/70">The price beneath the top layer.</p>
-          {/* The offer, above the fold. 15% is the floor, not the ceiling: the
-              catalog's own spread runs 17.7% against a Henry Schein-loyal
-              practice and 20.2% against Patterson, so a claim of 15% is one
-              most practices should clear rather than chase. */}
-          {/* text-wrap:balance keeps both lines from orphaning a single word
-              on a 320px screen, where these wrap to two lines each. */}
-          <p className="mt-6 max-w-[20rem] text-title1 font-bold leading-tight text-white [text-wrap:balance]">
-            Save 15%+ on your inventory costs
-          </p>
-          <p className="mt-2 max-w-[20rem] text-subhead text-white/70 [text-wrap:balance]">
-            with one-of-a-kind competitive pricing built in.
-          </p>
-        </motion.div>
+          {/* Wordmark reads as a lockup, not a splash screen: mark and name
+              on one baseline, left-aligned like the rest of the product. */}
+          <div className="flex items-center gap-3">
+            <img src="/icon.svg" alt="" width={38} height={38} className="rounded-[4px]" />
+            <span className="text-title2 font-bold tracking-tight text-white">Dentin</span>
+            <span className="ml-1 rounded-[2px] border border-white/25 px-1.5 py-0.5 text-caption2 font-semibold uppercase tracking-[0.07em] text-white/70">
+              For dental practices
+            </span>
+          </div>
 
-        {/* Form */}
+          {/* 15 is the floor, not the ceiling: the catalog's own spread runs
+              17.7% against a Henry Schein-loyal practice and 20.2% against
+              Patterson, so most practices should clear this rather than
+              chase it. text-wrap:balance stops a one-word last line. */}
+          <h1 className="mt-9 text-[2rem] font-bold leading-[1.08] tracking-[-0.026em] text-white [text-wrap:balance] lg:text-[2.75rem]">
+            Save 15%+ on your inventory costs
+          </h1>
+          <p className="mt-4 max-w-[30rem] text-body leading-relaxed text-white/70 [text-wrap:balance]">
+            One-of-a-kind competitive pricing, built in. Dentin prices every SKU you buy
+            across {SUPPLIERS.length} suppliers and tells you which one is actually cheapest
+            — landed, after shipping.
+          </p>
+
+          {/* The product, not a promise. Same engine as the app. */}
+          {SAMPLE ? (
+            <figure className="panel mt-9 max-w-[30rem] bg-surface">
+              <figcaption className="flex items-center justify-between border-b border-line px-3 py-2">
+                <span className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+                  Live price check
+                </span>
+                <span className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+                  {SAMPLE.offers.length} suppliers
+                </span>
+              </figcaption>
+
+              <div className="border-b border-line px-3 py-2.5">
+                <p className="text-subhead font-semibold text-label">{SAMPLE.product.name}</p>
+                <p className="mt-0.5 text-caption text-label-3">
+                  {SAMPLE.product.brand} · pack of {SAMPLE.product.packSize}
+                </p>
+              </div>
+
+              <ul>
+                {SAMPLE.offers.map((o) => {
+                  const isBest = o.supplierId === SAMPLE.best.supplierId
+                  return (
+                    <li
+                      key={o.supplierId}
+                      className={cn(
+                        'flex items-center justify-between px-3 py-1.5',
+                        isBest && 'bg-ios-green/[0.07]',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex items-center gap-1.5 text-caption',
+                          isBest ? 'font-semibold text-label' : 'text-label-2',
+                        )}
+                      >
+                        {o.supplierName}
+                        {isBest ? (
+                          <span className="rounded-[2px] bg-ios-green px-1 py-px text-caption2 font-semibold uppercase tracking-[0.06em] text-white">
+                            Best
+                          </span>
+                        ) : null}
+                      </span>
+                      <span
+                        className={cn(
+                          'tnum text-caption',
+                          isBest ? 'font-bold text-ios-green' : 'text-label-3 line-through',
+                        )}
+                      >
+                        ${o.price.toFixed(2)}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+
+              <div className="flex items-center justify-between border-t border-line bg-surface-2 px-3 py-2">
+                <span className="text-caption font-semibold text-label-2">Saved on this line</span>
+                <span className="tnum text-subhead font-bold text-ios-green">
+                  ${SAMPLE.saved.toFixed(2)}
+                  <span className="ml-1.5 text-caption font-semibold text-label-3">
+                    {SAMPLE.pct.toFixed(0)}%
+                  </span>
+                </span>
+              </div>
+            </figure>
+          ) : null}
+
+          {/* Full container width, or two columns of ~14rem strand the last
+              word of the longer lines. */}
+          <ul className="mt-8 grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
+            {PROOF.map((line) => (
+              <li key={line} className="flex items-start gap-2">
+                <ShieldCheck size={14} className="mt-[3px] shrink-0 text-white/45" aria-hidden="true" />
+                <span className="text-caption leading-snug text-white/70 [text-wrap:balance]">
+                  {line}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+      </section>
+
+      {/* ------------------------------------------------------------------
+          RIGHT — the door. A solid app surface rather than a glass tile, so
+          signing in reads as stepping into the product.
+         ------------------------------------------------------------------ */}
+      <section
+        className="flex flex-col justify-center bg-canvas px-6 py-12 lg:border-l lg:border-black/20 lg:px-12"
+        style={{
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 3rem)',
+        }}
+      >
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.08, ease: [0.32, 0.72, 0, 1] }}
-          className="mt-8 rounded-[4px] bg-white/10 p-1.5 backdrop-blur-xl"
+          transition={{ duration: 0.14, delay: 0.04, ease: [0.32, 0.72, 0, 1] }}
+          className="mx-auto w-full max-w-[24rem]"
         >
-          {/* Segmented sign-in / create — hidden while confirming a code */}
-          <div className={cn('flex gap-1 rounded-[4px] bg-black/15 p-1', mode === 'verify' && 'hidden')}>
+          <div className="panel">
+          {/* A tab strip with a divider and an underline, not a filled pill —
+              the sharp-UI segmented control. Hidden while confirming a code. */}
+          <div
+            className={cn(
+              'flex border-b border-line bg-surface-2',
+              mode === 'verify' && 'hidden',
+            )}
+          >
             {[
               { key: 'signin', label: 'Sign in' },
               { key: 'signup', label: 'Create account' },
@@ -200,8 +321,11 @@ export default function Welcome() {
                 }}
                 aria-pressed={mode === t.key}
                 className={cn(
-                  'flex-1 rounded-[3px] py-2 text-subhead font-semibold transition-colors duration-200',
-                  mode === t.key ? 'bg-white text-brand-800' : 'text-white/75',
+                  'focus-ring relative flex-1 py-2.5 text-subhead font-semibold transition-colors duration-100',
+                  'after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:content-[""]',
+                  mode === t.key
+                    ? 'bg-surface text-label after:bg-brand-600'
+                    : 'text-label-3 hover:text-label-2 after:bg-transparent',
                 )}
               >
                 {t.label}
@@ -211,9 +335,9 @@ export default function Welcome() {
 
           {mode === 'verify' ? (
             <form onSubmit={submitCode} className="p-3.5 pt-4">
-              <p className="text-body font-semibold text-white">Check your email</p>
-              <p className="mt-1 text-footnote text-white/70">
-                Enter the 6-digit code we sent to <b className="text-white/90">{email}</b>.
+              <p className="text-body font-semibold text-label">Check your email</p>
+              <p className="mt-1 text-footnote text-label-2">
+                Enter the 6-digit code we sent to <b className="text-label">{email}</b>.
               </p>
 
               <input
@@ -224,11 +348,11 @@ export default function Welcome() {
                 autoFocus
                 placeholder="000000"
                 aria-label="6-digit verification code"
-                className="tnum mt-3.5 h-[54px] w-full rounded-[4px] border border-white/20 bg-black/25 text-center text-title2 font-bold tracking-[0.4em] text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-white/50"
+                className="tnum mt-3.5 h-[54px] w-full rounded-[4px] border border-line bg-surface-2 text-center text-title2 font-bold tracking-[0.4em] text-label placeholder:text-label-3 focus-ring"
               />
 
               {error ? (
-                <p role="alert" className="mt-3 text-footnote text-[#FFC7C2]">
+                <p role="alert" className="mt-3 text-footnote text-ios-red">
                   {error}
                 </p>
               ) : null}
@@ -248,7 +372,7 @@ export default function Welcome() {
                 )}
               </button>
 
-              <div className="mt-3 flex items-center justify-center gap-4 text-footnote text-white/65">
+              <div className="mt-3 flex items-center justify-center gap-4 text-footnote text-label-3">
                 <button
                   type="button"
                   onClick={async () => {
@@ -277,7 +401,7 @@ export default function Welcome() {
               </div>
 
               {notice ? (
-                <p role="status" className="mt-3 text-center text-footnote text-[#C8F5D0]">
+                <p role="status" className="mt-3 text-center text-footnote text-ios-green">
                   {notice}
                 </p>
               ) : null}
@@ -300,23 +424,23 @@ export default function Welcome() {
                   setError(err.message)
                 }
               }}
-              className="press mb-3 flex h-[50px] w-full items-center justify-center gap-2.5 rounded-[4px] bg-white text-body font-semibold text-[#1F1F1F] transition-opacity active:opacity-85 disabled:opacity-60"
+              className="press focus-ring mb-3.5 flex h-[42px] w-full items-center justify-center gap-2.5 rounded-ios border border-line bg-surface text-body font-semibold text-label disabled:opacity-55"
             >
               <GoogleMark />
               Continue with Google
             </button>
 
-            <div className="mb-3 flex items-center gap-3" aria-hidden="true">
-              <span className="h-px flex-1 bg-white/15" />
-              <span className="text-caption font-medium uppercase tracking-[0.5px] text-white/45">
+            <div className="mb-3.5 flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-line" />
+              <span className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
                 or use email
               </span>
-              <span className="h-px flex-1 bg-white/15" />
+              <span className="h-px flex-1 bg-line" />
             </div>
 
             {mode === 'signup' ? (
               <label className="mb-2.5 block">
-                <span className="mb-1 block text-caption font-medium uppercase tracking-[0.4px] text-white/60">
+                <span className="mb-1 block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                   Your name
                 </span>
                 <input
@@ -324,13 +448,13 @@ export default function Welcome() {
                   onChange={(e) => setFullName(e.target.value)}
                   autoComplete="name"
                   placeholder="Dr. Logan Newman"
-                  className="w-full rounded-ios border border-white/15 bg-black/25 px-3.5 py-3 text-callout text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  className="w-full rounded-ios border border-line bg-surface px-3.5 py-3 text-callout text-label placeholder:text-label-3 focus-ring"
                 />
               </label>
             ) : null}
 
             <label className="mb-2.5 block">
-              <span className="mb-1 block text-caption font-medium uppercase tracking-[0.4px] text-white/60">
+              <span className="mb-1 block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                 Email
               </span>
               <input
@@ -340,12 +464,12 @@ export default function Welcome() {
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
                 placeholder="you@practice.com"
-                className="w-full rounded-ios border border-white/15 bg-black/25 px-3.5 py-3 text-callout text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/50"
+                className="w-full rounded-ios border border-line bg-surface px-3.5 py-3 text-callout text-label placeholder:text-label-3 focus-ring"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-caption font-medium uppercase tracking-[0.4px] text-white/60">
+              <span className="mb-1 block text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                 Password
               </span>
               <span className="relative block">
@@ -357,13 +481,13 @@ export default function Welcome() {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                   placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
-                  className="w-full rounded-ios border border-white/15 bg-black/25 px-3.5 py-3 pr-11 text-callout text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  className="w-full rounded-ios border border-line bg-surface px-3.5 py-3 pr-11 text-callout text-label placeholder:text-label-3 focus-ring"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-white/55"
+                  className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-label/55"
                 >
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
@@ -371,12 +495,12 @@ export default function Welcome() {
             </label>
 
             {error ? (
-              <p role="alert" className="mt-3 text-footnote text-[#FFC7C2]">
+              <p role="alert" className="mt-3 text-footnote text-ios-red">
                 {error}
               </p>
             ) : null}
             {notice ? (
-              <p role="status" className="mt-3 text-footnote text-[#C8F5D0]">
+              <p role="status" className="mt-3 text-footnote text-ios-green">
                 {notice}
               </p>
             ) : null}
@@ -397,7 +521,7 @@ export default function Welcome() {
                     `If ${email.trim()} has a Dentin account, a reset link is on its way. The link opens on this device.`,
                   )
                 }}
-                className="press mt-3 block text-footnote text-white/65"
+                className="press mt-3 block text-footnote text-label-3"
               >
                 Forgot your password?
               </button>
@@ -406,56 +530,31 @@ export default function Welcome() {
             <button
               type="submit"
               disabled={busy}
-              className="mt-4 flex h-[50px] w-full items-center justify-center gap-2 rounded-[4px] bg-white text-body font-semibold text-brand-800 transition-opacity active:opacity-80 disabled:opacity-60"
+              className="focus-ring mt-4 flex h-[42px] w-full items-center justify-center gap-2 rounded-ios bg-brand-600 text-body font-semibold text-white transition-colors duration-100 hover:bg-brand-700 disabled:opacity-55"
             >
               {busy ? (
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 size={17} className="animate-spin" />
               ) : (
                 <>
                   {mode === 'signin' ? 'Sign in' : 'Create practice account'}
-                  <ArrowRight size={17} strokeWidth={2.4} />
+                  <ArrowRight size={16} strokeWidth={2.4} />
                 </>
               )}
             </button>
           </form>
           )}
-        </motion.div>
+          </div>
 
-        {/* Proof points */}
-        <motion.ul
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-7 flex flex-col gap-2.5"
-        >
-          {PROOF.map((line) => (
-            <li key={line} className="flex items-start gap-2.5">
-              <ShieldCheck size={15} className="mt-0.5 shrink-0 text-white/55" aria-hidden="true" />
-              <span className="text-subhead text-white/75">{line}</span>
-            </li>
-          ))}
-        </motion.ul>
-
-        <div className="flex-1" />
-
-        {/* Look before you sign up. Available on the live site too — the demo
-            practice is bundled with the app, so it costs nothing to show. */}
-        <div className="mt-8">
+          {/* Look before you sign up. Available on the live site too — the demo
+              practice is bundled with the app, so it costs nothing to show. */}
           {isDemoAuth ? (
             /* Unmissable build-mode label: if this renders in production, the
                deployment was built without the VITE_SUPABASE_* keys. */
-            <p className="mb-3 text-center text-caption font-medium text-amber-300/90">
+            <p className="mt-4 rounded-ios border border-ios-orange/35 bg-ios-orange/10 px-3 py-2 text-caption font-medium text-ios-orange">
               Demo build — Supabase keys were not visible when this deployment was built.
               Accounts and data here are simulated.
             </p>
           ) : null}
-          <div className="mb-3 flex items-center gap-3" aria-hidden="true">
-            <span className="h-px flex-1 bg-white/15" />
-            <span className="text-caption font-medium uppercase tracking-[0.5px] text-white/45">
-              or
-            </span>
-            <span className="h-px flex-1 bg-white/15" />
-          </div>
 
           <button
             type="button"
@@ -463,29 +562,32 @@ export default function Welcome() {
               exploreDemo()
               navigate('/', { replace: true })
             }}
-            className="group flex w-full items-center gap-3.5 rounded-[4px] border border-white/25 bg-white/10 px-4 py-3.5 text-left backdrop-blur-xl transition-colors duration-150 hover:bg-white/[0.16] active:bg-white/20"
+            className="press focus-ring group mt-3 flex w-full items-center gap-3 rounded-card border border-line bg-surface px-3 py-3 text-left"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
-              <Compass size={18} strokeWidth={2} aria-hidden="true" />
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-label-2">
+              <Compass size={16} strokeWidth={2} aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-body font-semibold text-white">
-                See a demo practice
+              <span className="block text-subhead font-semibold text-label">
+                See a demo practice first
               </span>
-              <span className="mt-0.5 block text-caption text-white/60">
-                A furnished example — stocked shelves, live price comparison, real orders. No
-                account, no card.
+              <span className="mt-0.5 block text-caption leading-snug text-label-3">
+                Stocked shelves, live price comparison, real orders. No account, no card.
               </span>
             </span>
             <ArrowRight
-              size={17}
+              size={16}
               strokeWidth={2.4}
-              className="shrink-0 text-white/60 transition-transform duration-150 group-hover:translate-x-0.5"
+              className="shrink-0 text-label-3 transition-transform duration-100 group-hover:translate-x-0.5"
               aria-hidden="true"
             />
           </button>
-        </div>
-      </div>
+
+          <p className="mt-6 text-center text-caption text-label-3">
+            Card details are handled by Stripe. Dentin never sees the number.
+          </p>
+        </motion.div>
+      </section>
     </div>
   )
 }
