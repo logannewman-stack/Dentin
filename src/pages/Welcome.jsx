@@ -187,12 +187,17 @@ export default function Welcome() {
             </span>
           </div>
 
-          {/* 15 is the floor, not the ceiling: the catalog's own spread runs
-              17.7% against a Henry Schein-loyal practice and 20.2% against
-              Patterson, so most practices should clear this rather than
-              chase it. text-wrap:balance stops a one-word last line. */}
-          <h1 className="mt-9 text-[2rem] font-bold leading-[1.08] tracking-[-0.026em] text-white [text-wrap:balance] lg:text-[2.75rem]">
-            Save 15%+ on your inventory costs
+          {/* A range with room above it, not a single number to be held to.
+              The catalog's own spread runs 17.7% against a Henry Schein-loyal
+              practice and 20.2% against Patterson, so 10–15% is a floor most
+              should clear and "or more" is where the real result lands.
+              text-wrap:balance stops a one-word last line. */}
+          <h1 className="mt-9 text-[1.75rem] font-bold leading-[1.08] tracking-[-0.026em] text-white [text-wrap:balance] sm:text-[2rem] lg:text-[2.75rem]">
+            {/* The range must never break across lines — a headline reading
+                "Save 10–" then "15% or more" loses the number it exists for.
+                Below sm the type also steps down, so the claim stays three
+                lines on a 320px phone instead of four. */}
+            Save <span className="whitespace-nowrap">10–15%</span> or more on your inventory costs
           </h1>
           <p className="mt-4 max-w-[30rem] text-body leading-relaxed text-white/70 [text-wrap:balance]">
             One-of-a-kind competitive pricing, built in. Dentin prices every SKU you buy
