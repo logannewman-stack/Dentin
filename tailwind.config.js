@@ -117,29 +117,30 @@ export default {
        * of the iOS ramp, which loosens.
        */
       fontSize: {
-        // The iOS text styles at their real sizes. Body is 17px because that
-        // is what the platform reads like, and tracking loosens as type
-        // shrinks rather than tightening — the opposite of the sharp ramp.
-        caption2: ['11px', { lineHeight: '13px', letterSpacing: '0.006em' }],
-        caption: ['12px', { lineHeight: '16px', letterSpacing: '0' }],
-        footnote: ['13px', { lineHeight: '18px', letterSpacing: '-0.006em' }],
-        subhead: ['15px', { lineHeight: '20px', letterSpacing: '-0.012em' }],
-        callout: ['16px', { lineHeight: '21px', letterSpacing: '-0.018em' }],
-        body: ['17px', { lineHeight: '22px', letterSpacing: '-0.022em' }],
-        headline: ['17px', { lineHeight: '22px', letterSpacing: '-0.022em', fontWeight: '600' }],
-        title3: ['20px', { lineHeight: '25px', letterSpacing: '-0.026em' }],
-        title2: ['22px', { lineHeight: '28px', letterSpacing: '-0.028em' }],
-        title1: ['28px', { lineHeight: '34px', letterSpacing: '-0.032em' }],
-        large: ['34px', { lineHeight: '41px', letterSpacing: '-0.037em' }],
+        // Every step is a variable so the whole ramp can be re-cut by skin:
+        // iOS body is 17px, the software body is 14px, and the tracking runs
+        // the opposite direction between them.
+        caption2: ['var(--fs-caption2)', { lineHeight: 'var(--lh-caption2)', letterSpacing: 'var(--ls-caption2)' }],
+        caption: ['var(--fs-caption)', { lineHeight: 'var(--lh-caption)', letterSpacing: 'var(--ls-caption)' }],
+        footnote: ['var(--fs-footnote)', { lineHeight: 'var(--lh-footnote)', letterSpacing: 'var(--ls-footnote)' }],
+        subhead: ['var(--fs-subhead)', { lineHeight: 'var(--lh-subhead)', letterSpacing: 'var(--ls-subhead)' }],
+        callout: ['var(--fs-callout)', { lineHeight: 'var(--lh-callout)', letterSpacing: 'var(--ls-callout)' }],
+        body: ['var(--fs-body)', { lineHeight: 'var(--lh-body)', letterSpacing: 'var(--ls-body)' }],
+        headline: ['var(--fs-body)', { lineHeight: 'var(--lh-body)', letterSpacing: 'var(--ls-body)', fontWeight: '600' }],
+        title3: ['var(--fs-title3)', { lineHeight: 'var(--lh-title3)', letterSpacing: 'var(--ls-title3)' }],
+        title2: ['var(--fs-title2)', { lineHeight: 'var(--lh-title2)', letterSpacing: 'var(--ls-title2)' }],
+        title1: ['var(--fs-title1)', { lineHeight: 'var(--lh-title1)', letterSpacing: 'var(--ls-title1)' }],
+        large: ['var(--fs-large)', { lineHeight: 'var(--lh-large)', letterSpacing: 'var(--ls-large)' }],
       },
-      // Continuous corners. A grouped list card is 10, a floating card 14, a
-      // sheet 16 — and pills are round again.
+      // Radii are skin-driven: the software language is nearly square, iOS
+      // uses continuous corners. Pills go from a 2px chip to a real capsule.
       borderRadius: {
-        ios: '10px',
-        card: '14px',
-        sheet: '16px',
-        continuous: '12px',
-        field: '10px',
+        ios: 'var(--r-control)',
+        card: 'var(--r-panel)',
+        sheet: 'var(--r-sheet)',
+        continuous: 'var(--r-continuous)',
+        field: 'var(--r-field)',
+        chip: 'var(--r-chip)',
       },
       boxShadow: {
         // Structure comes from elevation against the grouped background, not
@@ -155,8 +156,8 @@ export default {
         'safe-l': 'env(safe-area-inset-left)',
         'safe-r': 'env(safe-area-inset-right)',
         // Platform metrics: 49pt tab bar, 44pt nav bar.
-        tabbar: '49px',
-        navbar: '44px',
+        tabbar: 'var(--h-tabbar)',
+        navbar: 'var(--h-navbar)',
       },
       backdropBlur: {
         ios: '12px',

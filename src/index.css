@@ -26,6 +26,46 @@
     --nav-material: 249 249 251;
     --brand: 12 125 118;
 
+    /* ------------------------------------------------------------------
+       Skin: iOS. The software skin overrides these under [data-skin].
+       ------------------------------------------------------------------ */
+    --fs-caption2: 11px;  --lh-caption2: 13px;  --ls-caption2: 0.006em;
+    --fs-caption: 12px;   --lh-caption: 16px;   --ls-caption: 0em;
+    --fs-footnote: 13px;  --lh-footnote: 18px;  --ls-footnote: -0.006em;
+    --fs-subhead: 15px;   --lh-subhead: 20px;   --ls-subhead: -0.012em;
+    --fs-callout: 16px;   --lh-callout: 21px;   --ls-callout: -0.018em;
+    --fs-body: 17px;      --lh-body: 22px;      --ls-body: -0.022em;
+    --fs-title3: 20px;    --lh-title3: 25px;    --ls-title3: -0.026em;
+    --fs-title2: 22px;    --lh-title2: 28px;    --ls-title2: -0.028em;
+    --fs-title1: 28px;    --lh-title1: 34px;    --ls-title1: -0.032em;
+    --fs-large: 34px;     --lh-large: 41px;     --ls-large: -0.037em;
+
+    --r-control: 10px;
+    --r-panel: 14px;
+    --r-sheet: 16px;
+    --r-continuous: 12px;
+    --r-field: 10px;
+    --r-chip: 9999px;
+
+    --h-tabbar: 49px;
+    --h-navbar: 44px;
+
+    /* Row metrics and where the divider starts. */
+    --row-min-h: 44px;
+    --row-px: 16px;
+    --row-gap: 12px;
+    --row-sep-inset: 16px;
+    --row-sep-inset-art: 56px;
+
+    /* Panel: shadow, no border. */
+    --panel-border: transparent;
+    --panel-border-w: 0px;
+    --panel-shadow: 0 1px 2px rgb(16 16 18 / 0.04), 0 6px 16px -8px rgb(16 16 18 / 0.10);
+
+    /* Chrome: translucent material. */
+    --chrome-alpha: 0.82;
+    --chrome-blur: saturate(180%) blur(20px);
+
     /* UIColor system palette, light. */
     --ios-blue: 0 122 255;
     --ios-green: 52 199 89;
@@ -111,6 +151,102 @@
     }
   }
 
+
+  /**
+   * Skin: software.
+   *
+   * The sharp language, restored as a delta over the iOS base — 14px body,
+   * near-square corners, denser rows, structure from hairlines rather than
+   * elevation, and opaque chrome with a rule under it. Colours pull back off
+   * iOS saturation so they read as data rather than as UI.
+   */
+  :root[data-skin='software'] {
+    --fs-caption2: 10px;  --lh-caption2: 13px;  --ls-caption2: 0.04em;
+    --fs-caption: 11px;   --lh-caption: 15px;   --ls-caption: 0.01em;
+    --fs-footnote: 12px;  --lh-footnote: 17px;  --ls-footnote: 0em;
+    --fs-subhead: 13px;   --lh-subhead: 18px;   --ls-subhead: -0.005em;
+    --fs-callout: 13px;   --lh-callout: 18px;   --ls-callout: -0.005em;
+    --fs-body: 14px;      --lh-body: 20px;      --ls-body: -0.008em;
+    --fs-title3: 16px;    --lh-title3: 22px;    --ls-title3: -0.014em;
+    --fs-title2: 20px;    --lh-title2: 26px;    --ls-title2: -0.019em;
+    --fs-title1: 24px;    --lh-title1: 30px;    --ls-title1: -0.022em;
+    --fs-large: 30px;     --lh-large: 36px;     --ls-large: -0.026em;
+
+    --r-control: 3px;
+    --r-panel: 4px;
+    --r-sheet: 6px;
+    --r-continuous: 4px;
+    --r-field: 3px;
+    --r-chip: 2px;
+
+    --h-tabbar: 52px;
+    --h-navbar: 48px;
+
+    --row-min-h: 38px;
+    --row-px: 12px;
+    --row-gap: 10px;
+    --row-sep-inset: 0px;
+    --row-sep-inset-art: 42px;
+
+    /* Structure comes from the border; the shadow steps back to a hairline. */
+    --panel-border: rgb(var(--separator));
+    --panel-border-w: 1px;
+    --panel-shadow: 0 1px 2px rgb(16 16 18 / 0.04);
+
+    /* Opaque, separated by a rule rather than by blur. */
+    --chrome-alpha: 1;
+    --chrome-blur: none;
+
+    --canvas: 246 246 247;
+    --surface-2: 241 241 243;
+    --surface-3: 233 233 236;
+    --label: 16 16 18;
+    --label-2: 74 74 82;
+    --label-3: 134 134 143;
+    --separator: 226 226 230;
+    --fill: 138 138 148;
+    --nav-material: 255 255 255;
+
+    --ios-blue: 45 111 247;
+    --ios-green: 31 157 85;
+    --ios-indigo: 91 91 214;
+    --ios-orange: 217 119 6;
+    --ios-pink: 219 39 119;
+    --ios-purple: 139 92 246;
+    --ios-red: 220 38 38;
+    --ios-teal: 13 148 136;
+    --ios-yellow: 202 138 4;
+    --ios-gray: 138 138 148;
+  }
+
+  :root[data-skin='software'][data-theme='dark'] {
+    --canvas: 10 10 12;
+    --surface: 19 19 22;
+    --surface-2: 27 27 31;
+    --surface-3: 35 35 40;
+    --label: 245 245 247;
+    --label-2: 180 180 190;
+    --label-3: 124 124 136;
+    --separator: 38 38 44;
+    --fill: 110 110 122;
+    --nav-material: 15 15 18;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root[data-skin='software']:not([data-theme='light']) {
+      --canvas: 10 10 12;
+      --surface: 19 19 22;
+      --surface-2: 27 27 31;
+      --surface-3: 35 35 40;
+      --label: 245 245 247;
+      --label-2: 180 180 190;
+      --label-3: 124 124 136;
+      --separator: 38 38 44;
+      --fill: 110 110 122;
+      --nav-material: 15 15 18;}
+  }
+
+
   * {
     -webkit-tap-highlight-color: transparent;
   }
@@ -125,9 +261,9 @@
 
   body {
     @apply bg-canvas text-label font-sans antialiased;
-    font-size: 17px;
-    line-height: 22px;
-    letter-spacing: -0.022em;
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    letter-spacing: var(--ls-body);
     overscroll-behavior-y: none;
     /* No 'cv05'/'ss01' here any more: those are Inter alternates, and forcing
        them on a stack that now leads with SF only ever applied to the
@@ -135,12 +271,13 @@
     font-feature-settings: 'calt' 1;
   }
 
-  /* Fields match body now, which also clears the 16px floor that stops iOS
-     Safari zooming the viewport on focus. */
+  /* Fields track the skin's body size, with a 16px floor: below that, iOS
+     Safari zooms the viewport when a field takes focus. The software ramp
+     sits at 14px, so the floor is what actually applies there. */
   input,
   textarea,
   select {
-    font-size: 17px;
+    font-size: max(var(--fs-body), 16px);
   }
 
   button {
@@ -152,21 +289,26 @@
   /* Chrome floats over content: a translucent material with saturation, the
      way a UIKit bar does, rather than an opaque strip with a rule. */
   .material-chrome {
-    background-color: rgb(var(--nav-material) / 0.82);
-    backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    background-color: rgb(var(--nav-material) / var(--chrome-alpha));
+    backdrop-filter: var(--chrome-blur);
+    -webkit-backdrop-filter: var(--chrome-blur);
   }
 
   /* A grouped-list card. No border — it reads as a card because it is lighter
      than the grouped background behind it and casts a shadow onto it. */
   .panel {
-    @apply bg-surface rounded-card shadow-card overflow-hidden;
+    @apply bg-surface rounded-card overflow-hidden;
+    border: var(--panel-border-w) solid var(--panel-border);
+    box-shadow: var(--panel-shadow);
   }
 
   /* 44pt is the platform's minimum touch target, and the reason iOS lists
      feel unhurried where a 38px row feels like a spreadsheet. */
   .row {
-    @apply flex items-center gap-3 px-4 min-h-[44px] w-full text-left;
+    @apply flex items-center w-full text-left;
+    gap: var(--row-gap);
+    padding-inline: var(--row-px);
+    min-height: var(--row-min-h);
   }
 
   /* Hairlines start after the text inset, never at the card edge — the single
@@ -175,8 +317,8 @@
     background-image: linear-gradient(
       to right,
       transparent 0,
-      transparent 16px,
-      rgb(var(--separator)) 16px,
+      transparent var(--row-sep-inset),
+      rgb(var(--separator)) var(--row-sep-inset),
       rgb(var(--separator)) 100%
     );
     background-size: 100% 1px;
@@ -189,8 +331,8 @@
     background-image: linear-gradient(
       to right,
       transparent 0,
-      transparent 56px,
-      rgb(var(--separator)) 56px,
+      transparent var(--row-sep-inset-art),
+      rgb(var(--separator)) var(--row-sep-inset-art),
       rgb(var(--separator)) 100%
     );
   }

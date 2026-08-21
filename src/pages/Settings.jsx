@@ -10,12 +10,14 @@ import {
   Info,
   Landmark,
   MapPin,
+  MonitorCog,
   Moon,
   ReceiptText,
   Scale,
   Share,
   ShieldCheck,
   Sparkles,
+  Smartphone,
   Sun,
   SunMoon,
   Users,
@@ -23,6 +25,7 @@ import {
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
 import { Row, RowIcon, Section } from '@/components/ui/List'
+import { SKIN_LABEL, useSkin } from '@/lib/skin'
 import { Pill, SegmentedControl, Toggle } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import Sheet from '@/components/ui/Sheet'
@@ -99,6 +102,7 @@ export default function Settings() {
   )
 
   const [theme, setTheme] = useTheme()
+  const [skin, setSkin] = useSkin()
   const [addressOpen, setAddressOpen] = useState(false)
   const [draft, setDraft] = useState({})
   const [saved, setSaved] = useState(false)
@@ -481,6 +485,26 @@ export default function Settings() {
             )}
             {theme === 'system' ? 'Follows your device setting' : `Always ${theme}`}
           </p>
+
+          {/* Interface style, directly under light/dark because it is the same
+              kind of choice: how the app looks, not what it does. Both
+              languages are complete — this is not a density toggle. */}
+          <div className="mt-4 border-t border-separator pt-4">
+            <SegmentedControl
+              value={skin}
+              onChange={setSkin}
+              options={[
+                { value: 'ios', label: SKIN_LABEL.ios },
+                { value: 'software', label: SKIN_LABEL.software },
+              ]}
+            />
+            <p className="mt-2.5 flex items-center gap-1.5 text-footnote text-label-3">
+              {skin === 'ios' ? <Smartphone size={13} /> : <MonitorCog size={13} />}
+              {skin === 'ios'
+                ? 'Rounded, roomy, and native to the phone'
+                : 'Denser rows and sharper edges, built for a desk'}
+            </p>
+          </div>
         </div>
       </Section>
 

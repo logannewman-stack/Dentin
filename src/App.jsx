@@ -6,6 +6,7 @@ import SideNav from '@/components/ui/SideNav'
 import DemoBanner from '@/components/DemoBanner'
 import { ToastProvider } from '@/components/ui/Toast'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
+import { useSkin } from '@/lib/skin'
 import { useData } from '@/hooks/useData'
 import { ACTIVE_SUB_STATUSES, getSubscription, listAlerts } from '@/lib/repository'
 
@@ -77,6 +78,7 @@ const PUSH_EASE = [0.32, 0.72, 0, 1]
 function RouteShell({ children }) {
   const location = useLocation()
   const navType = useNavigationType()
+  const [skin] = useSkin()
   const isRoot = ROOTS.includes(location.pathname)
 
   // Root-to-root is a tab switch. Testing only the incoming path would call a
@@ -90,7 +92,15 @@ function RouteShell({ children }) {
   const tabSwitch = isRoot && cameFromRoot
   const popping = navType === 'POP'
 
-  const variants = tabSwitch
+  // Motion halved is part of the software language — screens change with a
+  // short nudge rather than sliding a full width across the display.
+  const variants = skin === 'software'
+    ? {
+        initial: isRoot ? { opacity: 0 } : { opacity: 0, x: 28 },
+        animate: { opacity: 1, x: 0 },
+        exit: isRoot ? { opacity: 0 } : { opacity: 0, x: 12 },
+      }
+    : tabSwitch
     ? {
         initial: { opacity: 0 },
         animate: { opacity: 1, x: 0 },
@@ -112,7 +122,10 @@ function RouteShell({ children }) {
           initial={variants.initial}
           animate={variants.animate}
           exit={variants.exit}
-          transition={{ duration: tabSwitch ? 0.16 : 0.34, ease: PUSH_EASE }}
+          transition={{
+            duration: skin === 'software' ? (isRoot ? 0.18 : 0.28) : tabSwitch ? 0.16 : 0.34,
+            ease: PUSH_EASE,
+          }}
         >
           {children}
         </motion.div>

@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
+import { useSkin } from '@/lib/skin'
 import { cn, haptic } from '@/lib/utils'
 
 /**
@@ -133,6 +134,23 @@ export const Row = forwardRef(function Row(
  * muddy, and the saturated square is what makes the row scannable.
  */
 export function RowIcon({ children, tint = 'brand', className }) {
+  const [skin] = useSkin()
+  const sharp = skin === 'software'
+
+  // Software inks the glyph on a faint wash; iOS fills the tile and knocks the
+  // glyph out in white. At 29pt a 12% wash goes muddy, and at 24px a solid
+  // fill shouts — each language needs the opposite treatment.
+  const sharpTints = {
+    brand: 'bg-brand-600/12 text-brand-700 dark:text-brand-400',
+    blue: 'bg-ios-blue/12 text-ios-blue',
+    green: 'bg-ios-green/12 text-ios-green',
+    orange: 'bg-ios-orange/14 text-ios-orange',
+    red: 'bg-ios-red/12 text-ios-red',
+    purple: 'bg-ios-purple/12 text-ios-purple',
+    gray: 'bg-fill/12 text-label-2',
+    quiet: 'bg-surface-2 text-label-2',
+  }
+
   const tints = {
     brand: 'bg-brand-600 text-white',
     blue: 'bg-ios-blue text-white',
@@ -146,8 +164,9 @@ export function RowIcon({ children, tint = 'brand', className }) {
   return (
     <span
       className={cn(
-        'flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-[7px]',
-        tints[tint] ?? tints.brand,
+        'flex shrink-0 items-center justify-center',
+        sharp ? 'h-6 w-6 rounded-ios' : 'h-[29px] w-[29px] rounded-[7px]',
+        (sharp ? sharpTints : tints)[tint] ?? (sharp ? sharpTints : tints).brand,
         className,
       )}
       aria-hidden="true"

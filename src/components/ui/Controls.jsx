@@ -1,4 +1,5 @@
 import { Minus, Plus, Search, X } from 'lucide-react'
+import { useSkin } from '@/lib/skin'
 import { cn, haptic } from '@/lib/utils'
 
 /** UISearchBar: a filled, rounded, borderless field on the grouped canvas. */
@@ -47,6 +48,8 @@ export function SearchField({ value, onChange, placeholder = 'Search', onFocus, 
  * between segments instead of blinking.
  */
 export function SegmentedControl({ options, value, onChange, className }) {
+  const [skin] = useSkin()
+  const sharp = skin === 'software'
   const index = Math.max(
     0,
     options.findIndex((o) => o.value === value),
@@ -56,7 +59,12 @@ export function SegmentedControl({ options, value, onChange, className }) {
     <div
       role="tablist"
       className={cn(
-        'relative inline-flex w-full rounded-[9px] bg-fill/[0.08] p-[2px] dark:bg-fill/[0.20]',
+        'relative inline-flex w-full',
+        // Software: a bordered tab strip with dividers. iOS: a recessed track
+        // with a thumb. Same control, two different objects.
+        sharp
+          ? 'overflow-hidden rounded-ios border border-line bg-surface'
+          : 'rounded-[9px] bg-fill/[0.08] p-[2px] dark:bg-fill/[0.20]',
         className,
       )}
     >
@@ -65,13 +73,16 @@ export function SegmentedControl({ options, value, onChange, className }) {
           leaves it a few px narrow and drifting further out on each segment. */}
       <span
         aria-hidden="true"
-        className="absolute inset-y-[2px] left-[2px] rounded-[7px] bg-surface shadow-control transition-transform duration-200 ease-out"
+        className={cn(
+          'absolute inset-y-[2px] left-[2px] rounded-[7px] bg-surface shadow-control transition-transform duration-200 ease-out',
+          sharp && 'hidden',
+        )}
         style={{
           width: `calc((100% - 4px) / ${options.length || 1})`,
           transform: `translateX(${index * 100}%)`,
         }}
       />
-      {options.map((opt) => {
+      {options.map((opt, i) => {
         const active = opt.value === value
         return (
           <button
@@ -85,8 +96,12 @@ export function SegmentedControl({ options, value, onChange, className }) {
             }}
             className={cn(
               'relative z-10 flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden',
-              'rounded-[7px] px-2 py-[5px] text-footnote transition-colors duration-200',
-              active ? 'font-semibold text-label' : 'font-medium text-label-2',
+              'px-2 text-footnote transition-colors duration-200',
+              sharp ? 'py-1.5' : 'rounded-[7px] py-[5px]',
+              sharp && i > 0 && 'border-l border-line',
+              sharp && active && 'bg-brand-600/10 text-brand-700 dark:text-brand-400',
+              sharp && !active && 'text-label-2',
+              !sharp && (active ? 'font-semibold text-label' : 'font-medium text-label-2'),
             )}
           >
             {/* Label and count truncate as one unit. Left as siblings, the
@@ -164,7 +179,7 @@ export function Pill({ tone = 'quiet', children, className, icon: Icon }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[2px]',
+        'inline-flex shrink-0 items-center gap-1 rounded-chip px-2 py-[2px]',
         'text-caption font-semibold ring-1 ring-inset',
         TONES[tone] ?? TONES.quiet,
         className,
@@ -178,6 +193,9 @@ export function Pill({ tone = 'quiet', children, className, icon: Icon }) {
 
 /** UISwitch: 51×31pt, fully round, with a knob that carries a soft shadow. */
 export function Toggle({ checked, onChange, label }) {
+  const [skin] = useSkin()
+  const sharp = skin === 'software'
+
   return (
     <button
       type="button"
@@ -189,14 +207,21 @@ export function Toggle({ checked, onChange, label }) {
         onChange(!checked)
       }}
       className={cn(
-        'focus-ring relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 ease-out',
-        checked ? 'bg-ios-green' : 'bg-fill/25',
+        'focus-ring relative shrink-0 transition-colors duration-200 ease-out',
+        sharp
+          ? 'h-[20px] w-[34px] rounded-ios border ' +
+            (checked ? 'border-brand-700 bg-brand-600' : 'border-line bg-surface-2')
+          : 'h-[31px] w-[51px] rounded-full ' + (checked ? 'bg-ios-green' : 'bg-fill/25'),
       )}
     >
       <span
         className={cn(
-          'absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-control transition-transform duration-200 ease-out',
-          checked ? 'translate-x-[22px]' : 'translate-x-[2px]',
+          'absolute top-[2px] transition-transform duration-200 ease-out',
+          sharp
+            ? 'h-[14px] w-[14px] rounded-[2px] ' +
+              (checked ? 'translate-x-[17px] bg-white' : 'translate-x-[2px] bg-label-3')
+            : 'h-[27px] w-[27px] rounded-full bg-white shadow-control ' +
+              (checked ? 'translate-x-[22px]' : 'translate-x-[2px]'),
         )}
       />
     </button>

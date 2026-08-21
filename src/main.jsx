@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
+import { applySkin, readSkin } from './lib/skin'
 import App from './App'
 import '@fontsource-variable/inter'
 import './index.css'
@@ -11,6 +12,11 @@ const saved = localStorage.getItem('dentin:theme')
 if (saved === 'dark' || saved === 'light') {
   document.documentElement.setAttribute('data-theme', saved)
 }
+
+// Same for the skin. This has to run before React mounts: the two languages
+// differ in type size and row height, so painting one and swapping to the
+// other would reflow the whole first screen in front of the user.
+applySkin(readSkin())
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

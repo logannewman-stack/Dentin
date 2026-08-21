@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSkin } from '@/lib/skin'
 import { cn } from '@/lib/utils'
 
 /**
@@ -31,12 +32,18 @@ export default function Screen({
   contentClassName,
   bottomInset = true,
 }) {
+  const [skin] = useSkin()
   const scrollRef = useRef(null)
   const [collapsed, setCollapsed] = useState(false)
 
+  // The software language has no large title: a fixed 48px bar with the name
+  // in it and a rule underneath, which is what makes a dense screen feel
+  // stable instead of springy. So the collapse only exists on iOS.
+  const bigTitle = largeTitle && skin === 'ios'
+
   useEffect(() => {
     const el = scrollRef.current
-    if (!el || !largeTitle) return undefined
+    if (!el || !bigTitle) return undefined
 
     // Read in a frame rather than on every scroll event, and swap on a
     // boolean rather than per-pixel — CSS runs the crossfade, so scrolling
@@ -58,10 +65,10 @@ export default function Screen({
       el.removeEventListener('scroll', onScroll)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [largeTitle])
+  }, [bigTitle])
 
   // Detail screens have nothing to collapse, so their title is simply there.
-  const showCompactTitle = !largeTitle || collapsed
+  const showCompactTitle = !bigTitle || collapsed
 
   return (
     <div className={cn('flex h-[100dvh] flex-col bg-canvas lg:pl-56', className)}>
@@ -70,7 +77,7 @@ export default function Screen({
           'material-chrome z-30 shrink-0 transition-shadow duration-200 ease-out',
           // The hairline is the bar's way of saying content is passing under
           // it. At the top there is nothing beneath, so there is no rule.
-          showCompactTitle
+          showCompactTitle || skin === 'software'
             ? 'shadow-[0_0.5px_0_rgb(var(--separator))]'
             : 'shadow-[0_0.5px_0_transparent]',
         )}
@@ -99,15 +106,27 @@ export default function Screen({
               className={cn(
                 'truncate font-semibold tracking-[-0.022em] text-body',
                 'transition-[opacity,transform] duration-200 ease-out lg:translate-y-0 lg:opacity-100',
-                largeTitle && !showCompactTitle
+                bigTitle && !showCompactTitle
                   ? 'translate-y-1 opacity-0'
                   : 'translate-y-0 opacity-100',
                 // Hidden from the pointer so it cannot eat a tap while faded.
-                largeTitle && !collapsed ? 'pointer-events-none lg:pointer-events-auto' : null,
+                bigTitle && !collapsed ? 'pointer-events-none lg:pointer-events-auto' : null,
               )}
             >
               {title}
             </h1>
+            {/* Software puts the subtitle in the bar after a slash; iOS puts
+                it under the large title instead. */}
+            {subtitle && !bigTitle ? (
+              <>
+                <span className="hidden text-label-3/60 sm:block" aria-hidden="true">
+                  /
+                </span>
+                <span className="hidden truncate text-footnote text-label-3 sm:block">
+                  {subtitle}
+                </span>
+              </>
+            ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-1">{trailing}</div>
@@ -116,13 +135,13 @@ export default function Screen({
         {/* With a large title the toolbar belongs under it, in the scroll
             region — a search bar pinned above the title is the giveaway that
             a layout was never really iOS. Detail screens keep it in the bar. */}
-        {toolbar && !largeTitle ? (
+        {toolbar && !bigTitle ? (
           <div className="mx-auto w-full max-w-2xl px-4 pb-2.5 lg:max-w-6xl lg:px-6">{toolbar}</div>
         ) : null}
       </header>
 
       <div ref={scrollRef} className="scroll-area flex-1 overflow-y-auto">
-        {largeTitle ? (
+        {bigTitle ? (
           <div className="mx-auto w-full max-w-2xl px-4 pb-1 pt-2 lg:max-w-6xl lg:px-6 lg:pt-4">
             {/* Fades as it leaves rather than simply scrolling off, so the
                 handover to the compact title reads as one movement. */}
