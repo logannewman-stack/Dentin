@@ -1,5 +1,5 @@
-import { Suspense, lazy, useCallback, useState } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import TabBar from '@/components/ui/TabBar'
 import SideNav from '@/components/ui/SideNav'
@@ -59,22 +59,65 @@ function Loading() {
  */
 const ROOTS = ['/', '/inventory', '/orders', '/insights', '/scan']
 
+/**
+ * Navigation transitions.
+ *
+ * UINavigationController does three different things and this does the same
+ * three. Pushing a detail slides it in from the right edge while the screen
+ * behind it drifts a quarter-width left and dims — that parallax is what tells
+ * you the old screen is still there, underneath. Popping runs it backwards.
+ * Switching tabs does neither: iOS crossfades those, and sliding between
+ * siblings implies a hierarchy that is not there.
+ *
+ * `mode="popLayout"` takes the leaving screen out of flow so the two overlap
+ * during the handover instead of stacking.
+ */
+const PUSH_EASE = [0.32, 0.72, 0, 1]
+
 function RouteShell({ children }) {
   const location = useLocation()
+  const navType = useNavigationType()
   const isRoot = ROOTS.includes(location.pathname)
 
+  // Root-to-root is a tab switch. Testing only the incoming path would call a
+  // pop back to Today a tab switch and drop the slide.
+  const prevPath = useRef(location.pathname)
+  const cameFromRoot = ROOTS.includes(prevPath.current)
+  useEffect(() => {
+    prevPath.current = location.pathname
+  }, [location.pathname])
+
+  const tabSwitch = isRoot && cameFromRoot
+  const popping = navType === 'POP'
+
+  const variants = tabSwitch
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1, x: 0 },
+        exit: { opacity: 0 },
+      }
+    : {
+        initial: { x: popping ? '-25%' : '100%', opacity: popping ? 0.6 : 1 },
+        animate: { x: 0, opacity: 1 },
+        exit: { x: popping ? '100%' : '-25%', opacity: popping ? 1 : 0.6 },
+      }
+
   return (
-    <AnimatePresence mode="popLayout" initial={false}>
-      <motion.div
-        key={location.pathname}
-        initial={isRoot ? { opacity: 0 } : { opacity: 0, x: 28 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={isRoot ? { opacity: 0 } : { opacity: 0, x: 12 }}
-        transition={{ duration: isRoot ? 0.18 : 0.28, ease: [0.32, 0.72, 0, 1] }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    // Clipped: a screen parked at 100% would otherwise widen the document and
+    // hand every page a horizontal scrollbar mid-transition.
+    <div className="overflow-x-clip">
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={location.pathname}
+          initial={variants.initial}
+          animate={variants.animate}
+          exit={variants.exit}
+          transition={{ duration: tabSwitch ? 0.16 : 0.34, ease: PUSH_EASE }}
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
+    </div>
   )
 }
 

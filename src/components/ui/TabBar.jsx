@@ -40,7 +40,18 @@ export default function TabBar({ badges = {} }) {
               <NavLink
                 to={to}
                 end={end}
-                onClick={() => haptic(4)}
+                onClick={(e) => {
+                  haptic(4)
+                  // Tapping the tab you are already on returns that screen to
+                  // the top rather than doing nothing. Every iOS app does it,
+                  // and once you know it exists you use it constantly.
+                  const alreadyHere = end ? pathname === to : pathname.startsWith(to)
+                  if (!alreadyHere) return
+                  e.preventDefault()
+                  document
+                    .querySelector('.scroll-area')
+                    ?.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
                 className={({ isActive }) =>
                   cn(
                     'relative flex h-full flex-col items-center justify-center gap-[3px] transition-colors duration-150 active:opacity-45',
