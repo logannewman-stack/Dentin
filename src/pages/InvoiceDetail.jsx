@@ -80,7 +80,7 @@ export default function InvoiceDetail() {
       }
     >
       {/* Summary */}
-      <div className="mt-3 rounded-card border border-line bg-surface p-3">
+      <div className="mt-3 rounded-card bg-surface shadow-card p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-headline font-semibold">
@@ -190,7 +190,7 @@ export default function InvoiceDetail() {
 
       {/* Variance summary */}
       {invoice.variance_cents !== 0 ? (
-        <div className="mt-3 rounded-card border border-line bg-surface p-3">
+        <div className="mt-3 rounded-card bg-surface shadow-card p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">

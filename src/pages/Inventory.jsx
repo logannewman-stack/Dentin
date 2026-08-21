@@ -20,6 +20,7 @@ import ProductTile from '@/components/ProductTile'
 import { useToast } from '@/components/ui/Toast'
 import { useData } from '@/hooks/useData'
 import { listInventory, listLocations, recordMovement } from '@/lib/repository'
+import { CATEGORIES } from '@/lib/demoData'
 import { STOCK_STATUS, coverLabel, qty } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +29,9 @@ const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'ok', label: 'Healthy' },
 ]
+
+// Rows carry the display name, not the slug, so index the glyph by name.
+const CATEGORY_EMOJI = Object.fromEntries(CATEGORIES.map((c) => [c.name, c.emoji]))
 
 export default function Inventory() {
   const navigate = useNavigate()
@@ -169,7 +173,7 @@ export default function Inventory() {
         />
       ) : (
         grouped.map(([categoryName, items]) => (
-          <Section key={categoryName} title={categoryName}>
+          <Section key={categoryName} title={`${CATEGORY_EMOJI[categoryName] ?? ''} ${categoryName}`.trim()}>
             {items.map((item) => {
               const status = STOCK_STATUS[item.stockStatus]
               return (

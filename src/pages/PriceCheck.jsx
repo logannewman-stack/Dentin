@@ -133,7 +133,7 @@ export default function PriceCheck() {
       leading={back}
     >
       {/* What exactly are we pricing */}
-      <div className="mt-3 rounded-card border border-line bg-surface p-3">
+      <div className="mt-3 rounded-card bg-surface shadow-card p-3">
         <div className="flex items-start gap-3.5">
           <ProductTile product={{ ...product, categorySlug: product.categorySlug }} size={54} />
           <div className="min-w-0 flex-1">
@@ -163,12 +163,12 @@ export default function PriceCheck() {
 
       {/* Scan state, then the spread */}
       {scanning ? (
-        <div className="mt-3 flex items-center gap-3 rounded-card border border-line bg-surface p-3">
+        <div className="mt-3 flex items-center gap-3 rounded-card bg-surface shadow-card p-3">
           <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand-600/25 border-t-brand-600" />
           <p className="text-subhead text-label-2">Checking {checked} vendors for this exact item…</p>
         </div>
       ) : spreadLow != null ? (
-        <div className="mt-3 rounded-card border border-line bg-surface p-3">
+        <div className="mt-3 rounded-card bg-surface shadow-card p-3">
           <div className="flex items-baseline justify-between gap-3">
             <div>
               <p className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
@@ -205,7 +205,7 @@ export default function PriceCheck() {
       {!scanning && benchmark ? (
         <Link
           to="/vendors/benchmark"
-          className="press mt-3 flex items-center gap-3 rounded-card border border-line bg-surface p-3"
+          className="press mt-3 flex items-center gap-3 rounded-card bg-surface shadow-card p-3"
         >
           <span className="min-w-0 flex-1">
             <span className="tnum block text-subhead text-label-2">

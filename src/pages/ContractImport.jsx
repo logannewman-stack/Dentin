@@ -349,7 +349,7 @@ export default function ContractImport() {
         </button>
       }
     >
-      <div className="mt-3 flex items-start gap-2.5 rounded-card border border-line bg-surface p-3">
+      <div className="mt-3 flex items-start gap-2.5 rounded-card bg-surface shadow-card p-3">
         <FileSpreadsheet size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden="true" />
         <p className="text-footnote text-label-2">
           Ask your rep for a contracted-price file — most distributors will send a CSV or EDI 832
@@ -827,7 +827,7 @@ export default function ContractImport() {
       >
         {fixing ? (
           <div className="py-2">
-            <div className="rounded-card border border-line bg-surface p-3">
+            <div className="rounded-card bg-surface shadow-card p-3">
               <p className="text-footnote text-label-2">
                 {vendor?.name ?? 'This vendor'} calls it{' '}
                 <span className="font-mono">{fixing.vendorSku ?? fixing.mfrSku ?? 'no item #'}</span>{' '}

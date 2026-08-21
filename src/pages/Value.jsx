@@ -43,7 +43,7 @@ function compactMoney(v) {
 
 function Card({ title, subtitle, children, footer, action }) {
   return (
-    <section className="mt-3 rounded-card border border-line bg-surface p-3">
+    <section className="mt-3 rounded-card bg-surface shadow-card p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-headline font-semibold">{title}</h3>
@@ -199,7 +199,7 @@ function VerdictCard({ comparison, subscription, hasGap }) {
   if (verdict === 'too-early') {
     const weeks = Math.max(0, Math.round(comparison.monthsBilled * 4.35))
     return (
-      <section className="mt-3 rounded-card border border-line bg-surface p-4">
+      <section className="mt-3 rounded-card bg-surface shadow-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
@@ -232,7 +232,7 @@ function VerdictCard({ comparison, subscription, hasGap }) {
   return (
     <section
       className={cn(
-        'mt-3 rounded-card border border-line bg-surface p-4',
+        'mt-3 rounded-card bg-surface shadow-card p-4',
         ahead && 'border-l-2 border-l-ios-green',
       )}
     >
@@ -377,7 +377,7 @@ export default function Value() {
         <button
           type="button"
           onClick={() => setShowMethod(true)}
-          className="press mt-2 flex w-full items-center justify-center gap-1.5 rounded-card border border-line bg-surface p-3 text-footnote text-label-3"
+          className="press mt-2 flex w-full items-center justify-center gap-1.5 rounded-card bg-surface shadow-card p-3 text-footnote text-label-3"
         >
           <Info size={14} aria-hidden="true" />
           How this is counted
@@ -394,7 +394,7 @@ export default function Value() {
       </div>
 
       {/* The sentence a practice repeats to their partner */}
-      <section className="mt-2 rounded-card border border-line bg-surface p-4">
+      <section className="mt-2 rounded-card bg-surface shadow-card p-4">
         <p className="text-body leading-snug text-label-2">
           {sinceLabel}, Dentin found{' '}
           <strong className="tnum font-semibold text-label">
@@ -518,7 +518,7 @@ export default function Value() {
           </Button>
         </div>
       ) : summary.found.window > 0 ? (
-        <div className="mt-3 flex items-start gap-2 rounded-card border border-line bg-surface p-3">
+        <div className="mt-3 flex items-start gap-2 rounded-card bg-surface shadow-card p-3">
           <PartyPopper size={15} className="mt-0.5 shrink-0 text-ios-green" aria-hidden="true" />
           <p className="text-footnote leading-snug text-label-2">
             Nothing is sitting on the table today. Across every tracked item, no vendor outside your
@@ -570,7 +570,7 @@ export default function Value() {
       <button
         type="button"
         onClick={() => setShowMethod(true)}
-        className="press mt-3 flex w-full items-center justify-between gap-3 rounded-card border border-line bg-surface p-3 text-left"
+        className="press mt-3 flex w-full items-center justify-between gap-3 rounded-card bg-surface shadow-card p-3 text-left"
       >
         <span className="flex min-w-0 items-start gap-2">
           <Info size={15} className="mt-0.5 shrink-0 text-label-3" aria-hidden="true" />
@@ -592,7 +592,7 @@ export default function Value() {
 
       <Link
         to="/insights"
-        className="press mt-3 flex items-center justify-between rounded-card border border-line bg-surface p-3"
+        className="press mt-3 flex items-center justify-between rounded-card bg-surface shadow-card p-3"
       >
         <span className="min-w-0">
           <span className="block text-headline font-semibold">Where the money goes</span>

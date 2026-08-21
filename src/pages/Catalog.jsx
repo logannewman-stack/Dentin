@@ -197,7 +197,7 @@ export default function Catalog() {
       >
         {adding ? (
           <div className="py-2">
-            <div className="flex items-start gap-3.5 rounded-card border border-line bg-surface p-3">
+            <div className="flex items-start gap-3.5 rounded-card bg-surface shadow-card p-3">
               <ProductTile product={adding} size={54} />
               <div className="min-w-0 flex-1">
                 <h3 className="text-headline font-semibold leading-snug">{adding.productName}</h3>
@@ -227,7 +227,7 @@ export default function Catalog() {
               </Section>
             ) : null}
 
-            <div className="mt-4 rounded-card border border-line bg-surface p-3">
+            <div className="mt-4 rounded-card bg-surface shadow-card p-3">
               <p className="text-headline font-semibold">Par level</p>
               <p className="mb-3 mt-0.5 text-footnote text-label-3">
                 What a restock brings you back up to.
@@ -235,7 +235,7 @@ export default function Catalog() {
               <Stepper value={par} onChange={setPar} min={1} unit={adding.unit} />
             </div>
 
-            <div className="mt-3 rounded-card border border-line bg-surface p-3">
+            <div className="mt-3 rounded-card bg-surface shadow-card p-3">
               <p className="text-headline font-semibold">On hand today</p>
               <p className="mb-3 mt-0.5 text-footnote text-label-3">
                 Count what is on the shelf right now — you can adjust later.

@@ -169,7 +169,7 @@ export default function Search() {
           {matches.stocked.some((i) => i.stockStatus !== 'ok') ? (
             <Row
               to="/orders/new"
-              className="mt-4 rounded-card border border-line bg-surface"
+              className="mt-4 rounded-card bg-surface shadow-card"
               leading={<TrendingDown size={18} className="text-brand-600" aria-hidden="true" />}
               title="Price a restock for these"
               subtitle="Compare every supplier before you buy"

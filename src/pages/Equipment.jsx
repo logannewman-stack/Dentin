@@ -57,14 +57,14 @@ export default function Equipment() {
     <Screen title="Equipment" subtitle={assets?.length ? `${assets.length} assets` : undefined}>
       {assets?.length ? (
         <div className="mt-3 flex gap-2.5">
-          <div className="flex-1 rounded-card border border-line bg-surface p-3">
+          <div className="flex-1 rounded-card bg-surface shadow-card p-3">
             <p className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
               Capital value
             </p>
             <p className="tnum mt-1.5 text-title2 font-bold">{money(capital)}</p>
             <p className="mt-0.5 text-caption text-label-3">at purchase</p>
           </div>
-          <div className="flex-1 rounded-card border border-line bg-surface p-3">
+          <div className="flex-1 rounded-card bg-surface shadow-card p-3">
             <p className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
               Service due
             </p>

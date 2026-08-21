@@ -392,7 +392,7 @@ export default function Reorder() {
     >
       {/* Same as last time — how most restocking actually works */}
       {lastOrder?.lines?.length && !repeated && !query.trim() ? (
-        <div className="mt-3 rounded-card border border-line bg-surface p-3.5">
+        <div className="mt-3 rounded-card bg-surface shadow-card p-3.5">
           <div className="flex items-start gap-3">
             <span
               className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-brand-600/12 text-brand-700 dark:text-brand-400"
@@ -811,7 +811,7 @@ export default function Reorder() {
 
             {/* Every vendor that stocks it — the buyer's pick beats the default */}
             <p className="section-label">Buy from</p>
-            <div className="overflow-hidden rounded-card border border-line bg-surface">
+            <div className="overflow-hidden rounded-card bg-surface shadow-card">
               {(offersByProduct[editing.productId] ?? [])
                 .filter((o) => o.inStock)
                 .map((o) => {

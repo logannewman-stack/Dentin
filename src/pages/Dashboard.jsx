@@ -404,7 +404,7 @@ export default function Dashboard() {
 
       {isDemo ? (
         previewing ? (
-          <div className="mt-5 rounded-card border border-line bg-surface p-3.5 text-center">
+          <div className="mt-5 rounded-card bg-surface shadow-card p-3.5 text-center">
             <p className="text-subhead font-semibold text-label">
               This is a demo practice
             </p>

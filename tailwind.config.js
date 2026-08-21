@@ -34,18 +34,23 @@ export default {
           300: '#E2DCCE',
           400: '#CFC6B2',
         },
-        // Status, pulled back from iOS saturation so they read as data, not UI.
+        /**
+         * The actual UIColor system palette, not a desaturated print of it.
+         * These are the light-mode values; `--ios-*` in index.css shifts them
+         * for dark mode the way the platform does, so anything reaching for
+         * `ios-green` gets the right one automatically.
+         */
         ios: {
-          blue: '#2D6FF7',
-          green: '#1F9D55',
-          indigo: '#5B5BD6',
-          orange: '#D97706',
-          pink: '#DB2777',
-          purple: '#8B5CF6',
-          red: '#DC2626',
-          teal: '#0D9488',
-          yellow: '#CA8A04',
-          gray: '#8A8A94',
+          blue: 'rgb(var(--ios-blue) / <alpha-value>)',
+          green: 'rgb(var(--ios-green) / <alpha-value>)',
+          indigo: 'rgb(var(--ios-indigo) / <alpha-value>)',
+          orange: 'rgb(var(--ios-orange) / <alpha-value>)',
+          pink: 'rgb(var(--ios-pink) / <alpha-value>)',
+          purple: 'rgb(var(--ios-purple) / <alpha-value>)',
+          red: 'rgb(var(--ios-red) / <alpha-value>)',
+          teal: 'rgb(var(--ios-teal) / <alpha-value>)',
+          yellow: 'rgb(var(--ios-yellow) / <alpha-value>)',
+          gray: 'rgb(var(--ios-gray) / <alpha-value>)',
         },
         canvas: 'rgb(var(--canvas) / <alpha-value>)',
         surface: 'rgb(var(--surface) / <alpha-value>)',
@@ -66,23 +71,43 @@ export default {
         },
       },
       fontFamily: {
+        /**
+         * SF first, and it has to be first.
+         *
+         * Inter is a fine SF impersonation and it is what every non-Apple
+         * device will get — but on an iPhone, iPad or Mac the real thing is
+         * already installed, and no substitute reads as native beside it. SF
+         * also brings optical sizing and true tabular figures for free.
+         *
+         * `-apple-system` resolves to SF Pro Text or SF Pro Display at the
+         * right optical size automatically; naming the faces directly after
+         * it covers browsers that expose them but not the keyword.
+         *
+         * Apple Color Emoji is named explicitly so emoji render in colour
+         * rather than falling through to a monochrome glyph.
+         */
         sans: [
-          'Inter Variable',
-          'Inter',
-          'ui-sans-serif',
           '-apple-system',
           'BlinkMacSystemFont',
+          'SF Pro Text',
+          'SF Pro Display',
+          'system-ui',
+          'Inter Variable',
+          'Inter',
           'Segoe UI',
           'Roboto',
           'Helvetica Neue',
           'sans-serif',
+          'Apple Color Emoji',
+          'Segoe UI Emoji',
+          'Noto Color Emoji',
         ],
         mono: [
           'ui-monospace',
           'SFMono-Regular',
           'SF Mono',
-          'JetBrains Mono',
           'Menlo',
+          'JetBrains Mono',
           'monospace',
         ],
       },

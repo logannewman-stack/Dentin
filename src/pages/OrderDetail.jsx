@@ -185,7 +185,7 @@ export default function OrderDetail() {
       }
     >
       {/* Summary */}
-      <div className="mt-3 rounded-card border border-line bg-surface p-3">
+      <div className="mt-3 rounded-card bg-surface shadow-card p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -346,7 +346,7 @@ export default function OrderDetail() {
           app must not imply otherwise. */}
       {order.status !== 'draft' && order.status !== 'cancelled' ? (
         order.sentAt ? (
-          <div className="mt-4 flex items-start gap-2.5 rounded-card border border-line bg-surface p-3">
+          <div className="mt-4 flex items-start gap-2.5 rounded-card bg-surface shadow-card p-3">
             <BadgeCheck size={16} className="mt-0.5 shrink-0 text-ios-green" aria-hidden="true" />
             <p className="text-subhead text-label-2">
               Sent to {order.supplierName} on{' '}
@@ -440,7 +440,7 @@ export default function OrderDetail() {
 
       {/* Payment — settle the vendor without leaving the order */}
       {order.paymentStatus ? (
-        <div className="mt-4 rounded-card border border-line bg-surface p-3">
+        <div className="mt-4 rounded-card bg-surface shadow-card p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-headline font-semibold">Payment</p>
             {order.paymentStatus === 'paid' ? (
@@ -508,7 +508,7 @@ export default function OrderDetail() {
         }
       >
         <div className="py-3">
-          <div className="rounded-card border border-line bg-surface p-4 text-center">
+          <div className="rounded-card bg-surface shadow-card p-4 text-center">
             <p className="text-caption2 uppercase tracking-[0.07em] text-label-3">
               {order.reference} · {order.supplierName}
             </p>
@@ -660,7 +660,7 @@ export default function OrderDetail() {
         }
       >
         <div className="space-y-3 px-1 pb-2 pt-1">
-          <div className="rounded-card border border-line bg-surface-2 p-3">
+          <div className="rounded-card bg-surface shadow-card-2 p-3">
             <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
               To
             </p>
@@ -674,7 +674,7 @@ export default function OrderDetail() {
               value={emailNote}
               onChange={(e) => setEmailNote(e.target.value)}
               placeholder="e.g., Rush delivery needed, different billing address, etc."
-              className="w-full rounded-card border border-line bg-surface p-3 font-system text-subhead text-label outline-none placeholder-label-3 transition-colors focus:border-brand-600 focus:bg-surface-2 dark:focus:border-brand-400"
+              className="w-full rounded-card bg-surface shadow-card p-3 font-system text-subhead text-label outline-none placeholder-label-3 transition-colors focus:border-brand-600 focus:bg-surface-2 dark:focus:border-brand-400"
               rows={4}
             />
           </div>

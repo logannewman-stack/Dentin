@@ -55,7 +55,7 @@ export default function Orders() {
     >
       {/* Savings to date — the product's whole promise, quantified */}
       {totalSaved > 0 ? (
-        <div className="mt-3 flex items-center gap-3.5 rounded-card border border-line bg-surface p-3">
+        <div className="mt-3 flex items-center gap-3.5 rounded-card bg-surface shadow-card p-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[3px] bg-ios-green/12 text-ios-green">
             <TrendingDown size={21} strokeWidth={2.2} />
           </span>
@@ -67,7 +67,7 @@ export default function Orders() {
       ) : null}
 
       {needsReorder > 0 ? (
-        <div className="mt-3 rounded-card border border-line bg-surface p-3">
+        <div className="mt-3 rounded-card bg-surface shadow-card p-3">
           <div className="flex items-center gap-3">
             <RowIcon tint="orange">
               <PackagePlus size={16} strokeWidth={2.2} />

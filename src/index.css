@@ -26,6 +26,18 @@
     --nav-material: 249 249 251;
     --brand: 12 125 118;
 
+    /* UIColor system palette, light. */
+    --ios-blue: 0 122 255;
+    --ios-green: 52 199 89;
+    --ios-indigo: 88 86 214;
+    --ios-orange: 255 149 0;
+    --ios-pink: 255 45 85;
+    --ios-purple: 175 82 222;
+    --ios-red: 255 59 48;
+    --ios-teal: 48 176 199;
+    --ios-yellow: 255 204 0;
+    --ios-gray: 142 142 147;
+
     --viz-1: 13 148 136;
     --viz-2: 235 104 52;
     --viz-grid: 233 233 236;
@@ -46,6 +58,17 @@
 
     --nav-material: 30 30 32;
     --brand: 56 184 174;
+    /* UIColor system palette, dark — brightened so each hue holds on black. */
+    --ios-blue: 10 132 255;
+    --ios-green: 48 209 88;
+    --ios-indigo: 94 92 230;
+    --ios-orange: 255 159 10;
+    --ios-pink: 255 55 95;
+    --ios-purple: 191 90 242;
+    --ios-red: 255 69 58;
+    --ios-teal: 64 200 224;
+    --ios-yellow: 255 214 10;
+    --ios-gray: 152 152 157;
 
     --viz-1: 38 166 154;
     --viz-2: 217 89 38;
@@ -68,6 +91,17 @@
 
       --nav-material: 30 30 32;
       --brand: 56 184 174;
+      /* UIColor system palette, dark — brightened so each hue holds on black. */
+      --ios-blue: 10 132 255;
+      --ios-green: 48 209 88;
+      --ios-indigo: 94 92 230;
+      --ios-orange: 255 159 10;
+      --ios-pink: 255 55 95;
+      --ios-purple: 191 90 242;
+      --ios-red: 255 69 58;
+      --ios-teal: 64 200 224;
+      --ios-yellow: 255 214 10;
+      --ios-gray: 152 152 157;
 
       --viz-1: 38 166 154;
       --viz-2: 217 89 38;
@@ -84,7 +118,8 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    /* Inter v4 variable carries an opsz axis — let display sizes use it. */
+    /* SF switches between Text and Display cuts by optical size, and Inter's
+       variable opsz axis does the same where SF is not installed. */
     font-optical-sizing: auto;
   }
 
@@ -94,7 +129,10 @@
     line-height: 22px;
     letter-spacing: -0.022em;
     overscroll-behavior-y: none;
-    font-feature-settings: 'cv05' 1, 'ss01' 1;
+    /* No 'cv05'/'ss01' here any more: those are Inter alternates, and forcing
+       them on a stack that now leads with SF only ever applied to the
+       fallback. Contextual alternates are what SF actually wants on. */
+    font-feature-settings: 'calt' 1;
   }
 
   /* Fields match body now, which also clears the 16px floor that stops iOS
@@ -224,6 +262,39 @@
      phone and stay centred once there is room. */
   .inset-group {
     @apply mx-auto w-full max-w-2xl px-4;
+  }
+
+  /**
+   * A standalone text field, the filled UITextField: no border, a quiet fill
+   * that lifts off the grouped background, 44pt tall, and a caret in the
+   * accent colour. Fields sitting inside a grouped card should use
+   * `.field-plain` instead — the card is already the surface, and a fill
+   * inside a fill reads as a box in a box.
+   */
+  .field {
+    @apply w-full rounded-field bg-fill/[0.08] px-4 text-body text-label;
+    @apply placeholder:text-label-3 dark:bg-fill/[0.20];
+    min-height: 44px;
+    caret-color: rgb(var(--brand));
+  }
+
+  .field-plain {
+    @apply w-full bg-transparent px-0 text-body text-label placeholder:text-label-3;
+    min-height: 44px;
+    caret-color: rgb(var(--brand));
+  }
+
+  .field:focus,
+  .field-plain:focus {
+    @apply outline-none;
+  }
+
+  /* Emoji should never inherit the tightened tracking the Latin ramp uses,
+     and they sit a touch low against 17px text. */
+  .emoji {
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+    letter-spacing: normal;
+    font-feature-settings: normal;
   }
 }
 

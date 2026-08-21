@@ -44,7 +44,7 @@ export default function InstallPrompt() {
   if (standalone || dismissed || (!isIos && !deferred)) return null
 
   return (
-    <div className="mt-3 flex items-start gap-3 rounded-card border border-line bg-surface p-3.5">
+    <div className="mt-3 flex items-start gap-3 rounded-card bg-surface shadow-card p-3.5">
       <span
         className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-brand-600/12 text-brand-700 dark:text-brand-400"
         aria-hidden="true"

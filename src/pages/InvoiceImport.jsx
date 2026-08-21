@@ -259,7 +259,7 @@ export default function InvoiceImport() {
         </button>
       }
     >
-      <div className="mt-3 flex items-start gap-2.5 rounded-card border border-line bg-surface p-3">
+      <div className="mt-3 flex items-start gap-2.5 rounded-card bg-surface shadow-card p-3">
         <ReceiptText size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden="true" />
         <p className="text-footnote text-label-2">
           Drop the invoice in and Dentin lines every billed price up against the purchase order,
@@ -325,7 +325,7 @@ export default function InvoiceImport() {
               onBlur={() => text.trim() && ingest(text)}
               rows={4}
               placeholder="…or paste the invoice lines here"
-              className="w-full rounded-card border border-line bg-surface p-3 font-mono text-caption text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              className="w-full rounded-card bg-surface shadow-card p-3 font-mono text-caption text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             />
           </div>
         </>
@@ -482,7 +482,7 @@ export default function InvoiceImport() {
               </div>
             </div>
           ) : (
-            <div className="mt-4 rounded-card border border-line bg-surface p-3">
+            <div className="mt-4 rounded-card bg-surface shadow-card p-3">
               {/* Flagged lines and money over-billed are not the same thing. A
                   first invoice is all new items and costs nothing extra; saying
                   "$0.00 over" next to "12 lines flagged" would read as alarm. */}

@@ -51,7 +51,6 @@ export function SegmentedControl({ options, value, onChange, className }) {
     0,
     options.findIndex((o) => o.value === value),
   )
-  const width = options.length ? 100 / options.length : 100
 
   return (
     <div
@@ -61,12 +60,15 @@ export function SegmentedControl({ options, value, onChange, className }) {
         className,
       )}
     >
+      {/* The track carries 2px of padding, so the buttons divide (100% - 4px)
+          between them — not 100%. Sizing the thumb off the raw percentage
+          leaves it a few px narrow and drifting further out on each segment. */}
       <span
         aria-hidden="true"
         className="absolute inset-y-[2px] left-[2px] rounded-[7px] bg-surface shadow-control transition-transform duration-200 ease-out"
         style={{
-          width: `calc(${width}% - 4px)`,
-          transform: `translateX(calc(${index * 100}% + ${index * 4}px))`,
+          width: `calc((100% - 4px) / ${options.length || 1})`,
+          transform: `translateX(${index * 100}%)`,
         }}
       />
       {options.map((opt) => {
@@ -82,13 +84,16 @@ export function SegmentedControl({ options, value, onChange, className }) {
               onChange(opt.value)
             }}
             className={cn(
-              'relative z-10 min-w-0 flex-1 rounded-[7px] px-2.5 py-[5px] text-footnote transition-colors duration-200',
+              'relative z-10 flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden',
+              'rounded-[7px] px-2 py-[5px] text-footnote transition-colors duration-200',
               active ? 'font-semibold text-label' : 'font-medium text-label-2',
             )}
           >
+            {/* Label and count truncate as one unit. Left as siblings, the
+                count sits outside the truncation and spills past the thumb. */}
             <span className="truncate">{opt.label}</span>
             {opt.count != null ? (
-              <span className="tnum ml-1 text-label-3">{opt.count}</span>
+              <span className="tnum shrink-0 text-label-3">{opt.count}</span>
             ) : null}
           </button>
         )

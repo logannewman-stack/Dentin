@@ -169,7 +169,7 @@ export default function AddToOrder({
                     setInbound(null)
                     navigate(`/orders/${row.orderId}`)
                   }}
-                  className="press w-full rounded-card border border-line bg-surface p-3 text-left"
+                  className="press w-full rounded-card bg-surface shadow-card p-3 text-left"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">

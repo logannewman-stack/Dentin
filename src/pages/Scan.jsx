@@ -256,7 +256,7 @@ export default function Scan() {
       >
         {hit?.matched ? (
           <div className="py-3">
-            <div className="flex items-start gap-3.5 rounded-card border border-line bg-surface p-3">
+            <div className="flex items-start gap-3.5 rounded-card bg-surface shadow-card p-3">
               <ProductTile
                 product={{ brand: hit.brand, categorySlug: hit.categoryName }}
                 size={54}
@@ -269,7 +269,7 @@ export default function Scan() {
             </div>
 
             {scanLot || scanExpiry ? (
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-line bg-surface px-3 py-2.5">
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-card bg-surface shadow-card px-3 py-2.5">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
                   {scanLot ? (
                     <p className="text-footnote text-label-2">
@@ -296,7 +296,7 @@ export default function Scan() {
 
             {hit.inventoryItemId ? (
               <>
-                <div className="mt-4 flex flex-col items-center gap-1 rounded-card border border-line bg-surface p-4">
+                <div className="mt-4 flex flex-col items-center gap-1 rounded-card bg-surface shadow-card p-4">
                   <p className="text-subhead text-label-3">
                     {mode === 'received' ? 'How many arrived?' : 'How many used?'}
                   </p>
@@ -324,7 +324,7 @@ export default function Scan() {
                 </button>
               </>
             ) : (
-              <div className="mt-4 rounded-card border border-line bg-surface p-3 text-center">
+              <div className="mt-4 rounded-card bg-surface shadow-card p-3 text-center">
                 <Pill tone="warning">Not tracked yet</Pill>
                 <p className="mt-2 text-subhead text-label-3">
                   This product is in the catalog but is not on your inventory list.
@@ -392,7 +392,7 @@ export default function Scan() {
             spellCheck={false}
             placeholder="099999000010"
             aria-label="Barcode or QR code"
-            className="w-full rounded-card border border-line bg-surface px-4 py-4 text-center font-mono text-title3 tracking-[1px] text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            className="w-full rounded-card bg-surface shadow-card px-4 py-4 text-center font-mono text-title3 tracking-[1px] text-label placeholder:text-label-3 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           />
           <p className="mt-2.5 text-center text-footnote text-label-3">
             Type the number under the barcode. GS1 strings like (01)…(17)…(10)… work too.

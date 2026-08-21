@@ -532,7 +532,7 @@ export default function Onboarding() {
 
               {current.key === 'trial' ? (
                 subActive ? (
-                  <div className="rounded-card border border-line bg-surface p-4">
+                  <div className="rounded-card bg-surface shadow-card p-4">
                     <span className="flex items-center gap-2 text-callout font-semibold text-ios-green">
                       <BadgeCheck size={18} strokeWidth={2.2} aria-hidden="true" />
                       Trial active
@@ -552,7 +552,7 @@ export default function Onboarding() {
                         { value: 'monthly', label: 'Monthly' },
                       ]}
                     />
-                    <div className="rounded-card border border-line bg-surface p-4">
+                    <div className="rounded-card bg-surface shadow-card p-4">
                       {plan === 'annual' ? (
                         <>
                           <p className="text-title2 font-bold leading-tight">
@@ -692,7 +692,7 @@ export default function Onboarding() {
               {current.key === 'locations' ? (
                 <>
                   {locations.map((loc, i) => (
-                    <div key={i} className="rounded-card border border-line bg-surface p-3">
+                    <div key={i} className="rounded-card bg-surface shadow-card p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-caption font-medium uppercase tracking-[0.4px] text-label-3">
                           Location {i + 1}

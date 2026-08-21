@@ -106,7 +106,7 @@ export default function Procedures() {
       </div>
 
       {/* What the mix consumed */}
-      <div className="mt-3 rounded-card border border-line bg-surface p-3">
+      <div className="mt-3 rounded-card bg-surface shadow-card p-3">
         <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
           Materials consumed
         </p>
@@ -132,7 +132,7 @@ export default function Procedures() {
       </div>
 
       {/* Coverage */}
-      <div className="mt-2.5 rounded-card border border-line bg-surface p-3">
+      <div className="mt-2.5 rounded-card bg-surface shadow-card p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-headline font-semibold">
@@ -253,7 +253,7 @@ export default function Procedures() {
         />
       </Section>
 
-      <div className="mt-3 flex items-start gap-2 rounded-card border border-line bg-surface p-3">
+      <div className="mt-3 flex items-start gap-2 rounded-card bg-surface shadow-card p-3">
         <Info size={15} className="mt-0.5 shrink-0 text-label-3" aria-hidden="true" />
         <p className="text-footnote text-label-3">
           Procedure codes are ADA intellectual property. A practice may use them in software it
@@ -270,7 +270,7 @@ export default function Procedures() {
       >
         {detail ? (
           <div className="py-2">
-            <div className="rounded-card border border-line bg-surface p-3">
+            <div className="rounded-card bg-surface shadow-card p-3">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Pill tone="brand">{detail.category.replace(/-/g, ' ')}</Pill>
                 {detail.anesthetic ? (

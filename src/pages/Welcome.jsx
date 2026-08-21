@@ -424,7 +424,7 @@ export default function Welcome() {
                   setError(err.message)
                 }
               }}
-              className="press focus-ring mb-3.5 flex h-[42px] w-full items-center justify-center gap-2.5 rounded-ios border border-line bg-surface text-body font-semibold text-label disabled:opacity-55"
+              className="press focus-ring mb-3.5 flex h-[42px] w-full items-center justify-center gap-2.5 rounded-field bg-fill/[0.08] dark:bg-fill/[0.20] text-body font-semibold text-label disabled:opacity-55"
             >
               <GoogleMark />
               Continue with Google
@@ -448,7 +448,7 @@ export default function Welcome() {
                   onChange={(e) => setFullName(e.target.value)}
                   autoComplete="name"
                   placeholder="Dr. Logan Newman"
-                  className="w-full rounded-ios border border-line bg-surface px-3.5 py-3 text-callout text-label placeholder:text-label-3 focus-ring"
+                  className="w-full rounded-field bg-fill/[0.08] px-4 py-3 text-body text-label placeholder:text-label-3 dark:bg-fill/[0.20] focus-ring"
                 />
               </label>
             ) : null}
@@ -464,7 +464,7 @@ export default function Welcome() {
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
                 placeholder="you@practice.com"
-                className="w-full rounded-ios border border-line bg-surface px-3.5 py-3 text-callout text-label placeholder:text-label-3 focus-ring"
+                className="w-full rounded-field bg-fill/[0.08] px-4 py-3 text-body text-label placeholder:text-label-3 dark:bg-fill/[0.20] focus-ring"
               />
             </label>
 
@@ -481,7 +481,7 @@ export default function Welcome() {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                   placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
-                  className="w-full rounded-ios border border-line bg-surface px-3.5 py-3 pr-11 text-callout text-label placeholder:text-label-3 focus-ring"
+                  className="w-full rounded-field bg-fill/[0.08] dark:bg-fill/[0.20] px-3.5 py-3 pr-11 text-callout text-label placeholder:text-label-3 focus-ring"
                 />
                 <button
                   type="button"
@@ -562,7 +562,7 @@ export default function Welcome() {
               exploreDemo()
               navigate('/', { replace: true })
             }}
-            className="press focus-ring group mt-3 flex w-full items-center gap-3 rounded-card border border-line bg-surface px-3 py-3 text-left"
+            className="press focus-ring group mt-3 flex w-full items-center gap-3 rounded-card bg-surface shadow-card px-3 py-3 text-left"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-label-2">
               <Compass size={16} strokeWidth={2} aria-hidden="true" />

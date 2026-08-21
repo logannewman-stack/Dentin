@@ -450,7 +450,7 @@ export default function Settings() {
       ) : null}
 
       {pushState.reason === 'ios-needs-install' ? (
-        <div className="mt-2 flex items-start gap-2 rounded-card border border-line bg-surface p-3">
+        <div className="mt-2 flex items-start gap-2 rounded-card bg-surface shadow-card p-3">
           <Share size={15} className="mt-0.5 shrink-0 text-ios-blue" aria-hidden="true" />
           <p className="text-footnote text-label-2">
             To install on iPhone: tap Share, then <strong>Add to Home Screen</strong>. Dentin then

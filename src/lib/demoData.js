@@ -751,21 +751,30 @@ export const VENDOR_DIRECTORY = [
   },
 ]
 
+/**
+ * Supply categories.
+ *
+ * `emoji` is the colour glyph the grouped lists lead with. A line drawing at
+ * 15px reads as a smudge; an emoji is legible at that size, arrives already
+ * colour-coded, and ships with the platform — no icon set to maintain and
+ * nothing extra to load. Each is picked to be recognisable at a glance rather
+ * than clinically literal.
+ */
 export const CATEGORIES = [
-  { slug: 'infection-control', name: 'Infection Control', tint: 'green' },
-  { slug: 'restorative', name: 'Restorative', tint: 'blue' },
-  { slug: 'preventive', name: 'Preventive', tint: 'teal' },
-  { slug: 'endodontics', name: 'Endodontics', tint: 'purple' },
-  { slug: 'oral-surgery', name: 'Oral Surgery', tint: 'red' },
-  { slug: 'implants', name: 'Implants', tint: 'indigo' },
-  { slug: 'orthodontics', name: 'Orthodontics', tint: 'pink' },
-  { slug: 'impression-lab', name: 'Impression & Lab', tint: 'orange' },
-  { slug: 'anesthetics', name: 'Anesthetics', tint: 'red' },
-  { slug: 'rotary-burs', name: 'Rotary & Burs', tint: 'gray' },
-  { slug: 'imaging', name: 'Imaging', tint: 'blue' },
-  { slug: 'whitening', name: 'Whitening', tint: 'yellow' },
-  { slug: 'disposables', name: 'Disposables', tint: 'gray' },
-  { slug: 'equipment', name: 'Equipment', tint: 'brand' },
+  { slug: 'infection-control', name: 'Infection Control', tint: 'green', emoji: '🧤' },
+  { slug: 'restorative', name: 'Restorative', tint: 'blue', emoji: '🦷' },
+  { slug: 'preventive', name: 'Preventive', tint: 'teal', emoji: '🪥' },
+  { slug: 'endodontics', name: 'Endodontics', tint: 'purple', emoji: '🩺' },
+  { slug: 'oral-surgery', name: 'Oral Surgery', tint: 'red', emoji: '⚕️' },
+  { slug: 'implants', name: 'Implants', tint: 'indigo', emoji: '🔩' },
+  { slug: 'orthodontics', name: 'Orthodontics', tint: 'pink', emoji: '😬' },
+  { slug: 'impression-lab', name: 'Impression & Lab', tint: 'orange', emoji: '🧪' },
+  { slug: 'anesthetics', name: 'Anesthetics', tint: 'red', emoji: '💉' },
+  { slug: 'rotary-burs', name: 'Rotary & Burs', tint: 'gray', emoji: '🌀' },
+  { slug: 'imaging', name: 'Imaging', tint: 'blue', emoji: '📷' },
+  { slug: 'whitening', name: 'Whitening', tint: 'yellow', emoji: '✨' },
+  { slug: 'disposables', name: 'Disposables', tint: 'gray', emoji: '🧻' },
+  { slug: 'equipment', name: 'Equipment', tint: 'brand', emoji: '⚙️' },
 ]
 
 /**

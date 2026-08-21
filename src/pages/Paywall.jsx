@@ -91,7 +91,7 @@ export default function Paywall({ status, hasCustomer, onRecheck }) {
           />
         </div>
 
-        <div className="mt-3 rounded-card border border-line bg-surface p-4">
+        <div className="mt-3 rounded-card bg-surface shadow-card p-4">
           <p className="text-title2 font-bold leading-tight">
             {plan === 'annual' ? '$180' : '$200'}
             <span className="text-callout font-semibold text-label-3"> / location / month</span>

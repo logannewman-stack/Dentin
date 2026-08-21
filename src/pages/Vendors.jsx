@@ -40,7 +40,7 @@ function VendorCard({ vendor, savings, onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="press relative w-full overflow-hidden rounded-card border border-line bg-surface p-3 text-left"
+      className="press relative w-full overflow-hidden rounded-card bg-surface shadow-card p-3 text-left"
     >
       <NewVendorRail active={!vendor.hasAccount} />
 
@@ -112,7 +112,7 @@ function DirectoryCard({ entry, onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="press w-full rounded-card border border-line bg-surface p-3 text-left"
+      className="press w-full rounded-card bg-surface shadow-card p-3 text-left"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -486,7 +486,7 @@ export default function Vendors() {
       >
         {detail ? (
           <div className="py-2">
-            <div className="rounded-card border border-line bg-surface p-3">
+            <div className="rounded-card bg-surface shadow-card p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="text-headline font-semibold">{detail.name}</h3>

@@ -175,7 +175,7 @@ export default function ItemDetail() {
       }
     >
       {/* Identity + stock */}
-      <div className="mt-3 rounded-card border border-line bg-surface p-3">
+      <div className="mt-3 rounded-card bg-surface shadow-card p-3">
         <div className="flex items-start gap-3.5">
           <ProductTile product={item} size={64} imageUrl={item.imageUrl} />
           <div className="min-w-0 flex-1">
@@ -683,7 +683,7 @@ export default function ItemDetail() {
         }
       >
         <div className="space-y-5 py-4">
-          <div className="rounded-card border border-line bg-surface p-3">
+          <div className="rounded-card bg-surface shadow-card p-3">
             <p className="text-headline font-semibold">Par level</p>
             <p className="mb-3 mt-0.5 text-footnote text-label-3">
               The quantity a restock brings you back up to.
@@ -691,7 +691,7 @@ export default function ItemDetail() {
             <Stepper value={par} onChange={setPar} min={0} unit={item.unit} />
           </div>
 
-          <div className="rounded-card border border-line bg-surface p-3">
+          <div className="rounded-card bg-surface shadow-card p-3">
             <p className="text-headline font-semibold">Reorder point</p>
             <p className="mb-3 mt-0.5 text-footnote text-label-3">
               Drop to this and Dentin alerts you.

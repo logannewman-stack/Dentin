@@ -322,7 +322,7 @@ export default function MarketScan() {
           </div>
 
           {/* Item-by-item */}
-          <div className="overflow-hidden rounded-card border border-line bg-surface">
+          <div className="overflow-hidden rounded-card bg-surface shadow-card">
             {rows.map((row) => (
               <OpportunityRow key={row.inventoryItemId} row={row} />
             ))}

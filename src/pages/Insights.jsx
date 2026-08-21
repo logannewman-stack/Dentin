@@ -29,7 +29,7 @@ function compactMoney(v) {
 
 function Card({ title, subtitle, children, footer, action }) {
   return (
-    <section className="mt-3 rounded-card border border-line bg-surface p-3">
+    <section className="mt-3 rounded-card bg-surface shadow-card p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-headline font-semibold">{title}</h3>
@@ -76,7 +76,7 @@ export default function Insights() {
       </div>
 
       {/* Hero figure — exactly one per view */}
-      <div className="mt-2 rounded-card border border-line bg-surface p-4">
+      <div className="mt-2 rounded-card bg-surface shadow-card p-4">
         <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
           Saved over {rangeLabel}
         </p>
@@ -201,7 +201,7 @@ export default function Insights() {
       {benchmark?.procedureCount ? (
         <Link
           to="/procedures"
-          className="press mt-3 flex items-center justify-between rounded-card border border-line bg-surface p-3"
+          className="press mt-3 flex items-center justify-between rounded-card bg-surface shadow-card p-3"
         >
           <span className="min-w-0">
             <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
@@ -329,7 +329,7 @@ export default function Insights() {
         </Section>
       ) : null}
 
-      <div className="mt-4 flex items-start gap-2 rounded-card border border-line bg-surface p-3">
+      <div className="mt-4 flex items-start gap-2 rounded-card bg-surface shadow-card p-3">
         <Info size={15} className="mt-0.5 shrink-0 text-label-3" aria-hidden="true" />
         <p className="text-footnote text-label-3">
           Figures cover {rangeLabel} of purchasing across every location. Tap any chart column for
@@ -339,7 +339,7 @@ export default function Insights() {
 
       <Link
         to="/orders/new"
-        className="press mt-3 flex items-center justify-between rounded-card border border-line bg-surface p-3"
+        className="press mt-3 flex items-center justify-between rounded-card bg-surface shadow-card p-3"
       >
         <span className="min-w-0">
           <span className="block text-headline font-semibold">Price a restock</span>

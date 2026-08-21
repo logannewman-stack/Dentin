@@ -255,7 +255,7 @@ export default function Benchmark() {
   if (!data.unlocked) {
     return (
       <Screen title="Price benchmarks" largeTitle={false} leading={back}>
-        <div className="mt-3 rounded-card border border-line bg-surface p-4">
+        <div className="mt-3 rounded-card bg-surface shadow-card p-4">
           <div className="flex items-center gap-1.5 text-label-3">
             <Users size={13} strokeWidth={2.6} aria-hidden="true" />
             <span className="text-caption font-bold uppercase tracking-[0.5px]">
@@ -364,7 +364,7 @@ export default function Benchmark() {
         /* Over the median on paper, but with no usage history behind it, there
            is no annual figure to lead with — and inventing one here would be
            the one lie this whole screen exists to avoid. */
-        <div className="mt-3 rounded-card border border-line bg-surface p-4">
+        <div className="mt-3 rounded-card bg-surface shadow-card p-4">
           <div
             className={cn(
               'flex items-center gap-1.5',
@@ -434,7 +434,7 @@ export default function Benchmark() {
       >
         {detail ? (
           <div className="py-2">
-            <div className="rounded-card border border-line bg-surface p-3">
+            <div className="rounded-card bg-surface shadow-card p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="text-headline font-semibold leading-snug">
