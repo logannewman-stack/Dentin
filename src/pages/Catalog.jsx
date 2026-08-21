@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, PackagePlus, PackageSearch, Sparkles } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { EmptyState, Pill, SearchField, Stepper } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -13,7 +13,6 @@ import { addToInventory, listCatalog, listLocations } from '@/lib/repository'
 import { money, unitMoney } from '@/lib/format'
 
 export default function Catalog() {
-  const navigate = useNavigate()
   const toast = useToast()
 
   const [query, setQuery] = useState('')
@@ -97,14 +96,7 @@ export default function Catalog() {
       subtitle={`${products?.length ?? 0} products`}
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
       toolbar={
         <SearchField

@@ -7,6 +7,7 @@ import {
   Bell,
   Boxes,
   CalendarClock,
+  ChevronRight,
   PackageCheck,
   ScanLine,
   Search,
@@ -133,14 +134,14 @@ export default function Dashboard() {
           <Link
             to="/search"
             aria-label="Search"
-            className="flex h-8 w-8 items-center justify-center rounded-[3px] text-label-2 transition-colors hover:bg-surface-2 hover:text-label"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-brand-600 transition-opacity active:opacity-45 dark:text-brand-400"
           >
             <Search size={17} strokeWidth={2} />
           </Link>
           <Link
             to="/alerts"
             aria-label={`Alerts${criticalCount ? `, ${criticalCount} critical` : ''}`}
-            className="relative flex h-8 w-8 items-center justify-center rounded-[3px] text-label-2 transition-colors hover:bg-surface-2 hover:text-label"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-brand-600 transition-opacity active:opacity-45 dark:text-brand-400"
           >
             <Bell size={17} strokeWidth={2} />
             {criticalCount ? (
@@ -150,7 +151,7 @@ export default function Dashboard() {
           <Link
             to="/settings"
             aria-label="Practice settings"
-            className="flex h-8 w-8 items-center justify-center rounded-[3px] text-label-2 transition-colors hover:bg-surface-2 hover:text-label"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-brand-600 transition-opacity active:opacity-45 dark:text-brand-400"
           >
             <Settings2 size={17} strokeWidth={2} />
           </Link>
@@ -162,28 +163,34 @@ export default function Dashboard() {
 
       <p className="section-label pt-3">{format(new Date(), 'EEEE, MMMM d')}</p>
 
-      {/* The one thing that stops clinical work today */}
+      {/* The one thing that stops clinical work today. A red rail down the
+          edge was the sharp language's alert; iOS says the same thing with a
+          filled glyph tile and lets the row stay a row. */}
       {stats.out.length > 0 ? (
-        <Link
-          to="/orders/new"
-          className="panel press mb-2 flex items-center gap-2.5 border-l-2 border-l-ios-red p-3"
-        >
-          <AlertTriangle size={16} strokeWidth={2.1} className="shrink-0 text-ios-red" aria-hidden="true" />
+        <Link to="/orders/new" className="panel press mb-2 flex items-center gap-3 p-3">
+          <span
+            className="flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-[7px] bg-ios-red text-white"
+            aria-hidden="true"
+          >
+            <AlertTriangle size={16} strokeWidth={2.4} />
+          </span>
           <span className="min-w-0 flex-1">
             <span className="block text-subhead font-semibold text-label">
               {stats.out.length} {stats.out.length === 1 ? 'item' : 'items'} out of stock
             </span>
-            <span className="block truncate text-caption text-label-3">
+            <span className="block truncate text-footnote text-label-3">
               {stats.out.slice(0, 2).map((r) => r.productName).join(', ')}
               {stats.out.length > 2 ? ` +${stats.out.length - 2} more` : ''}
             </span>
           </span>
-          <ArrowRight size={14} className="shrink-0 text-label-3" aria-hidden="true" />
+          <ChevronRight size={17} strokeWidth={2.6} className="-mr-1 shrink-0 text-label-3/55" aria-hidden="true" />
         </Link>
       ) : null}
 
-      {/* Instrument panel — one bordered grid, not four floating cards */}
-      <div className="panel grid grid-cols-2 gap-px bg-line lg:grid-cols-4">
+      {/* Four numbers in one card. A 1px gap lets the separator behind show
+          through as a clean cross — `divide-y` in a two-column grid puts a
+          rule above the second child, which lands mid-row. */}
+      <div className="panel grid grid-cols-2 gap-px bg-separator lg:grid-cols-4">
         <Kpi
           label="Needs action"
           icon={PackageCheck}

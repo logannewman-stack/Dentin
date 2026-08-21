@@ -9,6 +9,7 @@ import {
   Truck,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { EmptyState, Pill, SearchField, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -184,14 +185,7 @@ export default function MarketScan() {
   }
 
   const back = (
-    <button
-      type="button"
-      onClick={() => navigate(-1)}
-      className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-    >
-      <ChevronLeft size={24} strokeWidth={2.2} />
-      <span className="text-body">Back</span>
-    </button>
+    <BackButton />
   )
 
   return (

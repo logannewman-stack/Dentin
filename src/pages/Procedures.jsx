@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Activity,
   ChevronLeft,
@@ -9,6 +8,7 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { Pill, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -38,7 +38,6 @@ const WINDOWS = [
  * fit the practice rather than the other way round.
  */
 export default function Procedures() {
-  const navigate = useNavigate()
   const toast = useToast()
 
   const [days, setDays] = useState(30)
@@ -73,14 +72,7 @@ export default function Procedures() {
   }
 
   const back = (
-    <button
-      type="button"
-      onClick={() => navigate(-1)}
-      className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-    >
-      <ChevronLeft size={24} strokeWidth={2.2} />
-      <span className="text-body">Back</span>
-    </button>
+    <BackButton />
   )
 
   if (loading || !usage) {
@@ -107,7 +99,7 @@ export default function Procedures() {
 
       {/* What the mix consumed */}
       <div className="mt-3 rounded-card bg-surface shadow-card p-3">
-        <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+        <p className="text-footnote text-label-3">
           Materials consumed
         </p>
         <div className="mt-1.5 flex items-end justify-between gap-4">

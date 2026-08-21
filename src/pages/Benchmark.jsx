@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Building2,
   Check,
@@ -11,6 +10,7 @@ import {
   Users,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, RowIcon, Section } from '@/components/ui/List'
 import { EmptyState, Pill, Toggle } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -138,7 +138,6 @@ function BenchmarkRow({ row, onOpen }) {
 }
 
 export default function Benchmark() {
-  const navigate = useNavigate()
   const toast = useToast()
 
   const { data, loading } = useData(() => getPriceBenchmarks(), [])
@@ -157,14 +156,7 @@ export default function Benchmark() {
   useEffect(() => setCopied(false), [openId])
 
   const back = (
-    <button
-      type="button"
-      onClick={() => navigate(-1)}
-      className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-    >
-      <ChevronLeft size={24} strokeWidth={2.2} />
-      <span className="text-body">Back</span>
-    </button>
+    <BackButton />
   )
 
   if (loading || !data) {

@@ -202,7 +202,7 @@ function VerdictCard({ comparison, subscription, hasGap }) {
       <section className="mt-3 rounded-card bg-surface shadow-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <p className="text-footnote text-label-3">
               Is it paying for itself
             </p>
             <p className="mt-1.5 text-title3 font-semibold text-label">Too early to tell</p>
@@ -238,7 +238,7 @@ function VerdictCard({ comparison, subscription, hasGap }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+          <p className="text-footnote text-label-3">
             Is it paying for itself
           </p>
           <p
@@ -409,7 +409,7 @@ export default function Value() {
 
         <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-[3px] border border-line bg-line">
           <div className="bg-surface p-3">
-            <span className="flex items-center gap-1 text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <span className="flex items-center gap-1 text-footnote text-label-3">
               <Sparkles size={11} strokeWidth={2.1} aria-hidden="true" />
               Found
             </span>
@@ -422,7 +422,7 @@ export default function Value() {
             <span className="mt-0.5 block text-caption text-label-3">put in front of you</span>
           </div>
           <div className="bg-surface p-3">
-            <span className="flex items-center gap-1 text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <span className="flex items-center gap-1 text-footnote text-label-3">
               <TrendingDown size={11} strokeWidth={2.1} aria-hidden="true" />
               Captured
             </span>
@@ -535,7 +535,7 @@ export default function Value() {
         >
           <div className="lg:grid lg:grid-cols-2 lg:gap-6">
             <div>
-              <p className="mb-3 text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              <p className="mb-3 text-footnote text-label-3">
                 Found · by item
               </p>
               <BarList
@@ -545,7 +545,7 @@ export default function Value() {
               />
             </div>
             <div className="mt-5 lg:mt-0">
-              <p className="mb-3 text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              <p className="mb-3 text-footnote text-label-3">
                 Captured · by vendor
               </p>
               <BarList

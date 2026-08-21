@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowRight,
@@ -14,6 +14,7 @@ import {
   TrendingDown,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { Gauge, Pill, Stepper } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -47,7 +48,6 @@ import { cn } from '@/lib/utils'
 
 export default function ItemDetail() {
   const { id } = useParams()
-  const navigate = useNavigate()
 
   // Load item and parallel metadata in parallel — movements and lots only depend
   // on the item id, so they fetch concurrently with the item details.
@@ -164,14 +164,7 @@ export default function ItemDetail() {
       title={item.productName}
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
     >
       {/* Identity + stock */}

@@ -115,7 +115,7 @@ export default function Account() {
         }
       >
         <label className="row block py-2">
-          <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+          <span className="block text-footnote text-label-3">
             Full name
           </span>
           <input
@@ -127,7 +127,7 @@ export default function Account() {
           />
         </label>
         <label className="row block py-2">
-          <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+          <span className="block text-footnote text-label-3">
             Email
           </span>
           <input

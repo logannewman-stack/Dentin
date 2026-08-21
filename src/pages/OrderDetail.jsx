@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { Pill, Stepper } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -174,14 +175,7 @@ export default function OrderDetail() {
       title={order.reference ?? 'Order'}
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
     >
       {/* Summary */}
@@ -661,7 +655,7 @@ export default function OrderDetail() {
       >
         <div className="space-y-3 px-1 pb-2 pt-1">
           <div className="rounded-card bg-surface shadow-card-2 p-3">
-            <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <p className="text-footnote text-label-3">
               To
             </p>
             <p className="mt-1 text-subhead font-medium text-label">{order.supplierName}</p>

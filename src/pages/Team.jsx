@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Mail, ShieldCheck, UserPlus } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -46,7 +46,6 @@ const ROLES = {
 }
 
 export default function Team() {
-  const navigate = useNavigate()
   const toast = useToast()
 
   const { data: team } = useData(() => listTeam(), [])
@@ -106,14 +105,7 @@ export default function Team() {
       subtitle={`${team?.length ?? 0} people`}
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
       trailing={
         <button

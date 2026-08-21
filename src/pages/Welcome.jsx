@@ -182,7 +182,7 @@ export default function Welcome() {
           <div className="flex items-center gap-3">
             <img src="/icon.svg" alt="" width={38} height={38} className="rounded-[4px]" />
             <span className="text-title2 font-bold tracking-tight text-white">Dentin</span>
-            <span className="ml-1 rounded-[2px] border border-white/25 px-1.5 py-0.5 text-caption2 font-semibold uppercase tracking-[0.07em] text-white/70">
+            <span className="ml-1 rounded-[2px] border border-white/25 px-1.5 py-0.5 text-footnote text-white/70">
               For dental practices
             </span>
           </div>
@@ -204,10 +204,10 @@ export default function Welcome() {
           {SAMPLE ? (
             <figure className="panel mt-9 max-w-[30rem] bg-surface">
               <figcaption className="flex items-center justify-between border-b border-line px-3 py-2">
-                <span className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+                <span className="text-footnote text-label-3">
                   Live price check
                 </span>
-                <span className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+                <span className="text-footnote text-label-3">
                   {SAMPLE.offers.length} suppliers
                 </span>
               </figcaption>
@@ -432,7 +432,7 @@ export default function Welcome() {
 
             <div className="mb-3.5 flex items-center gap-3" aria-hidden="true">
               <span className="h-px flex-1 bg-line" />
-              <span className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              <span className="text-footnote text-label-3">
                 or use email
               </span>
               <span className="h-px flex-1 bg-line" />

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, PackagePlus, Search as SearchIcon, TrendingDown } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { EmptyState, Pill, SearchField } from '@/components/ui/Controls'
 import ProductTile from '@/components/ProductTile'
@@ -17,7 +17,6 @@ const SUGGESTIONS = ['gloves', 'composite', 'anesthetic', 'burs', 'masks', 'impl
  * sections rather than one blended list, because the actions differ.
  */
 export default function Search() {
-  const navigate = useNavigate()
   const [query, setQuery] = useState('')
 
   const { data: inventory } = useData(() => listInventory(), [])
@@ -51,14 +50,7 @@ export default function Search() {
       title="Search"
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
       toolbar={
         <SearchField

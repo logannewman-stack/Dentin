@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, CreditCard, Landmark, Plus, Trash2 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Section } from '@/components/ui/List'
 import { Pill, SegmentedControl, Toggle } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -18,7 +18,6 @@ const EMPTY_FORM = { kind: 'bank', label: '', detail: '', isDefault: false }
  * processor, which is why there is no card-number field to type into.
  */
 export default function PaymentMethods() {
-  const navigate = useNavigate()
   const toast = useToast()
   const { data: methods } = useData(() => listPaymentMethods(), [])
 
@@ -54,14 +53,7 @@ export default function PaymentMethods() {
       title="Payment methods"
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
     >
       <Section footer="ACH from the operating account is how most vendors prefer to be paid — card surcharges vary by supplier.">
@@ -132,7 +124,7 @@ export default function PaymentMethods() {
           />
 
           <label className="block">
-            <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <span className="block text-footnote text-label-3">
               Name
             </span>
             <input
@@ -144,7 +136,7 @@ export default function PaymentMethods() {
           </label>
 
           <label className="block">
-            <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <span className="block text-footnote text-label-3">
               Display detail
             </span>
             <input

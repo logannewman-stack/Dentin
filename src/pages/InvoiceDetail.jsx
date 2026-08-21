@@ -10,6 +10,7 @@ import {
   TrendingDown,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -69,14 +70,7 @@ export default function InvoiceDetail() {
       title={invoice.invoice_number || 'Invoice'}
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ArrowLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
     >
       {/* Summary */}
@@ -96,13 +90,13 @@ export default function InvoiceDetail() {
         {/* Key figures */}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>
-            <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <p className="text-footnote text-label-3">
               Total
             </p>
             <p className="tnum mt-1 text-title2 font-bold">{money(invoice.total_cents)}</p>
           </div>
           <div>
-            <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <p className="text-footnote text-label-3">
               Variance
             </p>
             <p
@@ -193,7 +187,7 @@ export default function InvoiceDetail() {
         <div className="mt-3 rounded-card bg-surface shadow-card p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              <p className="text-footnote text-label-3">
                 Total variance
               </p>
               <p
@@ -208,7 +202,7 @@ export default function InvoiceDetail() {
             </div>
             {invoice.variance_pct ? (
               <div className="text-right">
-                <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+                <p className="text-footnote text-label-3">
                   Percent
                 </p>
                 <p

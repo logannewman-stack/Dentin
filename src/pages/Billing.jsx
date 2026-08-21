@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { differenceInCalendarDays, format } from 'date-fns'
 import { BadgeCheck, Check, ChevronLeft, CreditCard, ExternalLink } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Pill, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -48,7 +49,6 @@ const planFromInterval = (interval) =>
  * anything sensitive — no card form ever renders in the app.
  */
 export default function Billing() {
-  const navigate = useNavigate()
   const toast = useToast()
   const [params] = useSearchParams()
   // Set once the reconcile has answered. It names the plan, and re-reading the
@@ -138,14 +138,7 @@ export default function Billing() {
       title="Billing & subscription"
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
     >
       {loading ? (

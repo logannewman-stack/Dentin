@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { differenceInCalendarDays, format } from 'date-fns'
 import {
   BadgeCheck,
@@ -11,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -50,7 +50,6 @@ const EMPTY_FORM = { name: '', holder: '', authority: '', cadenceMonths: 12, com
  * that requirements vary by state.
  */
 export default function Compliance() {
-  const navigate = useNavigate()
   const toast = useToast()
   const { data: credentials } = useData(() => listCredentials(), [])
 
@@ -167,14 +166,7 @@ export default function Compliance() {
       }
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
     >
       {/* The wall at a glance */}
@@ -333,7 +325,7 @@ export default function Compliance() {
             ['authority', 'Issuing authority', 'State board · OSHA · AHA'],
           ].map(([key, label, placeholder]) => (
             <label key={key} className="block">
-              <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              <span className="block text-footnote text-label-3">
                 {label}
               </span>
               <input
@@ -347,7 +339,7 @@ export default function Compliance() {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              <span className="block text-footnote text-label-3">
                 Renews every (months)
               </span>
               <input
@@ -360,7 +352,7 @@ export default function Compliance() {
               />
             </label>
             <label className="block">
-              <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+              <span className="block text-footnote text-label-3">
                 Last completed
               </span>
               <input

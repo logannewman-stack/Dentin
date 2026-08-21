@@ -77,7 +77,7 @@ export default function Insights() {
 
       {/* Hero figure — exactly one per view */}
       <div className="mt-2 rounded-card bg-surface shadow-card p-4">
-        <p className="text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+        <p className="text-footnote text-label-3">
           Saved over {rangeLabel}
         </p>
         <div className="mt-1.5 flex items-end justify-between gap-4">
@@ -204,7 +204,7 @@ export default function Insights() {
           className="press mt-3 flex items-center justify-between rounded-card bg-surface shadow-card p-3"
         >
           <span className="min-w-0">
-            <span className="block text-caption2 font-semibold uppercase tracking-[0.07em] text-label-3">
+            <span className="block text-footnote text-label-3">
               Cost per procedure
             </span>
             <span className="tnum mt-1 block text-title2 font-bold">

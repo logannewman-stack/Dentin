@@ -11,6 +11,7 @@ import {
   Upload,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { Pill } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -249,14 +250,7 @@ export default function InvoiceImport() {
       subtitle={vendor?.name}
       largeTitle={false}
       leading={
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-        >
-          <ChevronLeft size={24} strokeWidth={2.2} />
-          <span className="text-body">Back</span>
-        </button>
+        <BackButton />
       }
     >
       <div className="mt-3 flex items-start gap-2.5 rounded-card bg-surface shadow-card p-3">

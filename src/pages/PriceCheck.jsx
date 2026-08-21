@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   BadgeCheck,
   ChevronLeft,
@@ -11,6 +11,7 @@ import {
   Truck,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
+import BackButton from '@/components/ui/BackButton'
 import { Row, Section } from '@/components/ui/List'
 import { Pill, SegmentedControl } from '@/components/ui/Controls'
 import Button from '@/components/ui/Button'
@@ -54,7 +55,6 @@ function MatchBadge({ matchedBy, onExplain }) {
 
 export default function PriceCheck() {
   const { productId } = useParams()
-  const navigate = useNavigate()
 
   const { data, loading } = useData(() => findVendorPrices(productId), [productId])
   // Null whenever the pool cannot price this item — too few practices, or this
@@ -94,14 +94,7 @@ export default function PriceCheck() {
   }, [data, sort])
 
   const back = (
-    <button
-      type="button"
-      onClick={() => navigate(-1)}
-      className="press flex items-center gap-0.5 pl-1 text-brand-600 dark:text-brand-400"
-    >
-      <ChevronLeft size={24} strokeWidth={2.2} />
-      <span className="text-body">Back</span>
-    </button>
+    <BackButton />
   )
 
   if (loading || !data) {

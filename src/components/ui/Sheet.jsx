@@ -45,13 +45,13 @@ export default function Sheet({ open, onClose, title, children, footer, detent =
 
           <motion.div
             className={cn(
-              'absolute inset-x-0 bottom-0 flex flex-col rounded-t-sheet border-t border-line bg-canvas shadow-sheet lg:left-56',
+              'absolute inset-x-0 bottom-0 flex flex-col rounded-t-sheet bg-canvas shadow-sheet lg:left-56',
               heights[detent],
             )}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+            transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.5 }}
@@ -59,19 +59,26 @@ export default function Sheet({ open, onClose, title, children, footer, detent =
               if (info.offset.y > 110 || info.velocity.y > 620) onClose?.()
             }}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-line px-3 py-2.5">
+            {/* The grabber. Decorative to a screen reader, but it is the only
+                thing that tells a thumb this sheet can be dragged away — and
+                the drag handler above is already listening for it. */}
+            <div className="flex justify-center pb-1 pt-2" aria-hidden="true">
+              <span className="h-[5px] w-9 rounded-full bg-fill/30" />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-1">
               <h2 className="truncate text-headline">{title}</h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="focus-ring flex h-6 w-6 items-center justify-center rounded-[3px] text-label-3 transition-colors hover:bg-surface-2 hover:text-label"
+                className="focus-ring flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-fill/[0.12] text-label-3 transition-opacity active:opacity-55"
               >
-                <X size={15} strokeWidth={2.4} />
+                <X size={16} strokeWidth={2.6} />
               </button>
             </div>
 
-            <div className="scroll-area flex-1 overflow-y-auto px-3 pb-2">{children}</div>
+            <div className="scroll-area flex-1 overflow-y-auto px-4 pb-2">{children}</div>
 
             {footer ? (
               <div
