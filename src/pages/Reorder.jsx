@@ -128,6 +128,7 @@ export default function Reorder() {
   const [vendorChoice, setVendorChoice] = useState({})
   const [strategy, setStrategy] = useState('split')
   const [offersByProduct, setOffers] = useState({})
+  const [pricingLoading, setPricingLoading] = useState(false)
   const [editing, setEditing] = useState(null)
   const [placing, setPlacing] = useState(false)
   const [placed, setPlaced] = useState(null)
@@ -150,10 +151,19 @@ export default function Reorder() {
   const pricedKey = pricedIds.join(',')
 
   useEffect(() => {
-    if (!pricedIds.length) return undefined
+    if (!pricedIds.length) {
+      setPricingLoading(false)
+      return undefined
+    }
     let cancelled = false
+    setPricingLoading(true)
     compareOffersBatch(pricedIds).then((offersByProductId) => {
-      if (!cancelled) setOffers((prev) => ({ ...prev, ...offersByProductId }))
+      if (!cancelled) {
+        setOffers((prev) => ({ ...prev, ...offersByProductId }))
+        setPricingLoading(false)
+      }
+    }).catch(() => {
+      if (!cancelled) setPricingLoading(false)
     })
     return () => {
       cancelled = true
@@ -436,20 +446,27 @@ export default function Reorder() {
       ) : null}
 
       {/* Basket summary */}
-      {active ? (
+      {active || pricingLoading ? (
         <div className="mt-3 rounded-card bg-gradient-to-br from-brand-600 to-brand-800 p-4 text-white">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-caption font-semibold uppercase tracking-[0.4px] text-white/85">
-                {strategy === 'split'
-                  ? `${groups.length} ${groups.length === 1 ? 'shipment' : 'shipments'}`
-                  : active.supplierName}
-              </p>
-              <p className="tnum mt-1 text-large font-bold leading-none">{money(active.total)}</p>
-              <p className="mt-1.5 text-footnote text-white/80">
-                {money(active.goods)} goods + {money(active.shipping)} shipping
-              </p>
+          {pricingLoading ? (
+            <div className="flex items-center gap-2.5">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              <p className="text-body text-white/90">Pricing your order...</p>
             </div>
+          ) : (
+            <>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-caption font-semibold uppercase tracking-[0.4px] text-white/85">
+                    {strategy === 'split'
+                      ? `${groups.length} ${groups.length === 1 ? 'shipment' : 'shipments'}`
+                      : active.supplierName}
+                  </p>
+                  <p className="tnum mt-1 text-large font-bold leading-none">{money(active.total)}</p>
+                  <p className="mt-1.5 text-footnote text-white/80">
+                    {money(active.goods)} goods + {money(active.shipping)} shipping
+                  </p>
+                </div>
             {savings > 0 ? (
               <div className="text-right">
                 <div className="flex items-center justify-end gap-1 text-white">
@@ -493,11 +510,13 @@ export default function Reorder() {
           </Button>
           {/* Say it before the tap, not after: Dentin writes the PO, the
               practice places it on their own vendor account. */}
-          <p className="mt-2 text-center text-caption text-white/75">
-            Dentin writes and prices the PO — you place it with{' '}
-            {groups.length === 1 ? groups[0].supplierName : 'each vendor'} on your own account,
-            then check it in when it lands.
-          </p>
+              <p className="mt-2 text-center text-caption text-white/75">
+                Dentin writes and prices the PO — you place it with{' '}
+                {groups.length === 1 ? groups[0].supplierName : 'each vendor'} on your own account,
+                then check it in when it lands.
+              </p>
+            </>
+          )}
         </div>
       ) : null}
 
