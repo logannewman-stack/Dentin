@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight, Compass, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/lib/AuthContext'
 import { track, trackOnce } from '@/lib/analytics'
+import { SUPPLIERS } from '@/lib/demoData'
 import { cn } from '@/lib/utils'
 
 /** Google's mark, inline — brand assets may not be recoloured or redrawn. */
@@ -30,9 +31,11 @@ function GoogleMark(props) {
   )
 }
 
+// Counted, never typed. The supplier list grows, and a hard-coded "seven"
+// would quietly understate the product the day it stops being true.
 const PROOF = [
   'Par levels that account for supplier lead time',
-  'Every SKU priced across seven suppliers',
+  `Every SKU priced across ${SUPPLIERS.length} suppliers`,
   'Barcode receiving straight into the ledger',
 ]
 
