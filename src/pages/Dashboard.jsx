@@ -17,7 +17,8 @@ import {
   Wrench,
 } from 'lucide-react'
 import Screen from '@/components/ui/Screen'
-import { Gauge, Pill } from '@/components/ui/Controls'
+import { Pill } from '@/components/ui/Controls'
+import { Row, RowIcon, Section } from '@/components/ui/List'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/lib/AuthContext'
 import Sparkline from '@/components/charts/Sparkline'
@@ -72,8 +73,6 @@ function Kpi({ label, icon: Icon, value, caption, tone = 'label', to }) {
     <div className="min-w-0 bg-surface p-4">{inner}</div>
   )
 }
-
-const TABLE_COLS = 'grid-cols-[minmax(0,1fr)_2.75rem_3.25rem]'
 
 export default function Dashboard() {
   const { previewing, signOut } = useAuth()
@@ -187,10 +186,12 @@ export default function Dashboard() {
         </Link>
       ) : null}
 
-      {/* Four numbers in one card. A 1px gap lets the separator behind show
-          through as a clean cross — `divide-y` in a two-column grid puts a
-          rule above the second child, which lands mid-row. */}
-      <div className="panel grid grid-cols-2 gap-px bg-separator lg:grid-cols-4">
+      {/* Two numbers, not four. A practice opens this to answer one question
+          — what do I need to order — and the second number is the one that
+          justifies the subscription. "In transit" and "Soonest out" were
+          competing with those for the same glance; they are rows further down
+          now, which is where secondary facts belong. */}
+      <div className="panel grid grid-cols-2 gap-px bg-separator">
         <Kpi
           label="Needs action"
           icon={PackageCheck}
@@ -207,103 +208,45 @@ export default function Dashboard() {
           tone="brand"
           to="/orders"
         />
-        <Kpi
-          label="In transit"
-          icon={Truck}
-          value={stats.inTransit.length}
-          caption={
-            stats.inTransit.length ? `Next: ${stats.inTransit[0].supplierName}` : 'Nothing on the way'
-          }
-          to="/orders"
-        />
-        <Kpi
-          label="Soonest out"
-          icon={CalendarClock}
-          value={stats.soonest?.daysOfCover != null ? `${stats.soonest.daysOfCover}d` : '—'}
-          caption={stats.soonest ? stats.soonest.productName.split(',')[0] : 'No burn data yet'}
-          tone={
-            stats.soonest?.daysOfCover != null && stats.soonest.daysOfCover <= 7
-              ? 'critical'
-              : 'label'
-          }
-          to="/inventory"
-        />
       </div>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-4">
       <div className="min-w-0">
-      {/* Needs attention — a table, because this is a working list */}
+      {/* Was a three-column table with Item / Cover / Par headers. A grouped
+          list says the same thing with less: the subtitle already carries
+          "3 of 10", so the par gauge was drawing a number the row states in
+          words, and the coloured cover value carries the urgency on its own. */}
       {topAttention.length > 0 ? (
-        <section className="mt-1">
-          <div className="flex items-baseline justify-between">
-            <h3 className="section-label">Needs attention</h3>
+        <Section
+          title="Needs attention"
+          action={
             <Link
               to="/inventory?filter=attention"
-              className="pb-1.5 pt-5 text-footnote font-medium text-brand-700 dark:text-brand-400"
+              className="text-footnote font-medium text-brand-600 dark:text-brand-400"
             >
               View all {stats.attention.length}
             </Link>
-          </div>
-
-          <div className="panel">
-            {/* Column headers in sentence case and no fill — a grouped list
-                that happens to have columns, not a data table. */}
-            <div
-              className={cn(
-                'grid items-center gap-2 px-4 pb-1 pt-2.5',
-                'text-caption text-label-3',
-                TABLE_COLS,
-              )}
-            >
-              <span>Item</span>
-              <span className="text-right">Cover</span>
-              <span className="text-right">Par</span>
-            </div>
-
-            {topAttention.map((item, i) => (
-              <Link
-                key={item.id}
-                to={`/inventory/${item.id}`}
-                className={cn(
-                  'press grid items-center gap-2 px-3 py-2',
-                  TABLE_COLS,
-                  i > 0 && 'border-t border-line',
-                )}
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-subhead font-medium text-label">
-                    {item.productName}
-                  </span>
-                  <span className="block truncate text-caption text-label-3">
-                    {qty(item.onHand)} of {qty(item.parLevel)} {item.unit}
-                  </span>
-                </span>
+          }
+        >
+          {topAttention.map((item) => (
+            <Row
+              key={item.id}
+              to={`/inventory/${item.id}`}
+              title={item.productName}
+              subtitle={`${qty(item.onHand)} of ${qty(item.parLevel)} ${item.unit}`}
+              trailing={
                 <span
                   className={cn(
-                    'tnum text-right text-subhead font-semibold',
+                    'tnum text-body font-semibold',
                     item.stockStatus === 'out' ? 'text-ios-red' : 'text-ios-orange',
                   )}
                 >
                   {item.stockStatus === 'out' ? 'Out' : coverShort(item.daysOfCover)}
                 </span>
-                <span className="flex justify-end">
-                  <Gauge
-                    value={item.pctOfPar ?? 0}
-                    size={44}
-                    stroke={4}
-                    tone={
-                      item.stockStatus === 'out'
-                        ? 'critical'
-                        : item.stockStatus === 'low'
-                          ? 'warning'
-                          : 'brand'
-                    }
-                  />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
+              }
+            />
+          ))}
+        </Section>
       ) : null}
 
       </div>
@@ -353,6 +296,38 @@ export default function Dashboard() {
 
       </div>
       </div>
+
+      {/* What used to be two more KPI cells. As rows they are still one tap
+          away and still current, without competing for the glance the two
+          numbers above need. */}
+      <Section title="Also today">
+        <Row
+          to="/orders"
+          leading={
+            <RowIcon tint="blue">
+              <Truck size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
+          title="In transit"
+          subtitle={
+            stats.inTransit.length
+              ? `Next: ${stats.inTransit[0].supplierName}`
+              : 'Nothing on the way'
+          }
+          detail={String(stats.inTransit.length)}
+        />
+        <Row
+          to="/inventory"
+          leading={
+            <RowIcon tint="orange">
+              <CalendarClock size={16} strokeWidth={2.2} aria-hidden="true" />
+            </RowIcon>
+          }
+          title="Soonest to run out"
+          subtitle={stats.soonest ? stats.soonest.productName.split(',')[0] : 'No burn data yet'}
+          detail={stats.soonest?.daysOfCover != null ? `${stats.soonest.daysOfCover}d` : '—'}
+        />
+      </Section>
 
       {/* Compliance */}
       {serviceDue.length > 0 ? (
