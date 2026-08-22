@@ -2587,6 +2587,24 @@ export async function openBillingPortal() {
   return billingRedirect('/api/billing/portal')
 }
 
+/**
+ * Straight to Stripe's cancellation screen, not the portal's front page.
+ *
+ * Cancelling is the one flow that must never be a scavenger hunt: somebody
+ * reaching for it has already decided, and every extra screen between the
+ * decision and the button reads as an attempt to wear them down.
+ */
+export async function cancelSubscription() {
+  if (isDemo) throw new Error('Billing activates once the app runs on Supabase with Stripe keys.')
+  return billingRedirect('/api/billing/portal', { flow: 'cancel' })
+}
+
+/** The mirror: keep a subscription that is scheduled to end. */
+export async function resumeSubscription() {
+  if (isDemo) throw new Error('Billing activates once the app runs on Supabase with Stripe keys.')
+  return billingRedirect('/api/billing/portal', { flow: 'resume' })
+}
+
 // --- vendor payments ---------------------------------------------------------
 
 export async function listPaymentMethods() {

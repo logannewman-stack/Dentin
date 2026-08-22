@@ -10,9 +10,11 @@ import { useData } from '@/hooks/useData'
 import { moneyRound } from '@/lib/format'
 import {
   ACTIVE_SUB_STATUSES,
+  cancelSubscription,
   getBillingSnapshot,
   isDemo,
   openBillingPortal,
+  resumeSubscription,
   startSubscriptionCheckout,
   syncBillingQuantity,
 } from '@/lib/repository'
@@ -216,7 +218,7 @@ export default function Billing() {
             )}
           </div>
 
-          <div className="border-t border-line p-3">
+          <div className="space-y-2 border-t border-line p-3">
             {sub.status === 'canceled' ? (
               <Button
                 className="w-full"
@@ -226,15 +228,41 @@ export default function Billing() {
                 Restart subscription
               </Button>
             ) : (
-              <Button
-                className="w-full"
-                variant="secondary"
-                icon={ExternalLink}
-                loading={busy}
-                onClick={() => act(openBillingPortal)}
-              >
-                Manage billing — card, invoices, cancel
-              </Button>
+              <>
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  icon={ExternalLink}
+                  loading={busy}
+                  onClick={() => act(openBillingPortal)}
+                >
+                  Card, invoices and receipts
+                </Button>
+
+                {/* Cancelling gets its own control, named plainly. It used to
+                    be the third word on the button above, which is the
+                    industry habit and the reason people end up mailing
+                    support instead. */}
+                {sub.cancelAtPeriodEnd ? (
+                  <Button
+                    className="w-full"
+                    variant="tinted"
+                    loading={busy}
+                    onClick={() => act(resumeSubscription)}
+                  >
+                    Keep my subscription
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
+                    variant="plain"
+                    loading={busy}
+                    onClick={() => act(cancelSubscription)}
+                  >
+                    Cancel subscription
+                  </Button>
+                )}
+              </>
             )}
           </div>
 

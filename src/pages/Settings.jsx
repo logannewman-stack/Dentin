@@ -261,10 +261,13 @@ export default function Settings() {
           subtitle="How vendors get paid — ACH and cards on file"
           to="/settings/payments"
         />
+        {/* Cancellation is named in the subtitle on purpose: somebody looking
+            for it should meet the word on the way in, not have to guess that
+            it lives behind "billing". */}
         <Row
           leading={<CreditCard size={16} strokeWidth={1.9} className="text-label-2" aria-hidden="true" />}
           title="Billing & subscription"
-          subtitle="Your Dentin plan, invoices and card"
+          subtitle="Plan, invoices, card — and cancel"
           to="/settings/billing"
         />
       </Section>
