@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarClock,
   Check,
+  CircleSlash,
   CreditCard,
   FileSpreadsheet,
   Info,
@@ -32,6 +33,7 @@ import Sheet from '@/components/ui/Sheet'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { useData } from '@/hooks/useData'
+import { ACTIVE_SUB_STATUSES, cancelSubscription, getSubscription } from '@/lib/repository'
 import {
   getCurrentUser,
   getNotificationPrefs,
@@ -81,6 +83,12 @@ export default function Settings() {
   const { data: locations } = useData(() => listLocations(), [])
   const { data: me } = useData(() => getCurrentUser(), [])
   const { data: credentials } = useData(() => listCredentials(), [])
+  const { data: subscription } = useData(() => getSubscription(), [])
+
+  // Only offered when there is something to cancel, and never once a
+  // cancellation is already scheduled — a dead button is worse than no button.
+  const canCancel =
+    ACTIVE_SUB_STATUSES.includes(subscription?.status) && !subscription?.cancelAtPeriodEnd
 
   // One-line status for the compliance row: worst state wins.
   const credLine = (() => {
@@ -310,6 +318,27 @@ export default function Settings() {
           subtitle="Plan, invoices, card — and cancel"
           to="/settings/billing"
         />
+        {/* One tap, from the screen people actually go to when they want out.
+            Leaving cancellation only inside Billing means knowing that is
+            where it lives; this asks nothing of them. It opens Stripe's
+            cancellation screen directly — no portal menu in between. */}
+        {canCancel ? (
+          <Row
+            leading={
+              <RowIcon tint="red">
+                <CircleSlash size={16} strokeWidth={2.2} aria-hidden="true" />
+              </RowIcon>
+            }
+            title="Cancel subscription"
+            subtitle="Ends billing — your data stays put"
+            chevron={false}
+            onClick={() => {
+              cancelSubscription().catch((e) =>
+                toast({ title: 'Could not open cancellation', body: e.message, tone: 'error' }),
+              )
+            }}
+          />
+        ) : null}
       </Section>
 
       <Section title="Practice operations">
